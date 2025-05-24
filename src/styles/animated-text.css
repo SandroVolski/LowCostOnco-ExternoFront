@@ -1,0 +1,100 @@
+.animation-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  text-align: center;
+  min-height: 4rem;
+}
+
+.word-container {
+  position: relative;
+  height: 2.5rem;
+  overflow: hidden;
+  perspective: 1000px;
+}
+
+.word {
+  position: absolute;
+  width: 100%;
+  opacity: 0;
+  text-align: center;
+  font-size: 1.25rem;
+  font-weight: 500;
+  transform-style: preserve-3d;
+}
+
+.letter {
+  display: inline-block;
+  position: relative;
+  transform: translateZ(25px);
+  transform-origin: 50% 50% 25px;
+  transform-style: preserve-3d;
+}
+
+.letter.out {
+  transform: rotateX(90deg);
+  transition: transform 0.32s cubic-bezier(0.55, 0.055, 0.675, 0.19);
+}
+
+.letter.behind {
+  transform: rotateX(-90deg);
+}
+
+.letter.in {
+  transform: rotateX(0deg);
+  transition: transform 0.38s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.content {
+  position: relative;
+  height: 32px;
+  overflow: hidden;
+  font-family: 'Lato', sans-serif;
+  font-size: 24px;
+  line-height: 32px;
+  color: #ecf0f1;
+  display: flex;
+  align-items: center;
+}
+
+.content__text {
+  display: block;
+  margin: 0;
+  margin-right: 12px;
+  font-size: 1em;
+  flex-shrink: 0;
+  margin-left: 2rem !important;
+}
+
+.content__list {
+  margin-top: 0;
+  padding-left: 0;
+  text-align: left;
+  list-style: none;
+  animation: change 15s infinite;
+  height: 160px;
+  position: relative;
+  flex-grow: 1;
+  flex-shrink: 0;
+}
+
+.content__list__item {
+  line-height: 32px;
+  margin: 0;
+  white-space: nowrap;
+}
+
+@keyframes change {
+  0% { transform: translate3d(0, 0px, 0); } /* operadoras */
+  18% { transform: translate3d(0, 0px, 0); } /* operadoras (mantém) */
+  22% { transform: translate3d(0, -32px, 0); } /* clínicas */
+  40% { transform: translate3d(0, -32px, 0); } /* clínicas (mantém) */
+  44% { transform: translate3d(0, -64px, 0); } /* planos de saúde */
+  62% { transform: translate3d(0, -64px, 0); } /* planos de saúde (mantém) */
+  66% { transform: translate3d(0, -96px, 0); } /* pacientes */
+  84% { transform: translate3d(0, -96px, 0); } /* pacientes (mantém) */
+  88% { transform: translate3d(0, -128px, 0); } /* todos */
+  96% { transform: translate3d(0, -128px, 0); } /* todos (mantém) */
+  100% { transform: translate3d(0, 0px, 0); } /* Volta para operadoras para ciclo */
+} 

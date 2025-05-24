@@ -1,0 +1,581 @@
+@import url('https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 98%;
+    --foreground: 220 3% 20%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 3% 20%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 3% 20%;
+
+    --primary: 73 60% 58%;
+    --primary-foreground: 220 3% 20%;
+
+    --secondary: 220 2% 36%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 220 2% 96%;
+    --muted-foreground: 220 2% 46%;
+
+    --accent: 73 60% 58%;
+    --accent-foreground: 220 3% 20%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 220 2% 90%;
+    --input: 220 2% 90%;
+    --ring: 73 60% 58%;
+
+    --radius: 0.5rem;
+
+    /* Sidebar Colors - Light Mode */
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 220 3% 20%;
+    --sidebar-accent: 73 60% 58%;
+    --sidebar-accent-foreground: 220 3% 20%;
+    --sidebar-border: 220 2% 90%;
+    --sidebar-primary: 73 60% 58%;
+    --sidebar-primary-foreground: 220 3% 20%;
+    --sidebar-ring: 73 60% 58%;
+  }
+
+  .dark {
+    --background: 220 10% 10%;
+    --foreground: 210 20% 98%;
+
+    --card: 220 10% 12%;
+    --card-foreground: 210 20% 98%;
+
+    --popover: 220 10% 12%;
+    --popover-foreground: 210 20% 98%;
+
+    --primary: 73 60% 58%;
+    --primary-foreground: 220 10% 10%;
+
+    --secondary: 220 5% 22%;
+    --secondary-foreground: 210 20% 98%;
+
+    --muted: 220 5% 18%;
+    --muted-foreground: 220 5% 65%;
+
+    --accent: 73 60% 58%;
+    --accent-foreground: 220 10% 10%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 220 5% 18%;
+    --input: 220 5% 18%;
+    --ring: 73 60% 58%;
+
+    /* Sidebar Colors - Dark Mode */
+    --sidebar-background: 220 10% 14%;
+    --sidebar-foreground: 210 20% 98%;
+    --sidebar-accent: 73 60% 58%;
+    --sidebar-accent-foreground: 220 10% 10%;
+    --sidebar-border: 220 5% 18%;
+    --sidebar-primary: 73 60% 58%;
+    --sidebar-primary-foreground: 220 10% 10%;
+    --sidebar-ring: 73 60% 58%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  
+  html {
+    @apply scroll-smooth;
+  }
+  
+  body {
+    @apply bg-background text-foreground font-lato transition-colors duration-300;
+  }
+
+  /* Cursor Styles */
+  .cursor-pointer {
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='none' stroke='%23c6d651' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/></svg>") 16 16, pointer;
+  }
+}
+
+@layer components {
+  .lco-card {
+    @apply bg-card rounded-lg shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden border border-border sparkle-card;
+  }
+  
+  .lco-btn-primary {
+    @apply bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-4 py-2 rounded-md transition-colors;
+  }
+  
+  .lco-btn-secondary {
+    @apply bg-secondary hover:bg-secondary/90 text-secondary-foreground font-medium px-4 py-2 rounded-md transition-colors;
+  }
+  
+  .lco-btn-outline {
+    @apply border border-primary text-foreground hover:bg-primary/10 px-4 py-2 rounded-md transition-colors;
+  }
+  
+  .lco-input {
+    @apply bg-background border border-input rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring;
+  }
+  
+  .icon-hover {
+    @apply transition-transform duration-300 hover:scale-110;
+  }
+  
+  .medical-card {
+    @apply lco-card p-6 animate-fade-in sparkle-card;
+  }
+  
+  .highlight-text {
+    @apply text-support-teal font-semibold;
+  }
+  
+  .hover-lift {
+    @apply transition-transform hover:-translate-y-1 duration-300;
+  }
+
+  .nav-link {
+    @apply relative flex items-center gap-2 px-3 py-2 rounded-md text-foreground transition-all duration-200
+           hover:text-primary after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 
+           after:bg-primary after:scale-x-0 after:origin-left after:transition-transform after:duration-300
+           hover:after:scale-x-100 font-medium;
+  }
+
+  .nav-link.active {
+    @apply text-primary after:scale-x-100;
+  }
+
+  .patient-card {
+    @apply bg-card border border-border rounded-xl p-4 transition-all duration-300
+           hover:shadow-md hover:border-primary/50 animate-fade-in cursor-pointer h-full sparkle-card;
+  }
+
+  /* Modern Header */
+  .modern-header {
+    @apply bg-card/80 backdrop-blur-md border-b border-border/50 fixed top-0 left-0 right-0 z-50 
+           animate-slide-down shadow-sm;
+  }
+
+  /* Card flip animation - updated for better behavior */
+  .card-flip-container {
+    @apply perspective-1000 w-full;
+  }
+
+  .card-flipper {
+    @apply relative w-full h-full transition-transform duration-700 transform-style-3d;
+  }
+
+  .card-front, .card-back {
+    @apply absolute w-full h-full backface-hidden overflow-hidden rounded-xl;
+  }
+
+  .card-back {
+    @apply transform rotate-y-180;
+  }
+
+  .card-flip-container.flipped .card-flipper {
+    @apply transform rotate-y-180;
+  }
+
+  /* Animated entry for sections */
+  .animate-entry {
+    @apply opacity-0 translate-y-4;
+    animation: entry 0.6s ease forwards;
+  }
+
+  .delay-100 { animation-delay: 100ms; }
+  .delay-200 { animation-delay: 200ms; }
+  .delay-300 { animation-delay: 300ms; }
+  .delay-400 { animation-delay: 400ms; }
+  .delay-500 { animation-delay: 500ms; }
+
+  /* Scroll animations */
+  .animate-on-scroll {
+    @apply opacity-0 translate-y-10 transition-all duration-700;
+  }
+  
+  .animate-on-scroll.in-view {
+    @apply opacity-100 translate-y-0;
+  }
+
+  /* Particle effects for login page */
+  .particles {
+    @apply absolute inset-0 pointer-events-none overflow-hidden;
+  }
+  
+  .particle {
+    @apply absolute rounded-full animate-float;
+  }
+
+  /* Pulse animation for interactive elements */
+  .pulse-on-hover {
+    @apply transition-all duration-300;
+  }
+  
+  .pulse-on-hover:hover {
+    @apply animate-pulse;
+  }
+
+  /* Glowing effect for important items */
+  .glow-on-hover {
+    @apply relative overflow-hidden;
+  }
+  
+  .glow-on-hover::after {
+    content: "";
+    @apply absolute inset-0 opacity-0 transition-opacity duration-300 bg-gradient-to-r from-primary/0 via-primary/30 to-primary/0;
+  }
+  
+  .glow-on-hover:hover::after {
+    @apply opacity-100;
+  }
+
+  /* Animações para o botão de tema */
+  .animate-pulse-subtle {
+    animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  .animate-bounce-subtle {
+    animation: bounce-subtle 1s infinite;
+  }
+
+  @keyframes pulse-subtle {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.7;
+    }
+  }
+
+  @keyframes bounce-subtle {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-25%);
+    }
+  }
+
+  /* Animações para o sol e lua */
+  @keyframes sun-rise {
+    0% {
+      transform: translateY(20px) rotate(-90deg) scale(0);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(0) rotate(0) scale(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes moon-rise {
+    0% {
+      transform: translateY(-20px) rotate(90deg) scale(0);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(0) rotate(0) scale(1);
+      opacity: 1;
+    }
+  }
+
+  .sun-animation {
+    animation: sun-rise 0.5s ease-out forwards;
+  }
+
+  .moon-animation {
+    animation: moon-rise 0.5s ease-out forwards;
+  }
+
+  /* Efeito Sparkle nos cards */
+  .sparkle-card {
+    @apply relative;
+  }
+
+  .sparkle-card::before,
+  .sparkle-card::after {
+    content: '';
+    @apply absolute inset-0 box-border rounded-lg;
+    transform-origin: center;
+    pointer-events: none;
+  }
+
+  .sparkle-card::before {
+    @apply border-t-2 border-b-2 border-primary;
+    transform: scale3d(0, 1, 1);
+  }
+
+  .sparkle-card::after {
+    @apply border-l-2 border-r-2 border-primary;
+    transform: scale3d(1, 0, 1);
+  }
+
+  .sparkle-card:hover::before,
+  .sparkle-card:hover::after {
+    transform: scale3d(1, 1, 1);
+    transition: transform 900ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Ajuste específico para patient-card que tem border-radius diferente */
+  .patient-card::before,
+  .patient-card::after {
+    @apply rounded-xl;
+  }
+
+  /* Efeito de Mouse Pesado nos Cards */
+  .mouse-tilt {
+    @apply transition-transform duration-200 ease-out;
+    transform-style: preserve-3d;
+    transform: perspective(1000px);
+  }
+
+  .mouse-tilt-content {
+    @apply relative w-full h-full;
+    transform-style: preserve-3d;
+    transform: translateZ(20px);
+  }
+
+  /* Ajuste para os cards que já têm o efeito hover-lift */
+  .hover-lift.mouse-tilt {
+    @apply hover:-translate-y-1;
+  }
+
+  /* Ajuste para o efeito sparkle */
+  .sparkle-card.mouse-tilt::before,
+  .sparkle-card.mouse-tilt::after {
+    transform-style: preserve-3d;
+  }
+
+  /* Estilos para a animação de texto */
+  .animation-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    text-align: center;
+    min-height: 4rem;
+  }
+
+  .word-container {
+    position: relative;
+    height: 2.5rem;
+    overflow: hidden;
+    perspective: 1000px;
+  }
+
+  .word {
+    position: absolute;
+    width: 100%;
+    opacity: 0;
+    text-align: center;
+    font-size: 1.25rem;
+    font-weight: 500;
+    transform-style: preserve-3d;
+  }
+
+  .letter {
+    display: inline-block;
+    position: relative;
+    transform: translateZ(25px);
+    transform-origin: 50% 50% 25px;
+    transform-style: preserve-3d;
+  }
+
+  .letter.out {
+    transform: rotateX(90deg);
+    transition: transform 0.32s cubic-bezier(0.55, 0.055, 0.675, 0.19);
+  }
+
+  .letter.behind {
+    transform: rotateX(-90deg);
+  }
+
+  .letter.in {
+    transform: rotateX(0deg);
+    transition: transform 0.38s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  }
+}
+
+/* Medical themed elements */
+.medicine-vial {
+  @apply relative bg-gradient-to-b from-blue-50 to-blue-100 rounded-full;
+}
+
+.medicine-vial::before {
+  content: "";
+  @apply absolute top-0 left-0 right-0 h-2 bg-support-teal rounded-t-full;
+}
+
+.medicine-vial::after {
+  content: "";
+  @apply absolute bottom-1/3 left-0 right-0 top-2/3 bg-support-yellow opacity-60 rounded-b-full;
+}
+
+/* Blob animations */
+.blob {
+  @apply absolute bg-gradient-to-r from-primary to-primary/50 opacity-20 animate-blob 
+         filter blur-xl dark:opacity-10;
+}
+
+/* Card flip animations */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+/* Keyframe animations */
+@keyframes entry {
+  from { 
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to { 
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slide-down {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes float-in {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes pulse-subtle {
+  0% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0.8;
+  }
+}
+
+@keyframes bounce-subtle {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-5px);
+  }
+  60% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes blob {
+  0% {
+    border-radius: 60% 40% 30% 70%/60% 30% 70% 40%;
+  }
+  50% {
+    border-radius: 30% 60% 70% 40%/50% 60% 30% 60%;
+  }
+  100% {
+    border-radius: 60% 40% 30% 70%/60% 30% 70% 40%;
+  }
+}
+
+/* Estilização da barra de rolagem */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--background));
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary));
+  border-radius: 5px;
+  border: 2px solid hsl(var(--background));
+  transition: all 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.8);
+}
+
+/* Estilização específica para a barra de rolagem do card de Tratamentos a Vencer */
+.lco-card .overflow-y-auto::-webkit-scrollbar {
+  width: 6px;
+}
+
+.lco-card .overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.lco-card .overflow-y-auto::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary) / 0.5);
+  border: none;
+  border-radius: 3px;
+}
+
+.lco-card .overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--primary) / 0.7);
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--primary)) hsl(var(--background));
+}
+
+/* Firefox - Card específico */
+.lco-card .overflow-y-auto {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--primary) / 0.5) transparent;
+}
