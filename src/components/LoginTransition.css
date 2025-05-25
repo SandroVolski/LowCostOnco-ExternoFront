@@ -1,413 +1,556 @@
-/* Login Transition Styles - Suave e Fluido */
+/* Login Transition Styles - Advanced Loading Animation */
 
 /* Variables */
 :root {
-    --major-color: #c6d651;
-    --minor-color: #eaeaea;
-    --duration: 1.25s;
-  }
-  
-  /* Container */
-  .container {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    width: 100vw;
-    height: 100vh;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-  
-  /* Loader - Tamanho equilibrado */
-  .loader {
-    position: absolute;
-    width: 60vmin; /* Reduzido para 60% */
-    height: 60vmin;
-    max-width: 480px; /* Máximo menor */
-    max-height: 480px;
-    transform: scale(1);
-    z-index: 9999;
-    transition: transform 0.3s ease-out; /* Transição suave */
-  }
-  
-  .loaded .loader {
-    transform: scale(0);
-    transition: all 1.5s cubic-bezier(0.4, 0, 0.2, 1); /* Easing mais suave */
-    transition-delay: var(--duration);
-  }
-  
-  .loader g,
-  .loader circle {
-    transform-origin: 50% 50%;
-    transform: translate3d(0, 0, 0);
-  }
-  
-  /* Core - Mais suave */
-  .core > .path {
-    fill: var(--major-color);
+  --major-color: #c6d651;
+  --minor-color: #eaeaea;
+  --duration: 1.25s;
+  --pi2: 6.28318;
+}
+
+/* Base Wrapper */
+.transition-wrapper {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--major-color);
+  z-index: 9999;
+}
+
+/* Center utility */
+.center {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: auto;
+}
+
+/* Page Mockup */
+.page {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: auto;
+  width: 80vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.wrap {
+  display: flex;
+  flex-flow: row wrap;
+  justify-content: space-around;
+  width: 100%;
+}
+
+.box {
+  display: flex;
+  flex-direction: column;
+}
+
+.img, .txt, .btn {
+  display: block;
+  position: relative;
+  margin: 0.75vh;
+  background: #ccc;
+}
+
+.img {
+  width: 100%;
+  height: 15.5vh;
+  transform-origin: 50% 50%;
+}
+
+.txt {
+  height: 0.75vh;
+  background: #ccc;
+  transform-origin: 0 50%;
+  margin: 0.75vh;
+}
+
+.btn {
+  height: 4vh;
+  color: #ccc;
+  cursor: pointer;
+  transform-origin: 50% 50%;
+  z-index: 1;
+}
+
+/* Width utilities */
+.w10 { width: 10%; } .w15 { width: 15%; } .w20 { width: 20%; } .w25 { width: 25%; }
+.w30 { width: 30%; } .w35 { width: 35%; } .w40 { width: 40%; } .w45 { width: 45%; }
+.w50 { width: 50%; } .w55 { width: 55%; } .w60 { width: 60%; } .w65 { width: 65%; }
+.w70 { width: 70%; } .w75 { width: 75%; } .w80 { width: 80%; } .w85 { width: 85%; }
+.w90 { width: 90%; } .w95 { width: 95%; } .w100 { width: 100%; }
+
+/* Layout utilities */
+.ib { display: inline-block; }
+.fw { flex: 0 0 97%; }
+.hw { flex: 0 0 30%; }
+.mt0 { margin-top: 0; }
+.mb2 { margin-bottom: 2vh; }
+.h10 { height: 10vh; }
+.f0 { font-size: 0; }
+
+/* Container for loader */
+.container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: auto;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Loader */
+.loader {
+  position: absolute;
+  width: 120px;
+  height: 120px;
+  transform: scale(1);
+  z-index: 9999;
+  transition: transform 0.3s ease-out;
+}
+
+.loaded .loader {
+  transform: scale(0);
+  transition: all 2.25s ease-in-out;
+  transition-delay: var(--duration);
+}
+
+.loader g,
+.loader circle {
+  transform-origin: 50% 50%;
+  transform: translate3d(0, 0, 0);
+}
+
+/* Core */
+.core > .path {
+  fill: var(--major-color);
+  visibility: hidden;
+  transform: scale(1);
+  transition: all 0.625s 0.15625s ease-in-out;
+}
+
+.loaded .core > .path {
+  animation: core-loaded 2.5s ease-in-out;
+}
+
+@keyframes core-loaded {
+  0% {
     visibility: hidden;
     transform: scale(1);
-    transition: all 0.5s ease-out;
-  }
-  
-  .loaded .core > .path {
-    animation: core-loaded 2s ease-in-out; /* Duração reduzida */
-  }
-  
-  @keyframes core-loaded {
-    0% {
-      visibility: hidden;
-      transform: scale(1);
-      opacity: 0;
-    }
-    20% {
-      visibility: visible;
-      opacity: 0.8;
-    }
-    40%, 75% {
-      opacity: 1;
-      visibility: visible;
-      transform: scale(800); /* Reduzido */
-    }
-    100% {
-      opacity: 0;
-      transform: scale(1200); /* Expansão final mais suave */
-    }
-  }
-  
-  /* Spinner - Mais suave */
-  .spinner {
-    opacity: 1;
-    transition: opacity 0.2s ease-out;
-    animation: rotate var(--duration) ease-in-out infinite; /* Easing suave */
-  }
-  
-  .loaded .spinner {
     opacity: 0;
-    transition: opacity 0.3s ease-out;
   }
-  
-  .spinner > .path {
-    stroke: var(--major-color);
-    stroke-width: 2;
+  25%, 85% {
+    opacity: 1;
+    visibility: visible;
+    transform: scale(1000);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* Spinner */
+.spinner {
+  opacity: 1;
+  transition: opacity 0.1s 0.1s;
+  animation: rotate var(--duration) linear infinite;
+}
+
+.loaded .spinner {
+  opacity: 0;
+}
+
+.spinner > .path {
+  stroke: var(--minor-color);
+  stroke-width: 6;
+  stroke-dasharray: 157.08;
+  stroke-dashoffset: 157.08;
+  animation: spinner var(--duration) both infinite ease-in-out;
+}
+
+@keyframes rotate {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(270deg); }
+}
+
+@keyframes spinner {
+  0% {
     stroke-dasharray: 157.08;
     stroke-dashoffset: 157.08;
-    animation: spinner var(--duration) both infinite ease-in-out;
   }
-  
-  @keyframes rotate {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); } /* Rotação completa mais suave */
+  65% {
+    stroke-dasharray: 157.08;
+    stroke-dashoffset: 39.27;
+    transform: rotate(135deg);
   }
-  
-  @keyframes spinner {
-    0% {
-      stroke-dasharray: 157.08;
-      stroke-dashoffset: 157.08;
-    }
-    50% { /* Ponto médio mais definido */
-      stroke-dasharray: 157.08;
-      stroke-dashoffset: 39.27;
-      transform: rotate(180deg);
-    }
-    100% {
-      stroke-dasharray: 157.08;
-      stroke-dashoffset: 157.08;
-      transform: rotate(360deg);
-    }
+  100% {
+    stroke-dasharray: 157.08;
+    stroke-dashoffset: 157.08;
+    transform: rotate(450deg);
   }
-  
-  /* Layer 1 - Suave */
-  .layer-1 > .path {
-    stroke: rgba(234, 234, 234, 0.6);
-    stroke-width: 4;
+}
+
+/* Layer Animations */
+.layer-1 > .path {
+  stroke: rgba(234, 234, 234, 0.5);
+  stroke-width: 15;
+  stroke-dasharray: 1507.2;
+  stroke-dashoffset: 1507.2;
+  visibility: hidden;
+  transform: rotate(-30deg);
+}
+
+.loaded .layer-1 > .path {
+  visibility: visible;
+  animation: layer-1 var(--duration) ease-in;
+}
+
+@keyframes layer-1 {
+  0% {
     stroke-dasharray: 1507.2;
     stroke-dashoffset: 1507.2;
-    visibility: hidden;
-    transform: rotate(-30deg);
   }
-  
-  .loaded .layer-1 > .path {
-    visibility: visible;
-    animation: layer-1 var(--duration) cubic-bezier(0.4, 0, 0.2, 1);
+  75% {
+    stroke-width: 15;
+    stroke-dashoffset: 753.6;
   }
-  
-  @keyframes layer-1 {
-    0% {
-      stroke-dasharray: 1507.2;
-      stroke-dashoffset: 1507.2;
-    }
-    60% {
-      stroke-width: 4;
-      stroke-dashoffset: 753.6;
-    }
-    100% {
-      stroke: rgba(234, 234, 234, 0.8);
-      stroke-width: 24;
-      stroke-dasharray: 1513.48;
-      stroke-dashoffset: 0;
-      transform: rotate(330deg); /* Rotação mais suave */
-    }
+  100% {
+    stroke: var(--minor-color);
+    stroke-width: 225;
+    stroke-dasharray: 1513.48;
+    stroke-dashoffset: 0;
+    transform: rotate(450deg);
   }
-  
-  /* Layer 2 */
-  .layer-2 > .path {
-    stroke: rgba(234, 234, 234, 0.4);
-    stroke-width: 5;
+}
+
+.layer-2 > .path {
+  stroke: rgba(234, 234, 234, 0.3);
+  stroke-width: 20;
+  stroke-dasharray: 1507.2;
+  stroke-dashoffset: 1507.2;
+  visibility: hidden;
+  transform: rotate(-60deg);
+}
+
+.loaded .layer-2 > .path {
+  visibility: visible;
+  animation: layer-2 var(--duration) ease-in;
+}
+
+@keyframes layer-2 {
+  0% {
     stroke-dasharray: 1507.2;
     stroke-dashoffset: 1507.2;
-    visibility: hidden;
-    transform: rotate(-60deg);
   }
-  
-  .loaded .layer-2 > .path {
-    visibility: visible;
-    animation: layer-2 var(--duration) cubic-bezier(0.4, 0, 0.2, 1);
-    animation-delay: 0.1s; /* Delay escalonado */
+  75% {
+    stroke-width: 20;
+    stroke-dashoffset: 753.6;
   }
-  
-  @keyframes layer-2 {
-    0% {
-      stroke-dasharray: 1507.2;
-      stroke-dashoffset: 1507.2;
-    }
-    60% {
-      stroke-width: 5;
-      stroke-dashoffset: 753.6;
-    }
-    100% {
-      stroke: rgba(234, 234, 234, 0.7);
-      stroke-width: 20;
-      stroke-dasharray: 1513.48;
-      stroke-dashoffset: 0;
-      transform: rotate(300deg);
-    }
+  100% {
+    stroke: var(--minor-color);
+    stroke-width: 60;
+    stroke-dasharray: 1513.48;
+    stroke-dashoffset: 0;
+    transform: rotate(420deg);
   }
-  
-  /* Layer 3 */
-  .layer-3 > .path {
-    stroke: rgba(234, 234, 234, 0.7);
-    stroke-width: 8;
+}
+
+.layer-3 > .path {
+  stroke: rgba(234, 234, 234, 0.8);
+  stroke-width: 40;
+  stroke-dasharray: 1130.4;
+  stroke-dashoffset: 1130.4;
+  visibility: hidden;
+  transform: rotate(-70deg);
+}
+
+.loaded .layer-3 > .path {
+  visibility: visible;
+  animation: layer-3 var(--duration) ease-in;
+}
+
+@keyframes layer-3 {
+  0% {
     stroke-dasharray: 1130.4;
     stroke-dashoffset: 1130.4;
-    visibility: hidden;
-    transform: rotate(-70deg);
   }
-  
-  .loaded .layer-3 > .path {
-    visibility: visible;
-    animation: layer-3 var(--duration) cubic-bezier(0.4, 0, 0.2, 1);
-    animation-delay: 0.2s;
+  75% {
+    stroke-width: 40;
+    stroke-dashoffset: 565.2;
   }
-  
-  @keyframes layer-3 {
-    0% {
-      stroke-dasharray: 1130.4;
-      stroke-dashoffset: 1130.4;
-    }
-    60% {
-      stroke-width: 8;
-      stroke-dashoffset: 565.2;
-    }
-    100% {
-      stroke: rgba(234, 234, 234, 0.9);
-      stroke-width: 32;
-      stroke-dasharray: 1136.68;
-      stroke-dashoffset: 0;
-      transform: rotate(290deg);
-    }
+  100% {
+    stroke: var(--minor-color);
+    stroke-width: 120;
+    stroke-dasharray: 1136.68;
+    stroke-dashoffset: 0;
+    transform: rotate(410deg);
   }
-  
-  /* Layer 4 */
-  .layer-4 > .path {
-    stroke: rgba(234, 234, 234, 0.5);
-    stroke-width: 6;
+}
+
+.layer-4 > .path {
+  stroke: rgba(234, 234, 234, 0.6);
+  stroke-width: 20;
+  stroke-dasharray: 1507.2;
+  stroke-dashoffset: 1507.2;
+  visibility: hidden;
+  transform: rotate(-90deg);
+}
+
+.loaded .layer-4 > .path {
+  visibility: visible;
+  animation: layer-4 var(--duration) ease-in;
+}
+
+@keyframes layer-4 {
+  0% {
     stroke-dasharray: 1507.2;
     stroke-dashoffset: 1507.2;
-    visibility: hidden;
-    transform: rotate(-90deg);
   }
-  
-  .loaded .layer-4 > .path {
-    visibility: visible;
-    animation: layer-4 var(--duration) cubic-bezier(0.4, 0, 0.2, 1);
-    animation-delay: 0.3s;
+  75% {
+    stroke-width: 20;
+    stroke-dashoffset: 753.6;
   }
-  
-  @keyframes layer-4 {
-    0% {
-      stroke-dasharray: 1507.2;
-      stroke-dashoffset: 1507.2;
-    }
-    60% {
-      stroke-width: 6;
-      stroke-dashoffset: 753.6;
-    }
-    100% {
-      stroke: rgba(234, 234, 234, 0.8);
-      stroke-width: 24;
-      stroke-dasharray: 1513.48;
-      stroke-dashoffset: 0;
-      transform: rotate(270deg);
-    }
+  100% {
+    stroke: var(--minor-color);
+    stroke-width: 60;
+    stroke-dasharray: 1513.48;
+    stroke-dashoffset: 0;
+    transform: rotate(390deg);
   }
-  
-  /* Layer 5 */
-  .layer-5 > .path {
-    stroke: rgba(234, 234, 234, 0.4);
-    stroke-width: 10;
+}
+
+.layer-5 > .path {
+  stroke: rgba(234, 234, 234, 0.5);
+  stroke-width: 30;
+  stroke-dasharray: 1884;
+  stroke-dashoffset: 1884;
+  visibility: hidden;
+  transform: rotate(-20deg);
+}
+
+.loaded .layer-5 > .path {
+  visibility: visible;
+  animation: layer-5 var(--duration) ease-in;
+}
+
+@keyframes layer-5 {
+  0% {
     stroke-dasharray: 1884;
     stroke-dashoffset: 1884;
-    visibility: hidden;
-    transform: rotate(-20deg);
   }
-  
-  .loaded .layer-5 > .path {
-    visibility: visible;
-    animation: layer-5 var(--duration) cubic-bezier(0.4, 0, 0.2, 1);
-    animation-delay: 0.4s;
+  75% {
+    stroke-width: 30;
+    stroke-dashoffset: 942;
   }
-  
-  @keyframes layer-5 {
-    0% {
-      stroke-dasharray: 1884;
-      stroke-dashoffset: 1884;
-    }
-    60% {
-      stroke-width: 10;
-      stroke-dashoffset: 942;
-    }
-    100% {
-      stroke: rgba(234, 234, 234, 0.7);
-      stroke-width: 40;
-      stroke-dasharray: 1890.28;
-      stroke-dashoffset: 0;
-      transform: rotate(340deg);
-    }
+  100% {
+    stroke: var(--minor-color);
+    stroke-width: 90;
+    stroke-dasharray: 1890.28;
+    stroke-dashoffset: 0;
+    transform: rotate(460deg);
   }
-  
-  /* Layer 6 */
-  .layer-6 > .path {
-    stroke: rgba(234, 234, 234, 0.3);
-    stroke-width: 14;
+}
+
+.layer-6 > .path {
+  stroke: rgba(234, 234, 234, 0.2);
+  stroke-width: 45;
+  stroke-dasharray: 2387.2;
+  stroke-dashoffset: 2387.2;
+  visibility: hidden;
+  transform: rotate(-80deg);
+}
+
+.loaded .layer-6 > .path {
+  visibility: visible;
+  animation: layer-6 var(--duration) ease-in;
+}
+
+@keyframes layer-6 {
+  0% {
     stroke-dasharray: 2387.2;
     stroke-dashoffset: 2387.2;
-    visibility: hidden;
-    transform: rotate(-80deg);
   }
-  
-  .loaded .layer-6 > .path {
-    visibility: visible;
-    animation: layer-6 var(--duration) cubic-bezier(0.4, 0, 0.2, 1);
-    animation-delay: 0.5s;
+  75% {
+    stroke-width: 45;
+    stroke-dashoffset: 1193.6;
   }
-  
-  @keyframes layer-6 {
-    0% {
-      stroke-dasharray: 2387.2;
-      stroke-dashoffset: 2387.2;
-    }
-    60% {
-      stroke-width: 14;
-      stroke-dashoffset: 1193.6;
-    }
-    100% {
-      stroke: rgba(234, 234, 234, 0.6);
-      stroke-width: 56;
-      stroke-dasharray: 2393.48;
-      stroke-dashoffset: 0;
-      transform: rotate(280deg);
-    }
+  100% {
+    stroke: var(--minor-color);
+    stroke-width: 135;
+    stroke-dasharray: 2393.48;
+    stroke-dashoffset: 0;
+    transform: rotate(400deg);
   }
-  
-  /* Layer 7 */
-  .layer-7 > .path {
-    stroke: rgba(234, 234, 234, 0.8);
-    stroke-width: 18;
+}
+
+.layer-7 > .path {
+  stroke: rgba(234, 234, 234, 1);
+  stroke-width: 75;
+  stroke-dasharray: 2826;
+  stroke-dashoffset: 2826;
+  visibility: hidden;
+  transform: rotate(-10deg);
+}
+
+.loaded .layer-7 > .path {
+  visibility: visible;
+  animation: layer-7 var(--duration) ease-in;
+}
+
+@keyframes layer-7 {
+  0% {
     stroke-dasharray: 2826;
     stroke-dashoffset: 2826;
-    visibility: hidden;
-    transform: rotate(-10deg);
   }
-  
-  .loaded .layer-7 > .path {
-    visibility: visible;
-    animation: layer-7 var(--duration) cubic-bezier(0.4, 0, 0.2, 1);
-    animation-delay: 0.6s;
+  75% {
+    stroke-width: 75;
+    stroke-dashoffset: 1413;
   }
-  
-  @keyframes layer-7 {
-    0% {
-      stroke-dasharray: 2826;
-      stroke-dashoffset: 2826;
-    }
-    60% {
-      stroke-width: 18;
-      stroke-dashoffset: 1413;
-    }
-    100% {
-      stroke: rgba(234, 234, 234, 1);
-      stroke-width: 72;
-      stroke-dasharray: 2832.28;
-      stroke-dashoffset: 0;
-      transform: rotate(350deg);
-    }
+  100% {
+    stroke: var(--minor-color);
+    stroke-width: 225;
+    stroke-dasharray: 2832.28;
+    stroke-dashoffset: 0;
+    transform: rotate(470deg);
   }
-  
-  /* Layer 8 - Camada externa */
-  .layer-8 > .path {
-    stroke: rgba(234, 234, 234, 0.4);
-    stroke-width: 25;
+}
+
+.layer-8 > .path {
+  stroke: rgba(234, 234, 234, 0.5);
+  stroke-width: 250;
+  stroke-dasharray: 3391.2;
+  stroke-dashoffset: 3391.2;
+  visibility: hidden;
+  transform: rotate(-70deg);
+}
+
+.loaded .layer-8 > .path {
+  visibility: visible;
+  animation: layer-8 var(--duration) ease-in;
+}
+
+@keyframes layer-8 {
+  0% {
     stroke-dasharray: 3391.2;
     stroke-dashoffset: 3391.2;
-    visibility: hidden;
-    transform: rotate(-70deg);
+  }
+  75% {
+    stroke-width: 250;
+    stroke-dashoffset: 1695.6;
+  }
+  100% {
+    stroke: var(--minor-color);
+    stroke-width: 750;
+    stroke-dasharray: 3397.48;
+    stroke-dashoffset: 0;
+    transform: rotate(410deg);
+  }
+}
+
+/* New Page Animations */
+.new-page .img {
+  animation: scale-in 0.3s both cubic-bezier(0.87, -0.41, 0.19, 1.44);
+}
+
+.new-page .txt {
+  animation: scaleX-in 0.1s both ease-out;
+}
+
+.new-page .btn {
+  animation: scale-in 0.3s both cubic-bezier(0.87, -0.41, 0.19, 1.44);
+}
+
+/* Delay classes */
+.new-page .dl1 { animation-delay: 0.75s; }
+.new-page .dl2 { animation-delay: 0.85s; }
+.new-page .dl3 { animation-delay: 0.95s; }
+.new-page .dl4 { animation-delay: 1.05s; }
+.new-page .dl5 { animation-delay: 1.15s; }
+.new-page .dl6 { animation-delay: 1.25s; }
+.new-page .dl7 { animation-delay: 1.35s; }
+.new-page .dl8 { animation-delay: 1.45s; }
+.new-page .dl9 { animation-delay: 1.55s; }
+.new-page .dl10 { animation-delay: 1.65s; }
+.new-page .dl11 { animation-delay: 1.75s; }
+.new-page .dl12 { animation-delay: 1.85s; }
+.new-page .dl13 { animation-delay: 1.95s; }
+.new-page .dl14 { animation-delay: 2.05s; }
+.new-page .dl15 { animation-delay: 2.15s; }
+.new-page .dl16 { animation-delay: 2.25s; }
+.new-page .dl17 { animation-delay: 2.35s; }
+
+@keyframes scaleX-in {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes scale-in {
+  from { transform: scale(0); }
+  to { transform: scale(1); }
+}
+
+/* Prevent animations until loaded */
+.transition-wrapper:not(.loaded) *:not(.spinner):not(.spinner > .path) {
+  animation: none !important;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+  .page {
+    width: 90vw;
   }
   
-  .loaded .layer-8 > .path {
-    visibility: visible;
-    animation: layer-8 var(--duration) cubic-bezier(0.4, 0, 0.2, 1);
-    animation-delay: 0.7s;
+  .loader {
+    width: 100px;
+    height: 100px;
   }
   
-  @keyframes layer-8 {
-    0% {
-      stroke-dasharray: 3391.2;
-      stroke-dashoffset: 3391.2;
-    }
-    60% {
-      stroke-width: 25;
-      stroke-dashoffset: 1695.6;
-    }
-    100% {
-      stroke: rgba(234, 234, 234, 0.7);
-      stroke-width: 100;
-      stroke-dasharray: 3397.48;
-      stroke-dashoffset: 0;
-      transform: rotate(290deg);
-    }
+  .img {
+    height: 12vh;
   }
   
-  /* Responsividade aprimorada */
-  @media (max-width: 768px) {
-    .loader {
-      width: 70vmin;
-      height: 70vmin;
-    }
+  .txt {
+    height: 0.6vh;
+    margin: 0.5vh;
   }
   
-  @media (max-width: 480px) {
-    .loader {
-      width: 80vmin;
-      height: 80vmin;
-    }
+  .btn {
+    height: 3vh;
+  }
+}
+
+@media (max-width: 480px) {
+  .page {
+    width: 95vw;
   }
   
-  /* Performance otimizada */
-  .loader * {
-    will-change: transform, stroke-dashoffset, stroke-width;
+  .loader {
+    width: 80px;
+    height: 80px;
   }
+  
+  .img {
+    height: 10vh;
+  }
+}

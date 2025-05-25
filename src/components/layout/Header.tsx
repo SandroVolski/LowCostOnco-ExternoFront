@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -191,6 +192,9 @@ const Header = () => {
             </div>
           </SheetContent>
         </Sheet>
+        
+        {/* Search button */}
+        
       </div>
       
       {/* Desktop Navigation */}
@@ -225,22 +229,9 @@ const Header = () => {
           variant="ghost" 
           size="icon"
           onClick={toggleTheme}
-          className="relative animate-pulse-subtle"
+          className="transition-all duration-300 hover:rotate-12"
         >
-          <div className="relative w-5 h-5">
-            <div className={cn(
-              "absolute inset-0 transition-all duration-500",
-              theme === 'light' ? 'opacity-0 rotate-90 scale-0' : 'opacity-100 rotate-0 scale-100 moon-animation'
-            )}>
-              <Moon className="h-5 w-5" />
-            </div>
-            <div className={cn(
-              "absolute inset-0 transition-all duration-500",
-              theme === 'dark' ? 'opacity-0 -rotate-90 scale-0' : 'opacity-100 rotate-0 scale-100 sun-animation'
-            )}>
-              <Sun className="h-5 w-5" />
-            </div>
-          </div>
+          {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
         </Button>
         
         <Popover>

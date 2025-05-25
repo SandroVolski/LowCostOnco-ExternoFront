@@ -8,24 +8,30 @@ interface LoginTransitionProps {
 }
 
 const LoginTransition = ({ isVisible, onComplete }: LoginTransitionProps) => {
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [phase, setPhase] = useState<'loading' | 'loaded' | 'new-page'>('loading');
 
   useEffect(() => {
     if (!isVisible) return;
 
-    // Inicia a animação após um pequeno delay
-    const startTimer = setTimeout(() => {
-      setIsLoaded(true);
-    }, 100);
+    const timers: NodeJS.Timeout[] = [];
 
-    // Completa a transição após a animação terminar
-    const completeTimer = setTimeout(() => {
+    // Phase 1: Loading (1.7s)
+    timers.push(setTimeout(() => {
+      setPhase('loaded');
+    }, 1700));
+
+    // Phase 2: New page transition (250ms after loaded)
+    timers.push(setTimeout(() => {
+      setPhase('new-page');
+    }, 1950));
+
+    // Phase 3: Complete (500ms after new-page)
+    timers.push(setTimeout(() => {
       onComplete();
-    }, 2500); // 2.5 segundos total
+    }, 2450));
 
     return () => {
-      clearTimeout(startTimer);
-      clearTimeout(completeTimer);
+      timers.forEach(timer => clearTimeout(timer));
     };
   }, [isVisible, onComplete]);
 
@@ -33,12 +39,14 @@ const LoginTransition = ({ isVisible, onComplete }: LoginTransitionProps) => {
 
   return (
     <div className={cn(
-      "fixed inset-0 z-[9999] bg-background transition-opacity duration-500",
-      isLoaded ? 'loaded' : ''
+      "transition-wrapper",
+      phase === 'loaded' && 'loaded',
+      phase === 'new-page' && 'loaded new-page'
     )}>
+
       {/* Loader Container */}
       <div className="container">
-        <svg className="loader" viewBox="0 0 100 100">
+        <svg className="loader" viewBox="0 0 100 100" overflow="visible">
           <g className="core">
             <circle className="path" cx="50" cy="50" r="1" fill="none" />
           </g>
