@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useContext, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -12,8 +11,9 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string, skipNavigation?: boolean) => Promise<boolean>;
   logout: () => void;
+  navigateToDashboard: () => void;
   isAuthenticated: boolean;
 }
 
@@ -34,7 +34,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     { username: 'LCOPlanoSaude', password: 'LowCostPS2025', role: 'healthPlan' as UserRole },
   ];
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  const login = async (username: string, password: string, skipNavigation = false): Promise<boolean> => {
     const matchedUser = validCredentials.find(
       (cred) => cred.username === username && cred.password === password
     );
@@ -49,12 +49,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       localStorage.setItem('lcoUser', JSON.stringify(userData));
       
       toast.success('Login realizado com sucesso!');
-      navigate('/dashboard');
+      
+      // Só navega se não foi solicitado para pular a navegação
+      if (!skipNavigation) {
+        navigate('/dashboard');
+      }
+      
       return true;
     } else {
       toast.error('Credenciais inválidas. Por favor tente novamente.');
       return false;
     }
+  };
+
+  const navigateToDashboard = () => {
+    navigate('/dashboard');
   };
 
   const logout = () => {
@@ -70,6 +79,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         user,
         login,
         logout,
+        navigateToDashboard,
         isAuthenticated: !!user,
       }}
     >

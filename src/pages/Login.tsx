@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import Logo from '@/components/Logo';
 import AnimatedText from '@/components/AnimatedText';
+import LoginTransition from '@/components/LoginTransition';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Sun, Moon } from 'lucide-react';
 
@@ -12,18 +13,29 @@ const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showTransition, setShowTransition] = useState(false);
   const { theme, toggleTheme } = useTheme();
-  const { login } = useAuth();
+  const { login, navigateToDashboard } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
     try {
-      await login(username, password);
+      const success = await login(username, password, true); // Skip navigation
+      if (success) {
+        // Mostrar a transição antes de navegar
+        setShowTransition(true);
+      }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleTransitionComplete = () => {
+    setShowTransition(false);
+    // Navegar para o dashboard após a transição
+    navigateToDashboard();
   };
 
   // Generate random particles for the background
@@ -147,6 +159,12 @@ const Login = () => {
           </CardFooter>
         </Card>
       </div>
+
+      {/* Transition Animation */}
+      <LoginTransition 
+        isVisible={showTransition} 
+        onComplete={handleTransitionComplete}
+      />
     </div>
   );
 };
