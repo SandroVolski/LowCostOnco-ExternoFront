@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -229,9 +228,22 @@ const Header = () => {
           variant="ghost" 
           size="icon"
           onClick={toggleTheme}
-          className="transition-all duration-300 hover:rotate-12"
+          className="transition-all duration-300"
         >
-          {theme === 'light' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+          <div className={cn("relative w-5 h-5 flex items-center justify-center")}>
+            <div className={cn(
+              "absolute inset-0 duration-500 flex items-center justify-center",
+              theme === 'light' ? 'opacity-0 rotate-90 scale-0' : 'opacity-100 rotate-0 scale-100 moon-animation'
+            )}>
+              <Moon className="h-5 w-5" />
+            </div>
+            <div className={cn(
+              "absolute inset-0 duration-500 flex items-center justify-center",
+              theme === 'dark' ? 'opacity-0 -rotate-90 scale-0' : 'opacity-100 rotate-0 scale-100 sun-animation'
+            )}>
+              <Sun className="h-5 w-5" />
+            </div>
+          </div>
         </Button>
         
         <Popover>

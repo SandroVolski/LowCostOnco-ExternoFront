@@ -154,11 +154,11 @@
   .nav-link.active {
     @apply text-primary relative;
     /* Efeito neon minimalista */
-    text-shadow: 0 0 2px hsl(var(--primary)), 0 0 4px hsl(var(--primary) / 0.8); /* Sombra sutil no texto */
+    text-shadow: 0 0 1px hsl(var(--primary)), 0 0 2px hsl(var(--primary) / 0.6); /* Sombra sutil no texto (reduzida) */
 
     /* Efeito neon minimalista no ícone */
     svg {
-      filter: drop-shadow(0 0 2px hsl(var(--primary))) drop-shadow(0 0 4px hsl(var(--primary) / 0.8));
+      filter: drop-shadow(0 0 1px hsl(var(--primary))) drop-shadow(0 0 2px hsl(var(--primary) / 0.6)); /* Efeito reduzido no ícone */
       transition: filter 0.3s ease-in-out; /* Transição suave para o efeito do ícone */
     }
 
@@ -167,7 +167,7 @@
       content: '';
       @apply absolute bottom-0 left-0 w-full h-0.5 bg-primary scale-x-100 origin-left transition-transform duration-300;
       /* Adiciona uma sombra sutil à linha */
-      box-shadow: 0 0 4px hsl(var(--primary)), 0 0 8px hsl(var(--primary) / 0.6);
+      box-shadow: 0 0 2px hsl(var(--primary)), 0 0 4px hsl(var(--primary) / 0.4); /* Sombra sutil na linha (reduzida) */
     }
   }
 
