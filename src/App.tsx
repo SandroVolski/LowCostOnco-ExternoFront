@@ -5,6 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { PageTransitionProvider } from "./components/transitions/PageTransitionContext";
+import { PageTransitionWrapper } from "./components/transitions/PageTransitionWrapper";
 import Layout from "./components/layout/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
@@ -26,88 +28,92 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Login />} />
-            
-            <Route 
-              path="/dashboard" 
-              element={
-                <ProtectedRoute>
-                  <Layout pageTitle="Dashboard">
-                    <Dashboard />
-                  </Layout>
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route 
-              path="/patients" 
-              element={
-                <ProtectedRoute allowedRoles={['clinic']}>
-                  <Layout pageTitle="Pacientes">
-                    <Patients />
-                  </Layout>
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route 
-              path="/reports" 
-              element={
-                <ProtectedRoute allowedRoles={['clinic']}>
-                  <Layout pageTitle="Solicitação de Autorização">
-                    <Reports />
-                  </Layout>
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route 
-              path="/recursos-glosas" 
-              element={
-                <ProtectedRoute allowedRoles={['clinic']}>
-                  <Layout pageTitle="Recursos de Glosas">
-                    <RecursosGlosas />
-                  </Layout>
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route 
-              path="/analysis" 
-              element={
-                <ProtectedRoute allowedRoles={['operator']}>
-                  <Layout pageTitle="Análise">
-                    <Analysis />
-                  </Layout>
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route 
-              path="/expenses" 
-              element={
-                <ProtectedRoute allowedRoles={['healthPlan']}>
-                  <Layout pageTitle="Gastos">
-                    <Expenses />
-                  </Layout>
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route 
-              path="/chat" 
-              element={
-                <ProtectedRoute>
-                  <Layout pageTitle="Chat">
-                    <Chat />
-                  </Layout>
-                </ProtectedRoute>
-              } 
-            />
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <PageTransitionProvider>
+            <PageTransitionWrapper>
+              <Routes>
+                <Route path="/" element={<Login />} />
+                
+                <Route 
+                  path="/dashboard" 
+                  element={
+                    <ProtectedRoute>
+                      <Layout pageTitle="Dashboard">
+                        <Dashboard />
+                      </Layout>
+                    </ProtectedRoute>
+                  } 
+                />
+                
+                <Route 
+                  path="/patients" 
+                  element={
+                    <ProtectedRoute allowedRoles={['clinic']}>
+                      <Layout pageTitle="Pacientes">
+                        <Patients />
+                      </Layout>
+                    </ProtectedRoute>
+                  } 
+                />
+                
+                <Route 
+                  path="/reports" 
+                  element={
+                    <ProtectedRoute allowedRoles={['clinic']}>
+                      <Layout pageTitle="Solicitação de Autorização">
+                        <Reports />
+                      </Layout>
+                    </ProtectedRoute>
+                  } 
+                />
+                
+                <Route 
+                  path="/recursos-glosas" 
+                  element={
+                    <ProtectedRoute allowedRoles={['clinic']}>
+                      <Layout pageTitle="Recursos de Glosas">
+                        <RecursosGlosas />
+                      </Layout>
+                    </ProtectedRoute>
+                  } 
+                />
+                
+                <Route 
+                  path="/analysis" 
+                  element={
+                    <ProtectedRoute allowedRoles={['operator']}>
+                      <Layout pageTitle="Análise">
+                        <Analysis />
+                      </Layout>
+                    </ProtectedRoute>
+                  } 
+                />
+                
+                <Route 
+                  path="/expenses" 
+                  element={
+                    <ProtectedRoute allowedRoles={['healthPlan']}>
+                      <Layout pageTitle="Gastos">
+                        <Expenses />
+                      </Layout>
+                    </ProtectedRoute>
+                  } 
+                />
+                
+                <Route 
+                  path="/chat" 
+                  element={
+                    <ProtectedRoute>
+                      <Layout pageTitle="Chat">
+                        <Chat />
+                      </Layout>
+                    </ProtectedRoute>
+                  } 
+                />
+                
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </PageTransitionWrapper>
+          </PageTransitionProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

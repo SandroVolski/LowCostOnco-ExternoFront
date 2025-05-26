@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import { usePageNavigation } from './usePageNavigation';
+import { usePageNavigation } from './PageTransitionContext';
 import { cn } from '@/lib/utils';
 
 interface TransitionLinkProps {

@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { NavLink } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import { TransitionLink } from '@/components/transitions/TransitionLink';
+import { usePageNavigation } from '@/components/transitions/PageTransitionContext';
 import { 
   BellIcon, 
   Sun, 
@@ -40,6 +42,8 @@ const Header = () => {
   const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const location = useLocation();
+  const { navigateWithTransition } = usePageNavigation();
   
   // Handle scroll effect
   useEffect(() => {
@@ -134,6 +138,11 @@ const Header = () => {
     }
   };
 
+  const handleMobileNavClick = (path: string) => {
+    setMobileMenuOpen(false);
+    navigateWithTransition(path);
+  };
+
   return (
     <header className={cn(
       "h-16 flex items-center justify-between px-6 z-50 transition-all duration-300",
@@ -160,21 +169,20 @@ const Header = () => {
               </div>
               <nav className="space-y-2">
                 {getNavItems().map((item, index) => (
-                  <NavLink
+                  <button
                     key={item.path}
-                    to={item.path}
-                    className={({ isActive }) => cn(
+                    onClick={() => handleMobileNavClick(item.path)}
+                    className={cn(
                       "flex items-center gap-3 px-4 py-2 rounded-md transition-all duration-300 w-full",
-                      isActive 
+                      location.pathname === item.path 
                         ? "bg-primary/20 text-primary font-medium" 
                         : "hover:bg-muted hover:translate-x-1"
                     )}
-                    onClick={() => setMobileMenuOpen(false)}
                     style={{ animationDelay: `${index * 100}ms` }}
                   >
                     {item.icon}
                     {item.label}
-                  </NavLink>
+                  </button>
                 ))}
               </nav>
               <div className="mt-auto pt-4 border-t border-border">
@@ -196,27 +204,24 @@ const Header = () => {
             </div>
           </SheetContent>
         </Sheet>
-        
-        {/* Search button */}
-        
       </div>
       
       {/* Desktop Navigation */}
       <nav className="hidden md:flex items-center space-x-1">
         {getNavItems().map((item, index) => (
-          <NavLink
+          <TransitionLink
             key={item.path}
             to={item.path}
-            className={({ isActive }) => cn(
+            className={cn(
               "nav-link hover-lift",
-              isActive && "active",
+              location.pathname === item.path && "active",
               "animate-fade-in"
             )}
             style={{ animationDelay: `${index * 100}ms` }}
           >
             {item.icon}
             <span>{item.label}</span>
-          </NavLink>
+          </TransitionLink>
         ))}
       </nav>
       

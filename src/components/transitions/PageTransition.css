@@ -1,0 +1,163 @@
+/* Page Transition Animations */
+.page-transition-wrapper {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    z-index: 1;
+  }
+  
+  .page-transition-content {
+    width: 100%;
+    height: 100%;
+    position: relative;
+  }
+  
+  /* Animation classes */
+  .page-transition-animate {
+    animation: pageTransitionAnimate 1.5s ease;
+  }
+  
+  @keyframes pageTransitionAnimate {
+    0% {
+      transform: scale(1, 1);
+    }
+    10% {
+      transform: scale(1, 0.005);
+    }
+    35% {
+      transform: scale(0.2, 0.005);
+      opacity: 1;
+    }
+    50% {
+      transform: scale(0.2, 0.005);
+      opacity: 0;
+    }
+    85% {
+      transform: scale(1, 0.005);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1, 1);
+    }
+  }
+  
+  .page-transition-fadeIn {
+    animation: fadeIn 0.5s ease forwards;
+    z-index: 10;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+  
+  .page-transition-fadeOut {
+    animation: fadeOut 0.3s ease forwards;
+  }
+  
+  @keyframes fadeOut {
+    from {
+      opacity: 1;
+    }
+    to {
+      opacity: 0;
+    }
+  }
+  
+  .page-transition-dashboard {
+    background: linear-gradient(135deg, #c6d651 0%, #8cb369 100%);
+  }
+  
+  .page-transition-patients {
+    background: linear-gradient(135deg, #c6d651 0%, #8cb369 100%);
+  }
+  
+  .page-transition-reports {
+    background: linear-gradient(135deg, #c6d651 0%, #8cb369 100%);
+  }
+  
+  .page-transition-recursos-glosas {
+    background: linear-gradient(135deg, #c6d651 0%, #8cb369 100%);
+  }
+  
+  .page-transition-analysis {
+    background: linear-gradient(135deg, #c6d651 0%, #8cb369 100%);
+  }
+  
+  .page-transition-expenses {
+    background: linear-gradient(135deg, #c6d651 0%, #8cb369 100%);
+  }
+  
+  .page-transition-chat {
+    background: linear-gradient(135deg, #c6d651 0%, #8cb369 100%);
+  }
+  
+  /* Page colors based on route 
+  .page-transition-dashboard {
+    background: linear-gradient(135deg, #c6d651 0%, #8cb369 100%);
+  }
+  
+  .page-transition-patients {
+    background: linear-gradient(135deg, #8cb369 0%, #35524a 100%);
+  }
+  
+  .page-transition-reports {
+    background: linear-gradient(135deg, #e4a94f 0%, #f7c59f 100%);
+  }
+  
+  .page-transition-recursos-glosas {
+    background: linear-gradient(135deg, #35524a 0%, #8cb369 100%);
+  }
+  
+  .page-transition-analysis {
+    background: linear-gradient(135deg, #f26b6b 0%, #f7c59f 100%);
+  }
+  
+  .page-transition-expenses {
+    background: linear-gradient(135deg, #f7c59f 0%, #e4a94f 100%);
+  }
+  
+  .page-transition-chat {
+    background: linear-gradient(135deg, #575654 0%, #8cb369 100%);
+  }*/
+  
+  /* Responsive */
+  @media (max-width: 768px) {
+    @keyframes pageTransitionAnimate {
+      0% {
+        transform: scale(1, 1);
+      }
+      10% {
+        transform: scale(1, 0.01);
+      }
+      35% {
+        transform: scale(0.5, 0.01);
+        opacity: 1;
+      }
+      50% {
+        transform: scale(0.5, 0.01);
+        opacity: 0;
+      }
+      85% {
+        transform: scale(1, 0.01);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(1, 1);
+      }
+    }
+  }
+  
+  /* Prevent scrolling during transition */
+  body.page-transitioning {
+    overflow: hidden;
+  }
