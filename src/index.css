@@ -354,30 +354,6 @@
     @apply rounded-xl;
   }
 
-  /* Efeito de Mouse Pesado nos Cards */
-  .mouse-tilt {
-    @apply transition-transform duration-200 ease-out;
-    transform-style: preserve-3d;
-    transform: perspective(1000px);
-  }
-
-  .mouse-tilt-content {
-    @apply relative w-full h-full;
-    transform-style: preserve-3d;
-    transform: translateZ(20px);
-  }
-
-  /* Ajuste para os cards que já têm o efeito hover-lift */
-  .hover-lift.mouse-tilt {
-    @apply hover:-translate-y-1;
-  }
-
-  /* Ajuste para o efeito sparkle */
-  .sparkle-card.mouse-tilt::before,
-  .sparkle-card.mouse-tilt::after {
-    transform-style: preserve-3d;
-  }
-
   /* Estilos para a animação de texto */
   .animation-wrapper {
     display: flex;

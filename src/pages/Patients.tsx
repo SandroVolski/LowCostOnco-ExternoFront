@@ -8,80 +8,120 @@ import { toast } from '@/components/ui/use-toast';
 import PatientCard from '@/components/PatientCard';
 import AnimatedSection from '@/components/AnimatedSection';
 
-// Mock patient data
-const initialPatients = [
-  {
-    id: '1',
-    name: 'Maria Silva',
-    age: 56,
-    diagnosis: 'Câncer de Mama',
-    stage: 'II',
-    treatment: 'Quimioterapia',
-    startDate: '15/01/2024',
-    status: 'Em tratamento',
-  },
-  {
-    id: '2',
-    name: 'João Mendes',
-    age: 62,
-    diagnosis: 'Câncer de Próstata',
-    stage: 'III',
-    treatment: 'Radioterapia',
-    startDate: '02/03/2024',
-    status: 'Em tratamento',
-  },
-  {
-    id: '3',
-    name: 'Ana Costa',
-    age: 48,
-    diagnosis: 'Câncer Colorretal',
-    stage: 'II',
-    treatment: 'Cirurgia + Quimioterapia',
-    startDate: '10/12/2023',
-    status: 'Em tratamento',
-  },
-  {
-    id: '4',
-    name: 'Carlos Santos',
-    age: 71,
-    diagnosis: 'Câncer de Pulmão',
-    stage: 'IV',
-    treatment: 'Imunoterapia',
-    startDate: '20/02/2024',
-    status: 'Em tratamento',
-  },
-  {
-    id: '5',
-    name: 'Lúcia Oliveira',
-    age: 52,
-    diagnosis: 'Linfoma Não-Hodgkin',
-    stage: 'III',
-    treatment: 'Quimioterapia',
-    startDate: '05/11/2023',
-    status: 'Em remissão',
-  },
-];
+// Defina a interface Authorization
+interface Authorization {
+  id: string;
+  date: string;
+  status: 'approved' | 'pending' | 'rejected';
+  protocol: string;
+  description: string;
+}
 
+// Atualize a interface Patient
 interface Patient {
   id: string;
   name: string;
   age: number;
+  gender: string;
   diagnosis: string;
   stage: string;
   treatment: string;
   startDate: string;
   status: string;
+  authorizations: Authorization[];
 }
 
-const emptyPatient = {
+// Mock patient data
+const initialPatients: Patient[] = [
+  {
+    id: '1',
+    name: 'Maria Silva',
+    age: 56,
+    gender: 'Feminino',
+    diagnosis: 'Câncer de Mama',
+    stage: 'II',
+    treatment: 'Quimioterapia',
+    startDate: '15/01/2024',
+    status: 'Em tratamento',
+    authorizations: [
+      {
+        id: 'auth1',
+        date: '10/05/2024',
+        status: 'approved',
+        protocol: 'Protocolo ABC',
+        description: 'Solicitação inicial de tratamento'
+      },
+      {
+        id: 'auth2',
+        date: '20/05/2024',
+        status: 'pending',
+        protocol: 'Protocolo DEF',
+        description: 'Solicitação para ciclo adicional'
+      }
+    ],
+  },
+  {
+    id: '2',
+    name: 'João Mendes',
+    age: 62,
+    gender: 'Masculino',
+    diagnosis: 'Câncer de Próstata',
+    stage: 'III',
+    treatment: 'Radioterapia',
+    startDate: '02/03/2024',
+    status: 'Em tratamento',
+    authorizations: [],
+  },
+  {
+    id: '3',
+    name: 'Ana Costa',
+    age: 48,
+    gender: 'Feminino',
+    diagnosis: 'Câncer Colorretal',
+    stage: 'II',
+    treatment: 'Cirurgia + Quimioterapia',
+    startDate: '10/12/2023',
+    status: 'Em tratamento',
+    authorizations: [],
+  },
+  {
+    id: '4',
+    name: 'Carlos Santos',
+    age: 71,
+    gender: 'Masculino',
+    diagnosis: 'Câncer de Pulmão',
+    stage: 'IV',
+    treatment: 'Imunoterapia',
+    startDate: '20/02/2024',
+    status: 'Em tratamento',
+    authorizations: [],
+  },
+  {
+    id: '5',
+    name: 'Lúcia Oliveira',
+    age: 52,
+    gender: 'Feminino',
+    diagnosis: 'Linfoma Não-Hodgkin',
+    stage: 'III',
+    treatment: 'Quimioterapia',
+    startDate: '05/11/2023',
+    status: 'Em remissão',
+    authorizations: [],
+  },
+];
+
+// Atualize o emptyPatient
+const emptyPatient: Patient = {
   id: '',
   name: '',
   age: 0,
+  gender: '',
   diagnosis: '',
   stage: '',
   treatment: '',
   startDate: '',
   status: '',
+  authorizations: [],
 };
 
 // Helper function to add staggered animations
@@ -110,10 +150,13 @@ const Patients = () => {
     setIsDialogOpen(true);
   };
 
-  const handleEdit = (patient: Patient) => {
-    setCurrentPatient(patient);
-    setIsEditing(true);
-    setIsDialogOpen(true);
+  const handleEdit = (id: string) => {
+    const patientToEdit = patients.find(patient => patient.id === id);
+    if (patientToEdit) {
+      setCurrentPatient(patientToEdit);
+      setIsEditing(true);
+      setIsDialogOpen(true);
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -150,7 +193,7 @@ const Patients = () => {
     setIsDialogOpen(false);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setCurrentPatient({
       ...currentPatient,
@@ -248,7 +291,7 @@ const Patients = () => {
                     id="age"
                     name="age"
                     type="number"
-                    value={currentPatient.age || ''}
+                    value={currentPatient.age}
                     onChange={handleInputChange}
                     required
                     className="transition-all duration-300 focus:border-primary"
@@ -256,11 +299,11 @@ const Patients = () => {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="stage">Estágio</Label>
+                  <Label htmlFor="gender">Sexo</Label>
                   <Input
-                    id="stage"
-                    name="stage"
-                    value={currentPatient.stage}
+                    id="gender"
+                    name="gender"
+                    value={currentPatient.gender}
                     onChange={handleInputChange}
                     required
                     className="transition-all duration-300 focus:border-primary"
@@ -280,43 +323,55 @@ const Patients = () => {
                 />
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="treatment">Tratamento</Label>
-                <Input
-                  id="treatment"
-                  name="treatment"
-                  value={currentPatient.treatment}
-                  onChange={handleInputChange}
-                  required
-                  className="transition-all duration-300 focus:border-primary"
-                />
-              </div>
-              
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="startDate">Data de Início</Label>
+                  <Label htmlFor="stage">Estágio</Label>
                   <Input
-                    id="startDate"
-                    name="startDate"
-                    value={currentPatient.startDate}
+                    id="stage"
+                    name="stage"
+                    value={currentPatient.stage}
                     onChange={handleInputChange}
-                    placeholder="DD/MM/AAAA"
                     required
                     className="transition-all duration-300 focus:border-primary"
                   />
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
+                  <Label htmlFor="treatment">Tratamento</Label>
                   <Input
-                    id="status"
-                    name="status"
-                    value={currentPatient.status}
+                    id="treatment"
+                    name="treatment"
+                    value={currentPatient.treatment}
                     onChange={handleInputChange}
                     required
                     className="transition-all duration-300 focus:border-primary"
                   />
                 </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="startDate">Data de Início do Tratamento</Label>
+                <Input
+                  id="startDate"
+                  name="startDate"
+                  type="date"
+                  value={currentPatient.startDate}
+                  onChange={handleInputChange}
+                  required
+                  className="transition-all duration-300 focus:border-primary"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="status">Status</Label>
+                <Input
+                  id="status"
+                  name="status"
+                  value={currentPatient.status}
+                  onChange={handleInputChange}
+                  required
+                  className="transition-all duration-300 focus:border-primary"
+                />
               </div>
             </div>
             

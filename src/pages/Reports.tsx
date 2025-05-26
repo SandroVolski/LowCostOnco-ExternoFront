@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -78,17 +77,17 @@ const Reports = () => {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <h1 className="text-2xl font-bold">Relatórios</h1>
+      <h1 className="text-2xl font-bold">Solicitação de Autorização</h1>
 
       <Tabs defaultValue="new" className="w-full">
         <TabsList className="grid grid-cols-2 w-[400px]">
           <TabsTrigger value="new">
             <FilePlus className="h-4 w-4 mr-2" />
-            Novo Relatório
+            Nova Solicitação
           </TabsTrigger>
           <TabsTrigger value="history">
             <File className="h-4 w-4 mr-2" />
-            Histórico
+            Histórico de Solicitações
           </TabsTrigger>
         </TabsList>
 

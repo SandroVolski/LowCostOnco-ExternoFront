@@ -1,4 +1,4 @@
-
+import React from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,6 +15,7 @@ import Analysis from "./pages/Analysis";
 import Expenses from "./pages/Expenses";
 import Chat from "./pages/Chat";
 import NotFound from "./pages/NotFound";
+import RecursosGlosas from "./pages/RecursosGlosas";
 
 const queryClient = new QueryClient();
 
@@ -32,7 +33,7 @@ const App = () => (
               path="/dashboard" 
               element={
                 <ProtectedRoute>
-                  <Layout>
+                  <Layout pageTitle="Dashboard">
                     <Dashboard />
                   </Layout>
                 </ProtectedRoute>
@@ -43,7 +44,7 @@ const App = () => (
               path="/patients" 
               element={
                 <ProtectedRoute allowedRoles={['clinic']}>
-                  <Layout>
+                  <Layout pageTitle="Pacientes">
                     <Patients />
                   </Layout>
                 </ProtectedRoute>
@@ -54,8 +55,19 @@ const App = () => (
               path="/reports" 
               element={
                 <ProtectedRoute allowedRoles={['clinic']}>
-                  <Layout>
+                  <Layout pageTitle="Solicitação de Autorização">
                     <Reports />
+                  </Layout>
+                </ProtectedRoute>
+              } 
+            />
+            
+            <Route 
+              path="/recursos-glosas" 
+              element={
+                <ProtectedRoute allowedRoles={['clinic']}>
+                  <Layout pageTitle="Recursos de Glosas">
+                    <RecursosGlosas />
                   </Layout>
                 </ProtectedRoute>
               } 
@@ -65,7 +77,7 @@ const App = () => (
               path="/analysis" 
               element={
                 <ProtectedRoute allowedRoles={['operator']}>
-                  <Layout>
+                  <Layout pageTitle="Análise">
                     <Analysis />
                   </Layout>
                 </ProtectedRoute>
@@ -76,7 +88,7 @@ const App = () => (
               path="/expenses" 
               element={
                 <ProtectedRoute allowedRoles={['healthPlan']}>
-                  <Layout>
+                  <Layout pageTitle="Gastos">
                     <Expenses />
                   </Layout>
                 </ProtectedRoute>
@@ -87,7 +99,7 @@ const App = () => (
               path="/chat" 
               element={
                 <ProtectedRoute>
-                  <Layout>
+                  <Layout pageTitle="Chat">
                     <Chat />
                   </Layout>
                 </ProtectedRoute>

@@ -1,0 +1,53 @@
+/* Card flip animations */
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.transform-style-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+/* Patient card specific styles */
+.patient-card {
+  @apply bg-card border border-border rounded-xl p-4 transition-all duration-300
+         hover:shadow-md hover:border-primary/50 animate-fade-in cursor-pointer h-full sparkle-card;
+}
+
+.patient-card:hover {
+  @apply transform -translate-y-1;
+}
+
+/* Status colors */
+.status-approved {
+  @apply bg-support-green/10 text-support-green border-support-green/20;
+}
+
+.status-pending {
+  @apply bg-support-yellow/10 text-support-yellow border-support-yellow/20;
+}
+
+.status-rejected {
+  @apply bg-highlight-red/10 text-highlight-red border-highlight-red/20;
+}
+
+/* Ajuste para os cards que já têm o efeito hover-lift */
+.hover-lift.mouse-tilt {
+  @apply hover:-translate-y-1;
+}
+
+/* Ajuste para o efeito sparkle */
+.sparkle-card.mouse-tilt::before,
+.sparkle-card.mouse-tilt::after {
+  transform-style: preserve-3d;
+}
+
+/* Estilos para a animação de texto */
+// ... existing code ... 

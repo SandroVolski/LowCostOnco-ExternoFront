@@ -91,9 +91,14 @@ const Header = () => {
           icon: <Users className="w-5 h-5" />,
         },
         {
-          label: 'Relatórios',
+          label: 'Solicitação de Autorização',
           path: '/reports',
           icon: <FileText className="w-5 h-5" />,
+        },
+        {
+          label: 'Recursos de Glosas',
+          path: '/recursos-glosas',
+          icon: <Search className="w-5 h-5" />,
         },
         ...commonItems,
       ];

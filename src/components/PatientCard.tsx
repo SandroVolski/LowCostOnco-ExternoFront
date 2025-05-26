@@ -1,6 +1,5 @@
-
 import { useState, useRef, useEffect } from 'react';
-import { PencilIcon, TrashIcon, ChevronRight, AlertTriangle, User, Calendar, Activity, Clock } from 'lucide-react';
+import { PencilIcon, TrashIcon, ChevronRight, AlertTriangle, User, Calendar, Activity, Clock, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -14,113 +13,117 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+interface Authorization {
+  id: string;
+  date: string;
+  status: 'approved' | 'pending' | 'rejected';
+  protocol: string;
+  description: string;
+}
 
 interface Patient {
   id: string;
   name: string;
   age: number;
+  gender: string;
   diagnosis: string;
   stage: string;
   treatment: string;
   startDate: string;
   status: string;
+  authorizations: Authorization[];
 }
 
 interface PatientCardProps {
   patient: Patient;
-  onEdit: (patient: Patient) => void;
+  onEdit: (id: string) => void;
   onDelete: (id: string) => void;
 }
+
+const getTreatmentColor = (treatment: string) => {
+  switch (treatment.toLowerCase()) {
+    case 'quimioterapia':
+      return 'bg-support-teal/10 text-support-teal border-support-teal/20';
+    case 'radioterapia':
+      return 'bg-support-yellow/10 text-support-yellow border-support-yellow/20';
+    case 'imunoterapia':
+      return 'bg-support-green/10 text-support-green border-support-green/20';
+    default:
+      return 'bg-muted text-muted-foreground';
+  }
+};
+
+const getStatusColor = (status: Authorization['status']) => {
+  switch (status) {
+    case 'approved':
+      return 'bg-support-green/10 text-support-green border-support-green/20';
+    case 'pending':
+      return 'bg-support-yellow/10 text-support-yellow border-support-yellow/20';
+    case 'rejected':
+      return 'bg-highlight-red/10 text-highlight-red border-highlight-red/20';
+  }
+};
+
+const getStatusIcon = (status: Authorization['status']) => {
+  switch (status) {
+    case 'approved':
+      return <CheckCircle2 className="h-4 w-4" />;
+    case 'pending':
+      return <Clock className="h-4 w-4" />;
+    case 'rejected':
+      return <AlertCircle className="h-4 w-4" />;
+  }
+};
+
+const getPatientStatusColor = (status: string) => {
+  switch (status) {
+    case 'Em remissão':
+      return 'bg-support-green/20 text-support-green border-support-green/30';
+    case 'Em tratamento':
+      return 'bg-support-yellow/20 text-support-yellow border-support-yellow/30';
+    default:
+      return 'bg-muted text-muted-foreground border-muted-foreground/30';
+  }
+};
 
 const PatientCard = ({ patient, onEdit, onDelete }: PatientCardProps) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
-  const cardRef = useRef<HTMLDivElement>(null);
-  const [transform, setTransform] = useState('');
 
-  const getTreatmentColor = (treatment: string) => {
-    const treatmentMap: Record<string, string> = {
-      'Quimioterapia': 'bg-support-teal/20 text-support-teal',
-      'Radioterapia': 'bg-support-yellow/20 text-support-yellow',
-      'Cirurgia + Quimioterapia': 'bg-primary-green/20 text-primary-gray',
-      'Imunoterapia': 'bg-highlight-peach/20 text-highlight-peach',
-    };
-
-    return treatmentMap[treatment] || 'bg-muted text-muted-foreground';
-  };
-
-  // Handle mouse move for 3D effect
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!cardRef.current || isFlipped) return;
-    
-    const card = cardRef.current;
-    const rect = card.getBoundingClientRect();
-    
-    // Calculate mouse position relative to card
-    const x = e.clientX - rect.left - rect.width / 2;
-    const y = e.clientY - rect.top - rect.height / 2;
-    
-    // Convert to rotation degrees (-10 to 10 degrees)
-    const maxRotation = 5;
-    const rotateY = (x / (rect.width / 2)) * maxRotation;
-    const rotateX = -((y / (rect.height / 2)) * maxRotation);
-    
-    // Apply transform
-    setTransform(`perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`);
-  };
-  
-  // Reset transform when mouse leaves
-  const handleMouseLeave = () => {
-    setTransform('');
-  };
-
-  // Toggle card flip - now with a specific click handler
   const handleCardClick = () => {
     setIsFlipped(!isFlipped);
   };
 
   return (
     <>
-      <div 
-        ref={cardRef}
-        className={cn(
-          "card-flip-container h-[340px] w-full animate-entry",
-          isFlipped && "flipped"
-        )}
-        style={{ transform: isFlipped ? '' : transform, transition: transform ? 'transform 0.1s ease-out' : 'transform 0.5s ease-out' }}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-      >
-        <div className="card-flipper h-full">
+      <div className="relative h-[300px] perspective-1000">
+        <div
+          className={cn(
+            "relative w-full h-full transition-transform duration-500 transform-style-3d",
+            isFlipped ? "rotate-y-180" : ""
+          )}
+        >
           {/* Front of Card */}
-          <div 
-            className="card-front patient-card h-full"
+          <div
+            className="absolute w-full h-full backface-hidden rounded-lg border p-4 cursor-pointer patient-card"
             onClick={handleCardClick}
           >
-            <div className="flex justify-between items-start">
+            <div className="flex items-start justify-between">
               <div>
                 <h3 className="font-semibold text-lg">{patient.name}</h3>
-                <div className="text-muted-foreground text-sm flex items-center mt-1">
-                  <User className="w-3.5 h-3.5 mr-1" />
-                  <span>{patient.age} anos</span>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="text-sm text-muted-foreground">{patient.age} anos</span>
+                  <span className="text-sm text-muted-foreground">•</span>
+                  <span className="text-sm text-muted-foreground">{patient.gender}</span>
                 </div>
               </div>
-              
-              <div>
-                <Badge 
-                  variant="outline"
-                  className={cn(
-                    "font-medium",
-                    patient.status === 'Em remissão' 
-                    ? 'bg-support-green/20 text-support-green' 
-                    : 'bg-support-yellow/20 text-support-yellow'
-                  )}
-                >
-                  {patient.status}
-                </Badge>
-              </div>
+              <Badge variant="outline" className={cn("font-medium", getPatientStatusColor(patient.status))}>
+                {patient.status}
+              </Badge>
             </div>
-            
+
             <div className="mt-4 space-y-2">
               <div className="bg-muted/50 rounded-md p-2">
                 <div className="font-medium text-xs uppercase text-muted-foreground">Diagnóstico</div>
@@ -156,77 +159,118 @@ const PatientCard = ({ patient, onEdit, onDelete }: PatientCardProps) => {
           
           {/* Back of Card */}
           <div 
-            className="card-back patient-card h-full"
+            className="absolute w-full h-full backface-hidden rounded-lg border p-4 rotate-y-180 patient-card flex flex-col"
             onClick={handleCardClick}
           >
-            <div className="h-full flex flex-col">
-              <h3 className="font-semibold text-lg mb-2">Informações Adicionais</h3>
-              
-              <div className="space-y-3 flex-1">
-                <div className="flex items-center gap-2">
-                  <Activity className="h-4 w-4 text-support-teal" />
-                  <div className="text-sm">
-                    <span className="font-medium">Frequência:</span> Semanal
-                  </div>
-                </div>
+            <div className="flex-1 overflow-y-auto pr-2">
+              <div className="mb-6">
+                <h3 className="font-semibold text-lg mb-4 flex items-center">
+                  <FileText className="h-5 w-5 mr-2 text-support-teal" />
+                  Solicitações de Autorização
+                </h3>
                 
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-support-yellow" />
-                  <div className="text-sm">
-                    <span className="font-medium">Duração:</span> 6 meses
-                  </div>
-                </div>
-                
-                <div className="mt-4">
-                  <div className="font-medium text-sm mb-1">Progresso:</div>
-                  <div className="w-full bg-muted rounded-full h-2.5">
-                    <div className="bg-primary h-2.5 rounded-full" style={{ width: '45%' }}></div>
-                  </div>
-                  <div className="text-xs text-right mt-1 text-muted-foreground">45% concluído</div>
-                </div>
-                
-                <div className="mt-4">
-                  <div className="font-medium text-sm mb-1">Próxima consulta:</div>
-                  <div className="text-sm">15/06/2025 às 14:30</div>
+                <div className="space-y-3">
+                  {patient.authorizations && Array.isArray(patient.authorizations) && patient.authorizations.length > 0 ? (
+                    patient.authorizations.map((auth) => (
+                      <div 
+                        key={auth.id}
+                        className={cn(
+                          "p-3 rounded-lg border",
+                          getStatusColor(auth.status)
+                        )}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            {getStatusIcon(auth.status)}
+                            <span className="text-sm font-medium">
+                              {auth.status === 'approved' ? 'Aprovado' : 
+                               auth.status === 'pending' ? 'Pendente' : 'Rejeitado'}
+                            </span>
+                          </div>
+                          <span className="text-xs text-muted-foreground">{auth.date}</span>
+                        </div>
+                        <div className="text-sm font-medium mb-1">{auth.protocol}</div>
+                        <div className="text-sm text-muted-foreground line-clamp-2">{auth.description}</div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center text-muted-foreground italic">
+                      Nenhuma solicitação de autorização encontrada para este paciente.
+                    </div>
+                  )}
                 </div>
               </div>
-              
-              <div className="flex justify-end gap-2 mt-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit(patient);
-                  }}
-                  className="flex items-center gap-1 hover-lift"
-                >
-                  <PencilIcon className="h-3.5 w-3.5" />
-                  <span>Editar</span>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowDeleteAlert(true);
-                  }}
-                  className="text-destructive hover:text-destructive flex items-center gap-1 hover-lift"
-                >
-                  <TrashIcon className="h-3.5 w-3.5" />
-                  <span>Excluir</span>
-                </Button>
+
+              <div className="mt-4">
+                <h3 className="font-semibold text-lg mb-2">Informações Adicionais</h3>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Activity className="h-4 w-4 text-support-teal" />
+                    <div className="text-sm">
+                      <span className="font-medium">Frequência:</span> Semanal
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4 text-support-yellow" />
+                    <div className="text-sm">
+                      <span className="font-medium">Duração:</span> 6 meses
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <div className="font-medium text-sm mb-1">Progresso:</div>
+                    <div className="w-full bg-muted rounded-full h-2.5">
+                      <div className="bg-primary h-2.5 rounded-full" style={{ width: '45%' }}></div>
+                    </div>
+                    <div className="text-xs text-right mt-1 text-muted-foreground">45% concluído
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <div className="font-medium text-sm mb-1">Próxima consulta:</div>
+                    <div className="text-sm">15/06/2025 às 14:30
+                    </div>
+                  </div>
+                </div>
               </div>
-              
-              <div className="absolute bottom-2 left-2">
-                <ChevronRight className="h-5 w-5 text-muted-foreground rotate-180 animate-bounce-subtle" />
-              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(patient.id);
+                }}
+                className="flex items-center gap-1 hover-lift"
+              >
+                <PencilIcon className="h-3.5 w-3.5" />
+                <span>Editar</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowDeleteAlert(true);
+                }}
+                className="text-destructive hover:text-destructive flex items-center gap-1 hover-lift"
+              >
+                <TrashIcon className="h-3.5 w-3.5" />
+                <span>Excluir</span>
+              </Button>
+            </div>
+
+            <div className="absolute bottom-2 left-2">
+              <ChevronRight className="h-5 w-5 rotate-180 text-muted-foreground animate-bounce-subtle" />
             </div>
           </div>
         </div>
       </div>
       
-      {/* Delete Alert Dialog */}
       <AlertDialog open={showDeleteAlert} onOpenChange={setShowDeleteAlert}>
         <AlertDialogContent className="animate-scale-in">
           <AlertDialogHeader>

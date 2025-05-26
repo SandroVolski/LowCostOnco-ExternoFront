@@ -143,7 +143,7 @@
 
 /* Core */
 .core > .path {
-  fill: var(--major-color);
+  fill: var(--minor-color);
   visibility: hidden;
   transform: scale(1);
   transition: all 0.625s 0.15625s ease-in-out;

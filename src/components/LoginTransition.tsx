@@ -15,20 +15,25 @@ const LoginTransition = ({ isVisible, onComplete }: LoginTransitionProps) => {
 
     const timers: NodeJS.Timeout[] = [];
 
-    // Phase 1: Loading (1.7s)
+    // Ajustando os tempos para uma transição mais rápida
+    const loadingDuration = 800; // Reduzido de 1700ms
+    const loadedToNewPageDelay = 250; // Mantido
+    const newPageToCompleteDelay = 1500; // Aumentado para estender a animação final
+
+    // Fase 1: Loading
     timers.push(setTimeout(() => {
       setPhase('loaded');
-    }, 1700));
+    }, loadingDuration));
 
-    // Phase 2: New page transition (250ms after loaded)
+    // Fase 2: New page transition
     timers.push(setTimeout(() => {
       setPhase('new-page');
-    }, 1950));
+    }, loadingDuration + loadedToNewPageDelay));
 
-    // Phase 3: Complete (500ms after new-page)
+    // Fase 3: Complete
     timers.push(setTimeout(() => {
       onComplete();
-    }, 2450));
+    }, loadingDuration + loadedToNewPageDelay + newPageToCompleteDelay));
 
     return () => {
       timers.forEach(timer => clearTimeout(timer));
@@ -43,16 +48,9 @@ const LoginTransition = ({ isVisible, onComplete }: LoginTransitionProps) => {
       phase === 'loaded' && 'loaded',
       phase === 'new-page' && 'loaded new-page'
     )}>
-
       {/* Loader Container */}
       <div className="container">
         <svg className="loader" viewBox="0 0 100 100" overflow="visible">
-          <g className="core">
-            <circle className="path" cx="50" cy="50" r="1" fill="none" />
-          </g>
-          <g className="spinner">
-            <circle className="path" cx="50" cy="50" r="20" fill="none" />
-          </g>
           <g className="layer-1">
             <circle className="path" cx="50" cy="50" r="70" fill="none" />
           </g>
