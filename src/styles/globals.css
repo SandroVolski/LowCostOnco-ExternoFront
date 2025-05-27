@@ -1,4 +1,166 @@
-/* Card flip animations */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 222.2 47.4% 11.2%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 222.2 84% 4.9%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 210 40% 98%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 212.7 26.8% 83.9%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Animações */
+@keyframes entry {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes bounce-subtle {
+  0%, 100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(4px);
+  }
+}
+
+.animate-entry {
+  animation: entry 0.5s ease-out forwards;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.2s ease-out forwards;
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
+
+.animate-bounce-subtle {
+  animation: bounce-subtle 1s ease-in-out infinite;
+}
+
+/* Efeitos de hover */
+.hover-lift {
+  transition: transform 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-2px);
+}
+
+/* Glow effect */
+.glow-on-hover {
+  position: relative;
+}
+
+.glow-on-hover::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  background: linear-gradient(45deg, var(--primary), transparent);
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.glow-on-hover:hover::after {
+  opacity: 0.1;
+}
+
+/* Patient Card Styles */
 .perspective-1000 {
   perspective: 1000px;
 }
@@ -15,14 +177,56 @@
   transform: rotateY(180deg);
 }
 
-/* Patient card specific styles */
 .patient-card {
-  @apply bg-card border border-border rounded-xl p-4 transition-all duration-300
-         hover:shadow-md hover:border-primary/50 animate-fade-in cursor-pointer h-full sparkle-card;
+  @apply bg-card text-card-foreground;
+  transition: all 0.3s ease;
 }
 
 .patient-card:hover {
-  @apply transform -translate-y-1;
+  @apply shadow-md;
+}
+
+/* Line clamp */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Support colors */
+.support-yellow {
+  @apply text-yellow-600 dark:text-yellow-400;
+}
+
+.support-green {
+  @apply text-green-600 dark:text-green-400;
+}
+
+.support-teal {
+  @apply text-teal-600 dark:text-teal-400;
+}
+
+.highlight-peach {
+  @apply text-orange-600 dark:text-orange-400;
+}
+
+.highlight-red {
+  @apply text-red-600 dark:text-red-400;
+}
+
+/* Input styles */
+.lco-input {
+  @apply transition-all duration-300;
+}
+
+.lco-input:focus {
+  @apply border-primary ring-1 ring-primary/20;
+}
+
+/* Button styles */
+.lco-btn-primary {
+  @apply bg-primary text-primary-foreground hover:bg-primary/90;
 }
 
 /* Status colors */
@@ -50,4 +254,12 @@
 }
 
 /* Estilos para a animação de texto */
-// ... existing code ... 
+
+
+/* Ajuste para o efeito sparkle */
+.sparkle-card.mouse-tilt::before,
+.sparkle-card.mouse-tilt::after {
+  transform-style: preserve-3d;
+}
+
+/* Estilos para a animação de texto */ 

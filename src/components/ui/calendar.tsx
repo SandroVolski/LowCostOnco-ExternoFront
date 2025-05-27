@@ -1,11 +1,87 @@
 import * as React from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { DayPicker } from "react-day-picker";
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { DayPicker, useNavigation } from "react-day-picker";
+import { format } from 'date-fns';
+import { enUS } from 'date-fns/locale';
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
+
+// Componente de cabeçalho personalizado para adicionar navegação por ano
+function CustomCaption(props: any) {
+  const { displayMonth } = props;
+  const { goToMonth, nextMonth, previousMonth } = useNavigation();
+
+  // Navegação por ano
+  const handlePreviousYear = () => {
+    const prevYear = new Date(displayMonth.getFullYear() - 1, displayMonth.getMonth(), displayMonth.getDate());
+    goToMonth(prevYear);
+  };
+
+  const handleNextYear = () => {
+    const nextYear = new Date(displayMonth.getFullYear() + 1, displayMonth.getMonth(), displayMonth.getDate());
+    goToMonth(nextYear);
+  };
+
+  return (
+    <div className="flex justify-center pt-1 relative items-center">
+      {/* Botão Ano Anterior */}
+      <button
+        onClick={handlePreviousYear}
+        className={cn(
+          buttonVariants({ variant: "outline" }),
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute left-8"
+        )}
+      >
+        <ChevronsLeft className="h-4 w-4" />
+      </button>
+      {/* Botão Mês Anterior */}
+       <button
+        onClick={() => previousMonth && goToMonth(previousMonth)}
+        disabled={!previousMonth}
+        className={cn(
+          buttonVariants({ variant: "outline" }),
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute left-1"
+        )}
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+
+      {/* Rótulo do Mês/Ano (clicável para seleção) */}
+      <span
+         className="text-sm font-medium cursor-pointer"
+         onClick={() => { /* Implementar lógica para abrir seletor de mês/ano se DayPicker suportar */ }}
+         // Talvez adicionar onFocus/onBlur se necessário
+      >
+        {format(displayMonth, "MMMM yyyy", { locale: enUS })} 
+      </span>
+
+      {/* Botão Mês Próximo */}
+      <button
+        onClick={() => nextMonth && goToMonth(nextMonth)}
+        disabled={!nextMonth}
+        className={cn(
+          buttonVariants({ variant: "outline" }),
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute right-1"
+        )}
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+       {/* Botão Ano Próximo */}
+       <button
+        onClick={handleNextYear}
+        className={cn(
+          buttonVariants({ variant: "outline" }),
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute right-8"
+        )}
+      >
+        <ChevronsRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
 
 function Calendar({
   className,
@@ -19,16 +95,7 @@ function Calendar({
       className={cn("p-3", className)}
       classNames={{
         months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-        month: "space-y-4",
-        caption: "flex justify-center pt-1 relative items-center",
-        caption_label: "text-sm font-medium",
-        nav: "space-x-1 flex items-center",
-        nav_button: cn(
-          buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100"
-        ),
-        nav_button_previous: "absolute left-1",
-        nav_button_next: "absolute right-1",
+        caption: "flex justify-between pt-1 relative items-center",
         table: "w-full border-collapse space-y-1",
         head_row: "flex",
         head_cell:
@@ -49,12 +116,15 @@ function Calendar({
         day_range_middle:
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",
+        month: "space-y-4 pb-[calc(theme(spacing.9)+theme(spacing.2))]",
         ...classNames,
       }}
       components={{
-        IconLeft: ({ ..._props }) => <ChevronLeft className="h-4 w-4" />,
-        IconRight: ({ ..._props }) => <ChevronRight className="h-4 w-4" />,
+        Caption: CustomCaption,
       }}
+      captionLayout="buttons"
+      fromYear={1900}
+      toYear={2050}
       {...props}
     />
   );

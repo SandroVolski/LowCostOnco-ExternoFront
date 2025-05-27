@@ -1,19 +1,9 @@
-import { useState, useRef, useEffect } from 'react';
-import { PencilIcon, TrashIcon, ChevronRight, AlertTriangle, User, Calendar, Activity, Clock, CheckCircle2, AlertCircle, FileText } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { useState } from 'react';
+import { ChevronRight, FileText, Activity, Clock, PencilIcon, TrashIcon, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface Authorization {
   id: string;
@@ -42,49 +32,57 @@ interface PatientCardProps {
   onDelete: (id: string) => void;
 }
 
-const getTreatmentColor = (treatment: string) => {
-  switch (treatment.toLowerCase()) {
-    case 'quimioterapia':
-      return 'bg-support-teal/10 text-support-teal border-support-teal/20';
-    case 'radioterapia':
+const getPatientStatusColor = (status: string) => {
+  switch (status.toLowerCase()) {
+    case 'em tratamento':
       return 'bg-support-yellow/10 text-support-yellow border-support-yellow/20';
-    case 'imunoterapia':
+    case 'em remissão':
       return 'bg-support-green/10 text-support-green border-support-green/20';
+    case 'alta':
+      return 'bg-support-teal/10 text-support-teal border-support-teal/20';
     default:
       return 'bg-muted text-muted-foreground';
   }
 };
 
-const getStatusColor = (status: Authorization['status']) => {
-  switch (status) {
-    case 'approved':
-      return 'bg-support-green/10 text-support-green border-support-green/20';
-    case 'pending':
+const getTreatmentColor = (treatment: string) => {
+  switch (treatment.toLowerCase()) {
+    case 'quimioterapia':
       return 'bg-support-yellow/10 text-support-yellow border-support-yellow/20';
-    case 'rejected':
-      return 'bg-highlight-red/10 text-highlight-red border-highlight-red/20';
+    case 'radioterapia':
+      return 'bg-support-teal/10 text-support-teal border-support-teal/20';
+    case 'cirurgia':
+      return 'bg-support-green/10 text-support-green border-support-green/20';
+    case 'imunoterapia':
+      return 'bg-highlight-peach/10 text-highlight-peach border-highlight-peach/20';
+    default:
+      return 'bg-muted text-muted-foreground';
   }
 };
 
-const getStatusIcon = (status: Authorization['status']) => {
+const getStatusColor = (status: string) => {
   switch (status) {
     case 'approved':
-      return <CheckCircle2 className="h-4 w-4" />;
+      return 'bg-support-green/10 border-support-green/20';
     case 'pending':
-      return <Clock className="h-4 w-4" />;
+      return 'bg-support-yellow/10 border-support-yellow/20';
     case 'rejected':
-      return <AlertCircle className="h-4 w-4" />;
+      return 'bg-highlight-red/10 border-highlight-red/20';
+    default:
+      return 'bg-muted';
   }
 };
 
-const getPatientStatusColor = (status: string) => {
+const getStatusIcon = (status: string) => {
   switch (status) {
-    case 'Em remissão':
-      return 'bg-support-green/20 text-support-green border-support-green/30';
-    case 'Em tratamento':
-      return 'bg-support-yellow/20 text-support-yellow border-support-yellow/30';
+    case 'approved':
+      return <Activity className="h-4 w-4 text-support-green" />;
+    case 'pending':
+      return <Clock className="h-4 w-4 text-support-yellow" />;
+    case 'rejected':
+      return <AlertTriangle className="h-4 w-4 text-highlight-red" />;
     default:
-      return 'bg-muted text-muted-foreground border-muted-foreground/30';
+      return null;
   }
 };
 
@@ -145,7 +143,7 @@ const PatientCard = ({ patient, onEdit, onDelete }: PatientCardProps) => {
                 <div className="flex-1 bg-muted/50 rounded-md p-2">
                   <div className="font-medium text-xs uppercase text-muted-foreground">Data de Início</div>
                   <div className="mt-1 text-sm flex items-center">
-                    <Calendar className="w-3.5 h-3.5 mr-1" />
+                    <Clock className="w-3.5 h-3.5 mr-1" />
                     {patient.startDate}
                   </div>
                 </div>
@@ -193,11 +191,11 @@ const PatientCard = ({ patient, onEdit, onDelete }: PatientCardProps) => {
                         <div className="text-sm text-muted-foreground line-clamp-2">{auth.description}</div>
                       </div>
                     ))
-                  ) : (
+                  ) :
                     <div className="text-center text-muted-foreground italic">
                       Nenhuma solicitação de autorização encontrada para este paciente.
                     </div>
-                  )}
+                  }
                 </div>
               </div>
 

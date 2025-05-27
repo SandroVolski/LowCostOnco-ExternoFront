@@ -1,0 +1,16 @@
+/* Ensure calendar icon color respects theme */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(var(--calendar-icon-filter, 0)); /* Adjust filter based on theme */
+  color: var(--foreground, #000); /* Attempt to set color */
+  fill: var(--foreground, #000); /* Attempt to set fill */
+}
+
+input[type="date"]::-moz-calendar-picker-indicator { /* For Firefox */
+  filter: invert(var(--calendar-icon-filter, 0)); /* Adjust filter based on theme */
+  color: var(--foreground, #000); /* Attempt to set color */
+  fill: var(--foreground, #000); /* Attempt to set fill */
+}
+
+/* Define filter value in your main CSS or theme file */
+/* Example for light theme (default): --calendar-icon-filter: 0; */
+/* Example for dark theme: --calendar-icon-filter: 1; */ 
