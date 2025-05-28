@@ -1,5 +1,36 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, User, Calendar as CalendarIcon, Info, Phone, Mail, MapPin, CreditCard, Building2, FlipHorizontal, Edit, Trash2 } from 'lucide-react';
+
+// CSS como string constante
+const patientCardStyles = `
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+  .transform-style-preserve-3d {
+    transform-style: preserve-3d;
+  }
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
+  .rotate-y-180 {
+    transform: rotateY(180deg);
+  }
+  
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  .animate-fade-in-up {
+    animation: fade-in-up 0.6s ease-out forwards;
+  }
+`;
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -490,6 +521,18 @@ const Patients = () => {
       loadPatientsFromAPI();
     }
   }, [backendConnected, pagination.page, searchTerm]);
+  
+  // Adicionar estilos CSS dinamicamente
+  useEffect(() => {
+    const styleElement = document.createElement('style');
+    styleElement.textContent = patientCardStyles;
+    document.head.appendChild(styleElement);
+    
+    return () => {
+      // Limpar quando o componente desmontar
+      document.head.removeChild(styleElement);
+    };
+  }, []);
 
   const filteredPatients = patients.filter(patient => 
     patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -503,9 +546,9 @@ const Patients = () => {
     if (connected) {
       const dbConnected = await testarConexaoBanco();
       if (dbConnected) {
-        toast.success('Backend conectado com sucesso!', {
+        {/*toast.success('Backend conectado com sucesso!', {
           description: 'Dados serão carregados do banco de dados'
-        });
+        });*/}
       } else {
         toast.warning('Backend conectado, mas banco com problemas');
       }
@@ -665,36 +708,6 @@ const Patients = () => {
 
   return (
     <div className="space-y-6">
-      <style jsx>{`
-        .perspective-1000 {
-          perspective: 1000px;
-        }
-        .transform-style-preserve-3d {
-          transform-style: preserve-3d;
-        }
-        .backface-hidden {
-          backface-visibility: hidden;
-        }
-        .rotate-y-180 {
-          transform: rotateY(180deg);
-        }
-        
-        @keyframes fade-in-up {
-          from {
-            opacity: 0;
-            transform: translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-        
-        .animate-fade-in-up {
-          animation: fade-in-up 0.6s ease-out forwards;
-        }
-      `}</style>
-      
       <AnimatedSection>
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
           <div className="flex items-center justify-between">
@@ -703,6 +716,7 @@ const Patients = () => {
             </h1>
             
             {/* Indicador de status */}
+            {/*
             <div className="flex items-center gap-4">
               <div className="flex items-center gap-2">
                 <div className={`w-3 h-3 rounded-full ${backendConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
@@ -717,7 +731,7 @@ const Patients = () => {
                   <span className="text-sm text-muted-foreground">Carregando...</span>
                 </div>
               )}
-            </div>
+            </div>*/}
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3">
