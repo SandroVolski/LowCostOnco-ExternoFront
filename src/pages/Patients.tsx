@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, User, Calendar as CalendarIcon, Info, Phone, Mail, MapPin, CreditCard, Building2 } from 'lucide-react';
+import { Plus, Search, User, Calendar as CalendarIcon, Info, Phone, Mail, MapPin, CreditCard, Building2, FlipHorizontal, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -7,16 +7,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { toast } from '@/components/ui/use-toast';
-import AnimatedSection from '@/components/AnimatedSection';
-import { format, parseISO, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 
-// Interface Authorization mantida do código antigo
+// Interface Authorization
 interface Authorization {
   id: string;
   date: string;
@@ -25,10 +20,9 @@ interface Authorization {
   description: string;
 }
 
-// Interface Patient combinada com campos de ambos os códigos
+// Interface Patient expandida
 interface Patient {
   id: string;
-  // Campos do código antigo (para manter compatibilidade com PatientCard)
   name: string;
   age: number;
   gender: string;
@@ -38,7 +32,6 @@ interface Patient {
   startDate: string;
   status: string;
   authorizations: Authorization[];
-  // Campos adicionais do código novo
   Paciente_Nome: string;
   Codigo: string;
   cpf: string;
@@ -57,7 +50,247 @@ interface Patient {
   observacoes: string;
 }
 
-// Mock patient data do código antigo
+// Componente PatientCard com efeito de virar APENAS no clique
+const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
+  patient: Patient;
+  onEdit: (id: string) => void;
+  onDelete: (id: string) => void;
+  onShowInfo: (id: string) => void;
+}) => {
+  const [isFlipped, setIsFlipped] = useState(false);
+
+  const handleCardClick = () => {
+    setIsFlipped(!isFlipped);
+  };
+
+  return (
+    <div 
+      className="h-[340px] w-full perspective-1000 cursor-pointer select-none"
+      onClick={handleCardClick}
+    >
+      <div className={`relative w-full h-full transition-all duration-700 transform-style-preserve-3d ${isFlipped ? 'rotate-y-180' : ''} active:scale-[0.98]`}>
+        {/* Frente do Card */}
+        <div className="absolute inset-0 w-full h-full backface-hidden">
+          <Card className="h-full bg-gradient-to-br from-card via-card to-card/90 shadow-md transition-shadow duration-300 overflow-hidden border-2 border-border">
+            <CardHeader className="pb-3 bg-gradient-to-r from-primary/5 to-primary/10">
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <CardTitle className="text-lg font-semibold line-clamp-1 text-primary">
+                    {patient.name}
+                  </CardTitle>
+                  <CardDescription className="mt-1 flex items-center gap-2">
+                    <CreditCard className="h-3 w-3" />
+                    <span className="text-sm">{patient.cpf || 'CPF não informado'}</span>
+                  </CardDescription>
+                </div>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 hover:bg-primary/10"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onShowInfo(patient.id);
+                    }}
+                  >
+                    <Info className="h-4 w-4" />
+                  </Button>
+                  <div className="text-xs text-muted-foreground flex items-center gap-1 px-2 py-1 bg-background/80 rounded-full animate-pulse">
+                    <FlipHorizontal className="h-3 w-3" />
+                    Clique para virar
+                  </div>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4 p-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <User className="h-3 w-3" />
+                    Idade:
+                  </span>
+                  <span className="font-medium">{patient.age} anos</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Diagnóstico:</span>
+                  <span className="font-medium line-clamp-1 text-right">{patient.diagnosis}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Estágio:</span>
+                  <Badge variant="outline" className="text-xs">{patient.stage}</Badge>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Tratamento:</span>
+                  <span className="font-medium line-clamp-1 text-right text-xs">{patient.treatment}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Building2 className="h-3 w-3" />
+                    Operadora:
+                  </span>
+                  <span className="font-medium text-xs">{patient.Operadora}</span>
+                </div>
+              </div>
+              
+              <Separator className="my-3" />
+              
+              <div className="flex items-center justify-between">
+                <Badge variant={
+                  patient.status === 'Em tratamento' ? 'default' : 
+                  patient.status === 'Em remissão' ? 'secondary' : 
+                  'outline'
+                } className="text-xs">
+                  {patient.status}
+                </Badge>
+                <span className="text-xs text-muted-foreground">
+                  Início: {patient.startDate}
+                </span>
+              </div>
+              
+              <div className="flex gap-2 pt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 hover:bg-primary hover:text-primary-foreground transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEdit(patient.id);
+                  }}
+                >
+                  <Edit className="h-3 w-3 mr-1" />
+                  Editar
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 text-destructive hover:bg-destructive hover:text-destructive-foreground transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(patient.id);
+                  }}
+                >
+                  <Trash2 className="h-3 w-3 mr-1" />
+                  Excluir
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Verso do Card */}
+        <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180">
+          <Card className="h-full bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 shadow-md transition-shadow duration-300 overflow-hidden border-2 border-primary/30">
+            <CardHeader className="pb-3 bg-gradient-to-r from-primary/10 to-primary/20">
+              <div className="flex justify-between items-start">
+                <CardTitle className="text-lg font-semibold text-primary">
+                  Detalhes Médicos
+                </CardTitle>
+                <div className="text-xs text-muted-foreground flex items-center gap-1 px-2 py-1 bg-background/80 rounded-full animate-pulse">
+                  <FlipHorizontal className="h-3 w-3" />
+                  Clique para voltar
+                </div>
+              </div>
+              <CardDescription className="flex items-center gap-2">
+                <CreditCard className="h-3 w-3" />
+                Código: {patient.Codigo}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3 p-4">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Prestador:</span>
+                  <span className="font-medium text-xs text-right">{patient.Prestador}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">CID:</span>
+                  <span className="font-medium">{patient.Cid_Diagnostico}</span>
+                </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Carteirinha:</span>
+                  <span className="font-medium text-xs">{patient.numero_carteirinha || 'N/A'}</span>
+                </div>
+                {patient.telefone && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Phone className="h-3 w-3 text-muted-foreground" />
+                    <span className="font-medium text-xs">{patient.telefone}</span>
+                  </div>
+                )}
+                {patient.email && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <Mail className="h-3 w-3 text-muted-foreground" />
+                    <span className="font-medium text-xs line-clamp-1">{patient.email}</span>
+                  </div>
+                )}
+                {patient.endereco && (
+                  <div className="flex items-start gap-2 text-sm">
+                    <MapPin className="h-3 w-3 text-muted-foreground mt-0.5" />
+                    <span className="font-medium text-xs line-clamp-2">{patient.endereco}</span>
+                  </div>
+                )}
+              </div>
+
+              <Separator className="my-3" />
+
+              {patient.authorizations && patient.authorizations.length > 0 ? (
+                <div>
+                  <h5 className="text-xs font-semibold mb-2 text-primary">Últimas Autorizações</h5>
+                  <div className="space-y-2 max-h-20 overflow-y-auto">
+                    {patient.authorizations.slice(0, 2).map((auth) => (
+                      <div key={auth.id} className="flex items-center justify-between text-xs">
+                        <span className="line-clamp-1">{auth.protocol}</span>
+                        <Badge 
+                          variant={auth.status === 'approved' ? 'default' : auth.status === 'pending' ? 'secondary' : 'destructive'}
+                          className="text-[10px] px-1 py-0"
+                        >
+                          {auth.status === 'approved' ? 'OK' : auth.status === 'pending' ? 'Pend' : 'Rej'}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-4">
+                  <p className="text-xs text-muted-foreground">Nenhuma autorização registrada</p>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2 mt-auto">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 hover:bg-primary hover:text-primary-foreground transition-colors"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onShowInfo(patient.id);
+                  }}
+                >
+                  <Info className="h-3 w-3 mr-1" />
+                  Ver Tudo
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Seção animada
+const AnimatedSection = ({ children, delay = 0, className = "" }: {
+  children: React.ReactNode;
+  delay?: number;
+  className?: string;
+}) => (
+  <div 
+    className={`animate-fade-in-up ${className}`}
+    style={{ animationDelay: `${delay}ms` }}
+  >
+    {children}
+  </div>
+);
+
+// Mock patient data
 const initialPatients: Patient[] = [
   {
     id: '1',
@@ -85,23 +318,22 @@ const initialPatients: Patient[] = [
         description: 'Solicitação para ciclo adicional'
       }
     ],
-    // Campos adicionais vazios para compatibilidade
     Paciente_Nome: 'Maria Silva',
     Codigo: 'PAC001',
     cpf: '123.456.789-00',
-    rg: '',
+    rg: '12.345.678-9',
     Data_Nascimento: '1968-01-01',
     Sexo: 'Feminino',
     Operadora: 'Unimed',
     Prestador: 'Hospital ABC',
-    plano_saude: '',
-    numero_carteirinha: '',
+    plano_saude: 'Unimed Nacional',
+    numero_carteirinha: '123456789',
     Cid_Diagnostico: 'C50',
     Data_Primeira_Solicitacao: '2024-01-15',
-    telefone: '',
-    email: '',
-    endereco: '',
-    observacoes: '',
+    telefone: '(11) 99999-9999',
+    email: 'maria.silva@email.com',
+    endereco: 'Rua das Flores, 123 - São Paulo, SP',
+    observacoes: 'Paciente colaborativa, boa resposta ao tratamento inicial.',
   },
   {
     id: '2',
@@ -117,18 +349,18 @@ const initialPatients: Patient[] = [
     Paciente_Nome: 'João Mendes',
     Codigo: 'PAC002',
     cpf: '987.654.321-00',
-    rg: '',
+    rg: '98.765.432-1',
     Data_Nascimento: '1962-01-01',
     Sexo: 'Masculino',
     Operadora: 'Bradesco Saúde',
     Prestador: 'Clínica XYZ',
-    plano_saude: '',
-    numero_carteirinha: '',
+    plano_saude: 'Bradesco Premium',
+    numero_carteirinha: '987654321',
     Cid_Diagnostico: 'C61',
     Data_Primeira_Solicitacao: '2024-03-02',
-    telefone: '',
-    email: '',
-    endereco: '',
+    telefone: '(11) 88888-8888',
+    email: 'joao.mendes@email.com',
+    endereco: 'Av. Paulista, 456 - São Paulo, SP',
     observacoes: '',
   },
   {
@@ -145,79 +377,23 @@ const initialPatients: Patient[] = [
     Paciente_Nome: 'Ana Costa',
     Codigo: 'PAC003',
     cpf: '456.789.123-00',
-    rg: '',
+    rg: '45.678.912-3',
     Data_Nascimento: '1976-01-01',
     Sexo: 'Feminino',
     Operadora: 'SulAmérica',
     Prestador: 'Hospital DEF',
-    plano_saude: '',
-    numero_carteirinha: '',
+    plano_saude: 'SulAmérica Saúde',
+    numero_carteirinha: '456789123',
     Cid_Diagnostico: 'C18',
     Data_Primeira_Solicitacao: '2023-12-10',
-    telefone: '',
-    email: '',
-    endereco: '',
-    observacoes: '',
-  },
-  {
-    id: '4',
-    name: 'Carlos Santos',
-    age: 71,
-    gender: 'Masculino',
-    diagnosis: 'Câncer de Pulmão',
-    stage: 'IV',
-    treatment: 'Imunoterapia',
-    startDate: '20/02/2024',
-    status: 'Em tratamento',
-    authorizations: [],
-    Paciente_Nome: 'Carlos Santos',
-    Codigo: 'PAC004',
-    cpf: '789.123.456-00',
-    rg: '',
-    Data_Nascimento: '1953-01-01',
-    Sexo: 'Masculino',
-    Operadora: 'Amil',
-    Prestador: 'Centro Oncológico',
-    plano_saude: '',
-    numero_carteirinha: '',
-    Cid_Diagnostico: 'C34',
-    Data_Primeira_Solicitacao: '2024-02-20',
-    telefone: '',
-    email: '',
-    endereco: '',
-    observacoes: '',
-  },
-  {
-    id: '5',
-    name: 'Lúcia Oliveira',
-    age: 52,
-    gender: 'Feminino',
-    diagnosis: 'Linfoma Não-Hodgkin',
-    stage: 'III',
-    treatment: 'Quimioterapia',
-    startDate: '05/11/2023',
-    status: 'Em remissão',
-    authorizations: [],
-    Paciente_Nome: 'Lúcia Oliveira',
-    Codigo: 'PAC005',
-    cpf: '321.654.987-00',
-    rg: '',
-    Data_Nascimento: '1972-01-01',
-    Sexo: 'Feminino',
-    Operadora: 'Porto Seguro',
-    Prestador: 'Instituto de Oncologia',
-    plano_saude: '',
-    numero_carteirinha: '',
-    Cid_Diagnostico: 'C85',
-    Data_Primeira_Solicitacao: '2023-11-05',
-    telefone: '',
-    email: '',
-    endereco: '',
-    observacoes: '',
-  },
+    telefone: '(11) 77777-7777',
+    email: 'ana.costa@email.com',
+    endereco: 'Rua Augusta, 789 - São Paulo, SP',
+    observacoes: 'Paciente ansiosa, necessita acompanhamento psicológico.',
+  }
 ];
 
-// Empty patient combinado
+// Empty patient
 const emptyPatient: Patient = {
   id: '',
   name: '',
@@ -247,7 +423,7 @@ const emptyPatient: Patient = {
   observacoes: '',
 };
 
-// Helper function para calcular idade
+// Helper functions
 const calculateAge = (birthDate: string): number => {
   if (!birthDate) return 0;
   const birth = new Date(birthDate);
@@ -260,7 +436,6 @@ const calculateAge = (birthDate: string): number => {
   return age;
 };
 
-// Função para formatar data enquanto digita
 const formatDateInput = (value: string): string => {
   const numbers = value.replace(/\D/g, '');
   if (numbers.length <= 2) return numbers;
@@ -268,7 +443,6 @@ const formatDateInput = (value: string): string => {
   return `${numbers.slice(0, 2)}/${numbers.slice(2, 4)}/${numbers.slice(4, 8)}`;
 };
 
-// Função para converter DD/MM/YYYY para YYYY-MM-DD
 const convertToISODate = (dateStr: string): string => {
   if (!dateStr || !dateStr.includes('/')) return '';
   const [day, month, year] = dateStr.split('/');
@@ -276,12 +450,11 @@ const convertToISODate = (dateStr: string): string => {
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 };
 
-// Função para converter YYYY-MM-DD para DD/MM/YYYY
 const convertFromISODate = (dateStr: string): string => {
   if (!dateStr || !dateStr.includes('-')) return '';
   try {
-    const date = parseISO(dateStr);
-    return format(date, 'dd/MM/yyyy');
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
   } catch {
     return '';
   }
@@ -318,10 +491,6 @@ const Patients = () => {
 
   const handleDelete = (id: string) => {
     setPatients(patients.filter(patient => patient.id !== id));
-    toast({
-      title: "Paciente removido",
-      description: "O paciente foi removido com sucesso."
-    });
   };
 
   const handleShowInfo = (id: string) => {
@@ -333,19 +502,12 @@ const Patients = () => {
   };
 
   const handleSubmit = () => {
-    // Validações básicas
     if (!currentPatient.Paciente_Nome || !currentPatient.Codigo || !currentPatient.Data_Nascimento || 
         !currentPatient.Cid_Diagnostico || !currentPatient.stage || !currentPatient.treatment || 
         !currentPatient.startDate || !currentPatient.status || !currentPatient.Operadora || !currentPatient.Prestador) {
-      toast({
-        title: "Erro",
-        description: "Por favor, preencha todos os campos obrigatórios.",
-        variant: "destructive"
-      });
       return;
     }
     
-    // Sincronizar campos
     const updatedPatient = {
       ...currentPatient,
       name: currentPatient.Paciente_Nome,
@@ -358,20 +520,12 @@ const Patients = () => {
       setPatients(patients.map(patient => 
         patient.id === updatedPatient.id ? updatedPatient : patient
       ));
-      toast({
-        title: "Paciente atualizado",
-        description: "O paciente foi atualizado com sucesso."
-      });
     } else {
       const newPatient = {
         ...updatedPatient,
         id: Date.now().toString(),
       };
       setPatients([...patients, newPatient]);
-      toast({
-        title: "Paciente adicionado",
-        description: "O paciente foi adicionado com sucesso."
-      });
     }
     
     setIsDialogOpen(false);
@@ -392,32 +546,64 @@ const Patients = () => {
     });
   };
 
-  const handleDateChange = (name: string, date: Date | undefined) => {
+  const handleDateChange = (name: string, value: string) => {
     setCurrentPatient({
       ...currentPatient,
-      [name]: date ? format(date, 'yyyy-MM-dd') : '',
+      [name]: value,
     });
   };
 
   return (
     <div className="space-y-6">
+      <style jsx>{`
+        .perspective-1000 {
+          perspective: 1000px;
+        }
+        .transform-style-preserve-3d {
+          transform-style: preserve-3d;
+        }
+        .backface-hidden {
+          backface-visibility: hidden;
+        }
+        .rotate-y-180 {
+          transform: rotateY(180deg);
+        }
+        
+        @keyframes fade-in-up {
+          from {
+            opacity: 0;
+            transform: translateY(30px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        
+        .animate-fade-in-up {
+          animation: fade-in-up 0.6s ease-out forwards;
+        }
+      `}</style>
+      
       <AnimatedSection>
-        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 animate-entry">
-          <h1 className="text-2xl font-bold">Pacientes</h1>
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+            Pacientes
+          </h1>
           
           <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative max-w-xs glow-on-hover">
+            <div className="relative max-w-xs">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Buscar pacientes..."
-                className="pl-8 lco-input"
+                className="pl-8 transition-all duration-300 focus:ring-2 focus:ring-primary/20"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
             
             <Button 
-              className="lco-btn-primary hover-lift" 
+              className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 hover:shadow-lg" 
               onClick={handleAddNew}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -429,8 +615,8 @@ const Patients = () => {
       
       {filteredPatients.length === 0 ? (
         <AnimatedSection delay={200}>
-          <div className="flex flex-col items-center justify-center py-12 text-center animate-entry">
-            <User className="w-12 h-12 text-muted-foreground mb-4 animate-pulse-subtle" />
+          <div className="flex flex-col items-center justify-center py-12 text-center">
+            <User className="w-16 h-16 text-muted-foreground mb-4 opacity-50" />
             <h3 className="text-lg font-medium">Nenhum paciente encontrado</h3>
             <p className="text-muted-foreground mt-2">
               Tente mudar sua busca ou adicione um novo paciente
@@ -438,7 +624,7 @@ const Patients = () => {
             
             <Button 
               variant="outline"
-              className="mt-6 hover-lift"
+              className="mt-6 hover:bg-primary hover:text-primary-foreground transition-all duration-300"
               onClick={handleAddNew}
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -447,90 +633,23 @@ const Patients = () => {
           </div>
         </AnimatedSection>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredPatients.map((patient, index) => (
             <AnimatedSection key={patient.id} delay={100 * index}>
-              <Card className="h-full bg-card hover:shadow-lg transition-all duration-300 hover-lift overflow-hidden">
-                <CardHeader className="pb-3">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <CardTitle className="text-lg font-semibold line-clamp-1">{patient.name}</CardTitle>
-                      <CardDescription className="mt-1">
-                        <span className="text-sm">{patient.cpf || 'CPF não informado'}</span>
-                      </CardDescription>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleShowInfo(patient.id)}
-                    >
-                      <Info className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Idade:</span>
-                      <span className="font-medium">{patient.age} anos</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Diagnóstico:</span>
-                      <span className="font-medium line-clamp-1">{patient.diagnosis}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Estágio:</span>
-                      <span className="font-medium">{patient.stage}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Tratamento:</span>
-                      <span className="font-medium line-clamp-1">{patient.treatment}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Operadora:</span>
-                      <span className="font-medium">{patient.Operadora}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="pt-2 border-t">
-                    <div className="flex items-center justify-between">
-                      <Badge variant={patient.status === 'Em tratamento' ? 'default' : patient.status === 'Em remissão' ? 'secondary' : 'outline'}>
-                        {patient.status}
-                      </Badge>
-                      <span className="text-sm text-muted-foreground">
-                        Início: {patient.startDate}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex gap-2 pt-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                      onClick={() => handleEdit(patient.id)}
-                    >
-                      Editar
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="flex-1 text-destructive hover:bg-destructive hover:text-destructive-foreground"
-                      onClick={() => handleDelete(patient.id)}
-                    >
-                      Excluir
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <PatientCard 
+                patient={patient} 
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                onShowInfo={handleShowInfo}
+              />
             </AnimatedSection>
           ))}
         </div>
       )}
       
+      {/* Modal de Adicionar/Editar Paciente */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto animate-scale-in">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {isEditing ? 'Editar Paciente' : 'Adicionar Novo Paciente'}
@@ -547,31 +666,31 @@ const Patients = () => {
 
               <TabsContent value="dados-pessoais" className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
+              <div className="space-y-2">
                     <Label htmlFor="Paciente_Nome">Nome do Paciente *</Label>
-                    <Input
+                <Input
                       id="Paciente_Nome"
                       name="Paciente_Nome"
                       value={currentPatient.Paciente_Nome}
-                      onChange={handleInputChange}
-                      required
-                      className="transition-all duration-300 focus:border-primary"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
+                  onChange={handleInputChange}
+                  required
+                  className="transition-all duration-300 focus:border-primary"
+                />
+              </div>
+              
+                <div className="space-y-2">
                     <Label htmlFor="Codigo">Código do Paciente *</Label>
-                    <Input
+                  <Input
                       id="Codigo"
                       name="Codigo"
                       value={currentPatient.Codigo}
-                      onChange={handleInputChange}
-                      required
-                      className="transition-all duration-300 focus:border-primary"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
+                    onChange={handleInputChange}
+                    required
+                    className="transition-all duration-300 focus:border-primary"
+                  />
+                </div>
+                
+                <div className="space-y-2">
                     <Label htmlFor="cpf">CPF</Label>
                     <Input
                       id="cpf"
@@ -595,45 +714,23 @@ const Patients = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="Data_Nascimento">Data de Nascimento *</Label>
-                    <div className="relative">
-                      <Input
-                        id="Data_Nascimento"
-                        name="Data_Nascimento"
-                        value={convertFromISODate(currentPatient.Data_Nascimento)}
-                        onChange={(e) => {
-                          const formatted = formatDateInput(e.target.value);
-                          const isoDate = convertToISODate(formatted);
-                          setCurrentPatient({
-                            ...currentPatient,
-                            Data_Nascimento: isoDate
-                          });
-                        }}
-                        placeholder="DD/MM/AAAA"
-                        required
-                        maxLength={10}
-                        className="transition-all duration-300 focus:border-primary pr-10"
-                      />
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                          >
-                            <CalendarIcon className="h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={currentPatient.Data_Nascimento && isValid(parseISO(currentPatient.Data_Nascimento)) ? parseISO(currentPatient.Data_Nascimento) : undefined}
-                            onSelect={(date) => handleDateChange('Data_Nascimento', date)}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
+                    <Input
+                      id="Data_Nascimento"
+                      name="Data_Nascimento"
+                      value={convertFromISODate(currentPatient.Data_Nascimento)}
+                      onChange={(e) => {
+                        const formatted = formatDateInput(e.target.value);
+                        const isoDate = convertToISODate(formatted);
+                        setCurrentPatient({
+                          ...currentPatient,
+                          Data_Nascimento: isoDate
+                        });
+                      }}
+                      placeholder="DD/MM/AAAA"
+                      required
+                      maxLength={10}
+                      className="transition-all duration-300 focus:border-primary"
+                    />
                   </div>
 
                   <div className="space-y-2">
@@ -679,16 +776,16 @@ const Patients = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="Prestador">Prestador *</Label>
-                    <Input
+                  <Input
                       id="Prestador"
                       name="Prestador"
                       value={currentPatient.Prestador}
-                      onChange={handleInputChange}
+                    onChange={handleInputChange}
                       placeholder="Digite o nome do prestador..."
-                      required
-                      className="transition-all duration-300 focus:border-primary"
-                    />
-                  </div>
+                    required
+                    className="transition-all duration-300 focus:border-primary"
+                  />
+                </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="plano_saude">Plano de Saúde</Label>
@@ -710,126 +807,62 @@ const Patients = () => {
                       onChange={handleInputChange}
                       className="transition-all duration-300 focus:border-primary"
                     />
-                  </div>
-
-                  <div className="space-y-2">
+              </div>
+              
+              <div className="space-y-2">
                     <Label htmlFor="Cid_Diagnostico">CID Diagnóstico *</Label>
-                    <Input
+                <Input
                       id="Cid_Diagnostico"
                       name="Cid_Diagnostico"
                       value={currentPatient.Cid_Diagnostico}
-                      onChange={handleInputChange}
-                      required
-                      className="transition-all duration-300 focus:border-primary"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
+                  onChange={handleInputChange}
+                  required
+                  className="transition-all duration-300 focus:border-primary"
+                />
+              </div>
+              
+                <div className="space-y-2">
                     <Label htmlFor="stage">Estágio *</Label>
-                    <Input
-                      id="stage"
-                      name="stage"
-                      value={currentPatient.stage}
-                      onChange={handleInputChange}
-                      required
-                      className="transition-all duration-300 focus:border-primary"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
+                  <Input
+                    id="stage"
+                    name="stage"
+                    value={currentPatient.stage}
+                    onChange={handleInputChange}
+                    required
+                    className="transition-all duration-300 focus:border-primary"
+                  />
+                </div>
+                
+                <div className="space-y-2">
                     <Label htmlFor="treatment">Tratamento *</Label>
-                    <Input
-                      id="treatment"
-                      name="treatment"
-                      value={currentPatient.treatment}
-                      onChange={handleInputChange}
+                  <Input
+                    id="treatment"
+                    name="treatment"
+                    value={currentPatient.treatment}
+                    onChange={handleInputChange}
+                    required
+                    className="transition-all duration-300 focus:border-primary"
+                  />
+              </div>
+              
+              <div className="space-y-2">
+                    <Label htmlFor="startDate">Data de Início do Tratamento *</Label>
+                <Input
+                  id="startDate"
+                  name="startDate"
+                  value={currentPatient.startDate}
+                      onChange={(e) => {
+                        const formatted = formatDateInput(e.target.value);
+                        setCurrentPatient({
+                          ...currentPatient,
+                          startDate: formatted
+                        });
+                      }}
+                      placeholder="DD/MM/AAAA"
                       required
+                      maxLength={10}
                       className="transition-all duration-300 focus:border-primary"
                     />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="Data_Primeira_Solicitacao">Data Primeira Solicitação</Label>
-                    <div className="relative">
-                      <Input
-                        id="Data_Primeira_Solicitacao"
-                        name="Data_Primeira_Solicitacao"
-                        value={convertFromISODate(currentPatient.Data_Primeira_Solicitacao)}
-                        onChange={(e) => {
-                          const formatted = formatDateInput(e.target.value);
-                          const isoDate = convertToISODate(formatted);
-                          setCurrentPatient({
-                            ...currentPatient,
-                            Data_Primeira_Solicitacao: isoDate
-                          });
-                        }}
-                        placeholder="DD/MM/AAAA"
-                        maxLength={10}
-                        className="transition-all duration-300 focus:border-primary pr-10"
-                      />
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                          >
-                            <CalendarIcon className="h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={currentPatient.Data_Primeira_Solicitacao && isValid(parseISO(currentPatient.Data_Primeira_Solicitacao)) ? parseISO(currentPatient.Data_Primeira_Solicitacao) : undefined}
-                            onSelect={(date) => handleDateChange('Data_Primeira_Solicitacao', date)}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="startDate">Data de Início do Tratamento *</Label>
-                    <div className="relative">
-                      <Input
-                        id="startDate"
-                        name="startDate"
-                        value={currentPatient.startDate}
-                        onChange={(e) => {
-                          const formatted = formatDateInput(e.target.value);
-                          setCurrentPatient({
-                            ...currentPatient,
-                            startDate: formatted
-                          });
-                        }}
-                        placeholder="DD/MM/AAAA"
-                        required
-                        maxLength={10}
-                        className="transition-all duration-300 focus:border-primary pr-10"
-                      />
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                          >
-                            <CalendarIcon className="h-4 w-4" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={currentPatient.startDate ? new Date(currentPatient.startDate.split('/').reverse().join('-')) : undefined}
-                            onSelect={(date) => setCurrentPatient({...currentPatient, startDate: date ? format(date, 'dd/MM/yyyy') : ''})}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
@@ -860,14 +893,14 @@ const Patients = () => {
                       id="telefone"
                       name="telefone"
                       value={currentPatient.telefone}
-                      onChange={handleInputChange}
-                      className="transition-all duration-300 focus:border-primary"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
+                  onChange={handleInputChange}
+                  className="transition-all duration-300 focus:border-primary"
+                />
+              </div>
+              
+              <div className="space-y-2">
                     <Label htmlFor="email">E-mail</Label>
-                    <Input
+                <Input
                       id="email"
                       name="email"
                       type="email"
@@ -894,11 +927,11 @@ const Patients = () => {
                       id="observacoes"
                       name="observacoes"
                       value={currentPatient.observacoes}
-                      onChange={handleInputChange}
-                      className="transition-all duration-300 focus:border-primary"
-                    />
-                  </div>
-                </div>
+                  onChange={handleInputChange}
+                  className="transition-all duration-300 focus:border-primary"
+                />
+              </div>
+            </div>
               </TabsContent>
             </Tabs>
             
@@ -907,13 +940,12 @@ const Patients = () => {
                 type="button" 
                 variant="outline" 
                 onClick={() => setIsDialogOpen(false)}
-                className="hover-lift"
               >
                 Cancelar
               </Button>
               <Button 
                 type="submit" 
-                className="lco-btn-primary hover-lift"
+                className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
                 onClick={handleSubmit}
               >
                 {isEditing ? 'Salvar Alterações' : 'Adicionar Paciente'}
@@ -925,18 +957,17 @@ const Patients = () => {
 
       {/* Modal de Informações Detalhadas */}
       <Dialog open={isInfoDialogOpen} onOpenChange={setIsInfoDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto animate-scale-in">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold flex items-center gap-2">
               <User className="h-5 w-5" />
-              Informações do Paciente
+              Informações Completas do Paciente
             </DialogTitle>
           </DialogHeader>
           
           {selectedPatient && (
             <div className="space-y-6">
-              {/* Header com informações principais */}
-              <div className="bg-primary/5 rounded-lg p-4">
+              <div className="bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg p-4">
                 <h3 className="text-lg font-semibold mb-2">{selectedPatient.name}</h3>
                 <div className="flex items-center gap-4 text-sm">
                   <Badge variant={selectedPatient.status === 'Em tratamento' ? 'default' : selectedPatient.status === 'Em remissão' ? 'secondary' : 'outline'}>
@@ -947,7 +978,6 @@ const Patients = () => {
                 </div>
               </div>
 
-              {/* Dados Pessoais */}
               <div>
                 <h4 className="font-semibold mb-3 flex items-center gap-2">
                   <User className="h-4 w-4" />
@@ -975,7 +1005,6 @@ const Patients = () => {
 
               <Separator />
 
-              {/* Dados Médicos */}
               <div>
                 <h4 className="font-semibold mb-3 flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
@@ -991,14 +1020,6 @@ const Patients = () => {
                     <p className="font-medium">{selectedPatient.Prestador}</p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Plano de Saúde:</span>
-                    <p className="font-medium">{selectedPatient.plano_saude || 'Não informado'}</p>
-                  </div>
-                  <div>
-                    <span className="text-muted-foreground">Número da Carteirinha:</span>
-                    <p className="font-medium">{selectedPatient.numero_carteirinha || 'Não informado'}</p>
-                  </div>
-                  <div>
                     <span className="text-muted-foreground">CID Diagnóstico:</span>
                     <p className="font-medium">{selectedPatient.Cid_Diagnostico}</p>
                   </div>
@@ -1011,10 +1032,6 @@ const Patients = () => {
                     <p className="font-medium">{selectedPatient.treatment}</p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Data Primeira Solicitação:</span>
-                    <p className="font-medium">{convertFromISODate(selectedPatient.Data_Primeira_Solicitacao) || 'Não informado'}</p>
-                  </div>
-                  <div>
                     <span className="text-muted-foreground">Início do Tratamento:</span>
                     <p className="font-medium">{selectedPatient.startDate}</p>
                   </div>
@@ -1023,7 +1040,6 @@ const Patients = () => {
 
               <Separator />
 
-              {/* Dados de Contato */}
               <div>
                 <h4 className="font-semibold mb-3 flex items-center gap-2">
                   <Phone className="h-4 w-4" />
@@ -1054,7 +1070,6 @@ const Patients = () => {
                 </div>
               </div>
 
-              {/* Observações */}
               {selectedPatient.observacoes && (
                 <>
                   <Separator />
@@ -1067,7 +1082,6 @@ const Patients = () => {
                 </>
               )}
 
-              {/* Autorizações */}
               {selectedPatient.authorizations && selectedPatient.authorizations.length > 0 && (
                 <>
                   <Separator />

@@ -167,7 +167,7 @@ const PatientCard = ({ patient, onEdit, onDelete }: PatientCardProps) => {
                   Solicitações de Autorização
                 </h3>
                 
-                <div className="space-y-3">
+                <div className="space-y-3 max-h-[150px] overflow-y-auto">
                   {patient.authorizations && Array.isArray(patient.authorizations) && patient.authorizations.length > 0 ? (
                     patient.authorizations.map((auth) => (
                       <div 
