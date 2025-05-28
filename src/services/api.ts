@@ -48,6 +48,48 @@ export interface PatientFromAPI {
   prestador_nome?: string;
 }
 
+// Função para converter data DD/MM/YYYY para YYYY-MM-DD
+const convertDateToISO = (dateStr: string): string => {
+  if (!dateStr) return '';
+  
+  // Se já está no formato ISO (YYYY-MM-DD), retorna como está
+  if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return dateStr;
+  }
+  
+  // Se está no formato brasileiro (DD/MM/YYYY)
+  if (dateStr.includes('/')) {
+    const [day, month, year] = dateStr.split('/');
+    if (day && month && year && year.length === 4) {
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+  }
+  
+  return '';
+};
+
+// Função para converter data YYYY-MM-DD para DD/MM/YYYY
+const convertDateFromISO = (dateStr: string): string => {
+  if (!dateStr) return '';
+  
+  // Se já está no formato brasileiro, retorna como está
+  if (dateStr.includes('/')) {
+    return dateStr;
+  }
+  
+  // Se está no formato ISO (YYYY-MM-DD)
+  if (dateStr.includes('-')) {
+    try {
+      const [year, month, day] = dateStr.split('-');
+      return `${day}/${month}/${year}`;
+    } catch {
+      return '';
+    }
+  }
+  
+  return dateStr;
+};
+
 // Função para converter data do backend para o formato do frontend
 const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
   // Calcular idade
@@ -61,13 +103,6 @@ const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
       age--;
     }
     return age;
-  };
-
-  // Converter data para formato DD/MM/YYYY
-  const formatDate = (dateString: string): string => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('pt-BR');
   };
 
   // Mapear status
@@ -86,7 +121,7 @@ const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
     diagnosis: apiPatient.Cid_Diagnostico,
     stage: 'II', // Você pode adaptar isso conforme sua necessidade
     treatment: 'Quimioterapia', // Você pode adaptar isso conforme sua necessidade
-    startDate: formatDate(apiPatient.Data_Primeira_Solicitacao),
+    startDate: convertDateFromISO(apiPatient.Data_Primeira_Solicitacao), // ✅ CORRIGIDO
     status: statusMap[apiPatient.status] || apiPatient.status,
     authorizations: [], // Você pode adaptar isso quando implementar as autorizações
     
@@ -95,7 +130,7 @@ const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
     Codigo: apiPatient.Codigo,
     cpf: apiPatient.cpf || '',
     rg: apiPatient.rg || '',
-    Data_Nascimento: apiPatient.Data_Nascimento,
+    Data_Nascimento: apiPatient.Data_Nascimento, // Manter no formato ISO para o backend
     Sexo: apiPatient.Sexo,
     Operadora: apiPatient.operadora_nome || apiPatient.Operadora.toString(),
     Prestador: apiPatient.prestador_nome || apiPatient.Prestador.toString(),
@@ -112,16 +147,22 @@ const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
 
 // Função para converter do frontend para API
 const convertFrontendToAPI = (frontendPatient: any): Partial<PatientFromAPI> => {
-  return {
-    clinica_id: frontendPatient.clinica_id || 1, // Você pode adaptar conforme sua lógica de clínica
+  console.log('🔧 Dados recebidos do frontend:', frontendPatient);
+  
+  const converted = {
+    clinica_id: frontendPatient.clinica_id || 1, // Valor padrão para testes
     Paciente_Nome: frontendPatient.Paciente_Nome || frontendPatient.name,
-    Operadora: typeof frontendPatient.Operadora === 'string' ? 1 : frontendPatient.Operadora, // Adaptar conforme necessário
-    Prestador: typeof frontendPatient.Prestador === 'string' ? 1 : frontendPatient.Prestador, // Adaptar conforme necessário
+    Operadora: parseInt(frontendPatient.Operadora) || 1, // Converter para número
+    Prestador: parseInt(frontendPatient.Prestador) || 1, // Converter para número
     Codigo: frontendPatient.Codigo,
-    Data_Nascimento: frontendPatient.Data_Nascimento,
+    Data_Nascimento: convertDateToISO(frontendPatient.Data_Nascimento), // ✅ CORRIGIDO
     Sexo: frontendPatient.Sexo,
     Cid_Diagnostico: frontendPatient.Cid_Diagnostico,
-    Data_Primeira_Solicitacao: frontendPatient.Data_Primeira_Solicitacao || frontendPatient.startDate,
+    Data_Primeira_Solicitacao: convertDateToISO(
+      frontendPatient.Data_Primeira_Solicitacao || 
+      frontendPatient.startDate ||
+      new Date().toISOString().split('T')[0] // Data atual como fallback
+    ), // ✅ CORRIGIDO
     cpf: frontendPatient.cpf,
     rg: frontendPatient.rg,
     telefone: frontendPatient.telefone,
@@ -134,6 +175,9 @@ const convertFrontendToAPI = (frontendPatient: any): Partial<PatientFromAPI> => 
     status: frontendPatient.status || 'ativo',
     observacoes: frontendPatient.observacoes,
   };
+  
+  console.log('🔧 Dados convertidos para API:', converted);
+  return converted;
 };
 
 export class PacienteService {
@@ -291,6 +335,7 @@ export const testarConexaoBackend = async (): Promise<boolean> => {
     return false;
   }
 };
+
 
 // Função para testar conexão com banco via API
 export const testarConexaoBanco = async (): Promise<boolean> => {

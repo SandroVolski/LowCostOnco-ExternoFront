@@ -477,20 +477,43 @@ const formatDateInput = (value: string): string => {
 };
 
 const convertToISODate = (dateStr: string): string => {
-  if (!dateStr || !dateStr.includes('/')) return '';
-  const [day, month, year] = dateStr.split('/');
-  if (!day || !month || !year || year.length !== 4) return '';
-  return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  if (!dateStr) return '';
+  
+  // Se já está no formato ISO (YYYY-MM-DD), retorna como está
+  if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    return dateStr;
+  }
+  
+  // Se está no formato brasileiro (DD/MM/YYYY)
+  if (dateStr.includes('/')) {
+    const [day, month, year] = dateStr.split('/');
+    if (day && month && year && year.length === 4) {
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+  }
+  
+  return '';
 };
 
 const convertFromISODate = (dateStr: string): string => {
-  if (!dateStr || !dateStr.includes('-')) return '';
-  try {
-    const [year, month, day] = dateStr.split('-');
-    return `${day}/${month}/${year}`;
-  } catch {
-    return '';
+  if (!dateStr) return '';
+  
+  // Se já está no formato brasileiro, retorna como está
+  if (dateStr.includes('/')) {
+    return dateStr;
   }
+  
+  // Se está no formato ISO (YYYY-MM-DD)
+  if (dateStr.includes('-')) {
+    try {
+      const [year, month, day] = dateStr.split('-');
+      return `${day}/${month}/${year}`;
+    } catch {
+      return '';
+    }
+  }
+  
+  return dateStr;
 };
 
 const Patients = () => {
@@ -629,6 +652,7 @@ const Patients = () => {
   };
 
   const handleSubmit = async () => {
+    // Validações básicas
     if (!currentPatient.Paciente_Nome || !currentPatient.Codigo || !currentPatient.Data_Nascimento || 
         !currentPatient.Cid_Diagnostico || !currentPatient.stage || !currentPatient.treatment || 
         !currentPatient.startDate || !currentPatient.status || !currentPatient.Operadora || !currentPatient.Prestador) {
@@ -640,11 +664,26 @@ const Patients = () => {
       // Usar API do backend
       setLoading(true);
       try {
+        // Preparar dados com conversão de datas
+        const dadosParaEnvio = {
+          ...currentPatient,
+          // Garantir que as datas estejam no formato correto para o backend
+          Data_Nascimento: convertToISODate(currentPatient.Data_Nascimento),
+          Data_Primeira_Solicitacao: convertToISODate(currentPatient.startDate),
+          // Garantir que Operadora e Prestador sejam números
+          Operadora: typeof currentPatient.Operadora === 'string' ? 1 : currentPatient.Operadora,
+          Prestador: typeof currentPatient.Prestador === 'string' ? 1 : currentPatient.Prestador,
+          // Adicionar clinica_id se não existir
+          clinica_id: currentPatient.clinica_id || 1
+        };
+        
+        console.log('🔧 Dados preparados para envio:', dadosParaEnvio);
+        
         if (isEditing) {
-          const updated = await PacienteService.atualizarPaciente(parseInt(currentPatient.id!), currentPatient);
+          const updated = await PacienteService.atualizarPaciente(parseInt(currentPatient.id!), dadosParaEnvio);
           toast.success('Paciente atualizado com sucesso!');
         } else {
-          const created = await PacienteService.criarPaciente(currentPatient);
+          const created = await PacienteService.criarPaciente(dadosParaEnvio);
           toast.success('Paciente criado com sucesso!');
         }
         
@@ -866,7 +905,7 @@ const Patients = () => {
                         const isoDate = convertToISODate(formatted);
                         setCurrentPatient({
                           ...currentPatient,
-                          Data_Nascimento: isoDate
+                          Data_Nascimento: isoDate // Armazenar sempre no formato ISO
                         });
                       }}
                       placeholder="DD/MM/AAAA"
@@ -989,24 +1028,25 @@ const Patients = () => {
               </div>
               
               <div className="space-y-2">
-                    <Label htmlFor="startDate">Data de Início do Tratamento *</Label>
+                <Label htmlFor="startDate">Data de Início do Tratamento *</Label>
                 <Input
                   id="startDate"
                   name="startDate"
-                  value={currentPatient.startDate}
-                      onChange={(e) => {
-                        const formatted = formatDateInput(e.target.value);
-                        setCurrentPatient({
-                          ...currentPatient,
-                          startDate: formatted
-                        });
-                      }}
-                      placeholder="DD/MM/AAAA"
-                      required
-                      maxLength={10}
-                      className="transition-all duration-300 focus:border-primary"
-                    />
-                  </div>
+                  value={convertFromISODate(currentPatient.startDate)}
+                  onChange={(e) => {
+                    const formatted = formatDateInput(e.target.value);
+                    const isoDate = convertToISODate(formatted);
+                    setCurrentPatient({
+                      ...currentPatient,
+                      startDate: isoDate // Armazenar sempre no formato ISO
+                    });
+                  }}
+                  placeholder="DD/MM/AAAA"
+                  required
+                  maxLength={10}
+                  className="transition-all duration-300 focus:border-primary"
+                />
+              </div>
 
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="status">Status *</Label>
