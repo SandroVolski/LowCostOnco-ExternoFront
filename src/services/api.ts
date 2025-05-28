@@ -48,6 +48,33 @@ export interface PatientFromAPI {
   prestador_nome?: string;
 }
 
+// Função para converter data YYYY-MM-DD para DD/MM/YYYY
+const convertDateFromISO = (dateStr: string): string => {
+  if (!dateStr) return '';
+  
+  // Se já está no formato brasileiro, retorna como está
+  if (dateStr.includes('/') && !dateStr.includes('T')) {
+    return dateStr;
+  }
+  
+  // Se contém 'T' (formato ISO completo), extrai apenas a data
+  if (dateStr.includes('T')) {
+    dateStr = dateStr.split('T')[0];
+  }
+  
+  // Se está no formato ISO (YYYY-MM-DD)
+  if (dateStr.includes('-') && dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+    try {
+      const [year, month, day] = dateStr.split('-');
+      return `${day}/${month}/${year}`;
+    } catch {
+      return '';
+    }
+  }
+  
+  return dateStr;
+};
+
 // Função para converter data DD/MM/YYYY para YYYY-MM-DD
 const convertDateToISO = (dateStr: string): string => {
   if (!dateStr) return '';
@@ -68,34 +95,19 @@ const convertDateToISO = (dateStr: string): string => {
   return '';
 };
 
-// Função para converter data YYYY-MM-DD para DD/MM/YYYY
-const convertDateFromISO = (dateStr: string): string => {
-  if (!dateStr) return '';
-  
-  // Se já está no formato brasileiro, retorna como está
-  if (dateStr.includes('/')) {
-    return dateStr;
-  }
-  
-  // Se está no formato ISO (YYYY-MM-DD)
-  if (dateStr.includes('-')) {
-    try {
-      const [year, month, day] = dateStr.split('-');
-      return `${day}/${month}/${year}`;
-    } catch {
-      return '';
-    }
-  }
-  
-  return dateStr;
-};
-
 // Função para converter data do backend para o formato do frontend
 const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
   // Calcular idade
   const calculateAge = (birthDate: string): number => {
     if (!birthDate) return 0;
-    const birth = new Date(birthDate);
+    
+    // Garantir que temos apenas a data (YYYY-MM-DD)
+    let cleanDate = birthDate;
+    if (birthDate.includes('T')) {
+      cleanDate = birthDate.split('T')[0];
+    }
+    
+    const birth = new Date(cleanDate);
     const today = new Date();
     let age = today.getFullYear() - birth.getFullYear();
     const monthDiff = today.getMonth() - birth.getMonth();
@@ -121,7 +133,7 @@ const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
     diagnosis: apiPatient.Cid_Diagnostico,
     stage: 'II', // Você pode adaptar isso conforme sua necessidade
     treatment: 'Quimioterapia', // Você pode adaptar isso conforme sua necessidade
-    startDate: convertDateFromISO(apiPatient.Data_Primeira_Solicitacao), // ✅ CORRIGIDO
+    startDate: convertDateFromISO(apiPatient.Data_Primeira_Solicitacao),
     status: statusMap[apiPatient.status] || apiPatient.status,
     authorizations: [], // Você pode adaptar isso quando implementar as autorizações
     
@@ -130,14 +142,14 @@ const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
     Codigo: apiPatient.Codigo,
     cpf: apiPatient.cpf || '',
     rg: apiPatient.rg || '',
-    Data_Nascimento: apiPatient.Data_Nascimento, // Manter no formato ISO para o backend
+    Data_Nascimento: convertDateFromISO(apiPatient.Data_Nascimento), // Converter para exibição
     Sexo: apiPatient.Sexo,
     Operadora: apiPatient.operadora_nome || apiPatient.Operadora.toString(),
     Prestador: apiPatient.prestador_nome || apiPatient.Prestador.toString(),
     plano_saude: apiPatient.plano_saude || '',
     numero_carteirinha: apiPatient.numero_carteirinha || '',
     Cid_Diagnostico: apiPatient.Cid_Diagnostico,
-    Data_Primeira_Solicitacao: apiPatient.Data_Primeira_Solicitacao,
+    Data_Primeira_Solicitacao: convertDateFromISO(apiPatient.Data_Primeira_Solicitacao), // Converter para exibição
     telefone: apiPatient.telefone || '',
     email: apiPatient.email || '',
     endereco: apiPatient.endereco || '',

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, User, Calendar as CalendarIcon, Info, Phone, Mail, MapPin, CreditCard, Building2, FlipHorizontal, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, User, Calendar as CalendarIcon, Info, Phone, Mail, MapPin, CreditCard, Building2, FlipHorizontal, Edit, Trash2, Filter, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle } from 'lucide-react';
 
 // CSS como string constante
 const patientCardStyles = `
@@ -31,6 +31,7 @@ const patientCardStyles = `
     animation: fade-in-up 0.6s ease-out forwards;
   }
 `;
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -41,6 +42,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PacienteService, testarConexaoBackend, testarConexaoBanco } from '@/services/api';
 import { toast } from 'sonner';
 
@@ -83,6 +85,82 @@ interface Patient {
   observacoes: string;
 }
 
+interface ModernAlertProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  title: string;
+  description: string;
+  type: 'delete' | 'success' | 'warning';
+  patientName?: string;
+}
+
+const ModernAlert = ({ isOpen, onClose, onConfirm, title, description, type, patientName }: ModernAlertProps) => {
+  if (!isOpen) return null;
+
+  const getIcon = () => {
+    switch (type) {
+      case 'delete':
+        return <AlertTriangle className="h-6 w-6 text-red-500" />;
+      case 'success':
+        return <CheckCircle className="h-6 w-6 text-green-500" />;
+      case 'warning':
+        return <AlertTriangle className="h-6 w-6 text-yellow-500" />;
+    }
+  };
+
+  const getColors = () => {
+    switch (type) {
+      case 'delete':
+        return {
+          bg: 'bg-red-50 dark:bg-red-900/20',
+          border: 'border-red-200 dark:border-red-800',
+          button: 'bg-red-600 hover:bg-red-700 text-white'
+        };
+      case 'success':
+        return {
+          bg: 'bg-green-50 dark:bg-green-900/20',
+          border: 'border-green-200 dark:border-green-800',
+          button: 'bg-green-600 hover:bg-green-700 text-white'
+        };
+      case 'warning':
+        return {
+          bg: 'bg-yellow-50 dark:bg-yellow-900/20',
+          border: 'border-yellow-200 dark:border-yellow-800',
+          button: 'bg-yellow-600 hover:bg-yellow-700 text-white'
+        };
+    }
+  };
+
+  const colors = getColors();
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-fade-in">
+      <div className={`max-w-md w-full mx-4 rounded-2xl p-6 shadow-2xl border ${colors.bg} ${colors.border} animate-scale-in`}>
+        <div className="flex items-center gap-4 mb-4">
+          {getIcon()}
+          <h3 className="text-lg font-semibold text-foreground">{title}</h3>
+        </div>
+        <p className="text-muted-foreground mb-6">
+          {description}
+          {patientName && (
+            <span className="font-medium text-foreground"> "{patientName}"</span>
+          )}
+          ?
+        </p>
+        <div className="flex gap-3 justify-end">
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button className={colors.button} onClick={onConfirm}>
+            {type === 'delete' ? 'Excluir' : 'Confirmar'}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Componente PatientCard com efeito de virar APENAS no clique
 const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
   patient: Patient;
@@ -98,13 +176,13 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
 
   return (
     <div 
-      className="h-[340px] w-full perspective-1000 cursor-pointer select-none"
+      className="h-[400px] w-full perspective-1000 cursor-pointer select-none"
       onClick={handleCardClick}
     >
       <div className={`relative w-full h-full transition-all duration-700 transform-style-preserve-3d ${isFlipped ? 'rotate-y-180' : ''} active:scale-[0.98]`}>
         {/* Frente do Card */}
         <div className="absolute inset-0 w-full h-full backface-hidden">
-          <Card className="h-full bg-gradient-to-br from-card via-card to-card/90 shadow-md transition-shadow duration-300 overflow-hidden border-2 border-border">
+          <Card className="h-full bg-gradient-to-br from-card via-card to-card/90 shadow-lg transition-all duration-300 overflow-hidden border-2 border-border hover:shadow-xl hover:border-primary/30">
             <CardHeader className="pb-3 bg-gradient-to-r from-primary/5 to-primary/10">
               <div className="flex justify-between items-start">
                 <div className="flex-1">
@@ -128,14 +206,10 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
                   >
                     <Info className="h-4 w-4" />
                   </Button>
-                  <div className="text-xs text-muted-foreground flex items-center gap-1 px-2 py-1 bg-background/80 rounded-full animate-pulse">
-                    <FlipHorizontal className="h-3 w-3" />
-                    Clique para virar
-                  </div>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="space-y-4 p-4">
+            <CardContent className="space-y-4 p-4 flex-1">
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground flex items-center gap-1">
@@ -163,11 +237,15 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
                   </span>
                   <span className="font-medium text-xs">{patient.Operadora}</span>
                 </div>
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Data Nasc.:</span>
+                  <span className="font-medium text-xs">{patient.Data_Nascimento}</span>
+                </div>
               </div>
               
               <Separator className="my-3" />
               
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-4">
                 <Badge variant={
                   patient.status === 'Em tratamento' ? 'default' : 
                   patient.status === 'Em remissão' ? 'secondary' : 
@@ -180,7 +258,7 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
                 </span>
               </div>
               
-              <div className="flex gap-2 pt-2">
+              <div className="flex gap-2 mt-auto">
                 <Button
                   variant="outline"
                   size="sm"
@@ -206,17 +284,22 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
                   Excluir
                 </Button>
               </div>
+              
+              <div className="text-xs text-muted-foreground flex items-center justify-center gap-1 mt-2 animate-pulse">
+                <FlipHorizontal className="h-3 w-3" />
+                Clique para ver mais detalhes
+              </div>
             </CardContent>
           </Card>
         </div>
 
         {/* Verso do Card */}
         <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180">
-          <Card className="h-full bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 shadow-md transition-shadow duration-300 overflow-hidden border-2 border-primary/30">
+          <Card className="h-full bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 shadow-lg transition-shadow duration-300 overflow-hidden border-2 border-primary/30">
             <CardHeader className="pb-3 bg-gradient-to-r from-primary/10 to-primary/20">
               <div className="flex justify-between items-start">
                 <CardTitle className="text-lg font-semibold text-primary">
-                  Detalhes Médicos
+                  Detalhes Completos
                 </CardTitle>
                 <div className="text-xs text-muted-foreground flex items-center gap-1 px-2 py-1 bg-background/80 rounded-full animate-pulse">
                   <FlipHorizontal className="h-3 w-3" />
@@ -228,7 +311,7 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
                 Código: {patient.Codigo}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3 p-4">
+            <CardContent className="space-y-3 p-4 overflow-y-auto flex-1">
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Prestador:</span>
@@ -267,9 +350,9 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
               {patient.authorizations && patient.authorizations.length > 0 ? (
                 <div>
                   <h5 className="text-xs font-semibold mb-2 text-primary">Últimas Autorizações</h5>
-                  <div className="space-y-2 max-h-20 overflow-y-auto">
-                    {patient.authorizations.slice(0, 2).map((auth) => (
-                      <div key={auth.id} className="flex items-center justify-between text-xs">
+                  <div className="space-y-2 max-h-24 overflow-y-auto">
+                    {patient.authorizations.slice(0, 3).map((auth) => (
+                      <div key={auth.id} className="flex items-center justify-between text-xs bg-background/50 p-2 rounded">
                         <span className="line-clamp-1">{auth.protocol}</span>
                         <Badge 
                           variant={auth.status === 'approved' ? 'default' : auth.status === 'pending' ? 'secondary' : 'destructive'}
@@ -287,7 +370,14 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
                 </div>
               )}
 
-              <div className="flex gap-2 pt-2 mt-auto">
+              {patient.observacoes && (
+                <div>
+                  <h5 className="text-xs font-semibold mb-1 text-primary">Observações</h5>
+                  <p className="text-xs text-muted-foreground line-clamp-3">{patient.observacoes}</p>
+                </div>
+              )}
+
+              <div className="flex gap-2 pt-2">
                 <Button
                   variant="outline"
                   size="sm"
@@ -312,7 +402,7 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
 // Seção animada
 const AnimatedSection = ({ children, delay = 0, className = "" }: {
   children: React.ReactNode;
-  delay?: number;
+  delay?: number;  
   className?: string;
 }) => (
   <div 
@@ -322,6 +412,80 @@ const AnimatedSection = ({ children, delay = 0, className = "" }: {
     {children}
   </div>
 );
+
+// Componente de Paginação
+const Pagination = ({ currentPage, totalPages, onPageChange }: {
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}) => {
+  const getVisiblePages = () => {
+    const delta = 2;
+    const range = [];
+    const rangeWithDots = [];
+
+    for (let i = Math.max(2, currentPage - delta); i <= Math.min(totalPages - 1, currentPage + delta); i++) {
+      range.push(i);
+    }
+
+    if (currentPage - delta > 2) {
+      rangeWithDots.push(1, '...');
+    } else {
+      rangeWithDots.push(1);
+    }
+
+    rangeWithDots.push(...range);
+
+    if (currentPage + delta < totalPages - 1) {
+      rangeWithDots.push('...', totalPages);
+    } else if (totalPages > 1) {
+      rangeWithDots.push(totalPages);
+    }
+
+    return rangeWithDots;
+  };
+
+  if (totalPages <= 1) return null;
+
+  return (
+    <div className="flex items-center justify-center gap-2 mt-8">
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => onPageChange(currentPage - 1)}
+        disabled={currentPage === 1}
+      >
+        <ChevronLeft className="h-4 w-4" />
+        Anterior
+      </Button>
+
+      <div className="flex gap-1">
+        {getVisiblePages().map((page, index) => (
+          <Button
+            key={index}
+            variant={page === currentPage ? "default" : "outline"}
+            size="sm"
+            onClick={() => typeof page === 'number' && onPageChange(page)}
+            disabled={typeof page !== 'number'}
+            className="min-w-[40px]"
+          >
+            {page}
+          </Button>
+        ))}
+      </div>
+
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => onPageChange(currentPage + 1)}
+        disabled={currentPage === totalPages}
+      >
+        Próxima
+        <ChevronRight className="h-4 w-4" />
+      </Button>
+    </div>
+  );
+};
 
 // Mock patient data
 const initialPatients: Patient[] = [
@@ -342,87 +506,24 @@ const initialPatients: Patient[] = [
         status: 'approved',
         protocol: 'Protocolo ABC',
         description: 'Solicitação inicial de tratamento'
-      },
-      {
-        id: 'auth2',
-        date: '20/05/2024',
-        status: 'pending',
-        protocol: 'Protocolo DEF',
-        description: 'Solicitação para ciclo adicional'
       }
     ],
     Paciente_Nome: 'Maria Silva',
     Codigo: 'PAC001',
     cpf: '123.456.789-00',
     rg: '12.345.678-9',
-    Data_Nascimento: '1968-01-01',
+    Data_Nascimento: '01/01/1968',
     Sexo: 'Feminino',
     Operadora: 'Unimed',
     Prestador: 'Hospital ABC',
     plano_saude: 'Unimed Nacional',
     numero_carteirinha: '123456789',
     Cid_Diagnostico: 'C50',
-    Data_Primeira_Solicitacao: '2024-01-15',
+    Data_Primeira_Solicitacao: '15/01/2024',
     telefone: '(11) 99999-9999',
     email: 'maria.silva@email.com',
     endereco: 'Rua das Flores, 123 - São Paulo, SP',
     observacoes: 'Paciente colaborativa, boa resposta ao tratamento inicial.',
-  },
-  {
-    id: '2',
-    name: 'João Mendes',
-    age: 62,
-    gender: 'Masculino',
-    diagnosis: 'Câncer de Próstata',
-    stage: 'III',
-    treatment: 'Radioterapia',
-    startDate: '02/03/2024',
-    status: 'Em tratamento',
-    authorizations: [],
-    Paciente_Nome: 'João Mendes',
-    Codigo: 'PAC002',
-    cpf: '987.654.321-00',
-    rg: '98.765.432-1',
-    Data_Nascimento: '1962-01-01',
-    Sexo: 'Masculino',
-    Operadora: 'Bradesco Saúde',
-    Prestador: 'Clínica XYZ',
-    plano_saude: 'Bradesco Premium',
-    numero_carteirinha: '987654321',
-    Cid_Diagnostico: 'C61',
-    Data_Primeira_Solicitacao: '2024-03-02',
-    telefone: '(11) 88888-8888',
-    email: 'joao.mendes@email.com',
-    endereco: 'Av. Paulista, 456 - São Paulo, SP',
-    observacoes: '',
-  },
-  {
-    id: '3',
-    name: 'Ana Costa',
-    age: 48,
-    gender: 'Feminino',
-    diagnosis: 'Câncer Colorretal',
-    stage: 'II',
-    treatment: 'Cirurgia + Quimioterapia',
-    startDate: '10/12/2023',
-    status: 'Em tratamento',
-    authorizations: [],
-    Paciente_Nome: 'Ana Costa',
-    Codigo: 'PAC003',
-    cpf: '456.789.123-00',
-    rg: '45.678.912-3',
-    Data_Nascimento: '1976-01-01',
-    Sexo: 'Feminino',
-    Operadora: 'SulAmérica',
-    Prestador: 'Hospital DEF',
-    plano_saude: 'SulAmérica Saúde',
-    numero_carteirinha: '456789123',
-    Cid_Diagnostico: 'C18',
-    Data_Primeira_Solicitacao: '2023-12-10',
-    telefone: '(11) 77777-7777',
-    email: 'ana.costa@email.com',
-    endereco: 'Rua Augusta, 789 - São Paulo, SP',
-    observacoes: 'Paciente ansiosa, necessita acompanhamento psicológico.',
   }
 ];
 
@@ -479,12 +580,10 @@ const formatDateInput = (value: string): string => {
 const convertToISODate = (dateStr: string): string => {
   if (!dateStr) return '';
   
-  // Se já está no formato ISO (YYYY-MM-DD), retorna como está
   if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
     return dateStr;
   }
   
-  // Se está no formato brasileiro (DD/MM/YYYY)
   if (dateStr.includes('/')) {
     const [day, month, year] = dateStr.split('/');
     if (day && month && year && year.length === 4) {
@@ -498,12 +597,10 @@ const convertToISODate = (dateStr: string): string => {
 const convertFromISODate = (dateStr: string): string => {
   if (!dateStr) return '';
   
-  // Se já está no formato brasileiro, retorna como está
   if (dateStr.includes('/')) {
     return dateStr;
   }
   
-  // Se está no formato ISO (YYYY-MM-DD)
   if (dateStr.includes('-')) {
     try {
       const [year, month, day] = dateStr.split('-');
@@ -517,34 +614,24 @@ const convertFromISODate = (dateStr: string): string => {
 };
 
 const Patients = () => {
-  const [patients, setPatients] = useState<Patient[]>(initialPatients);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortBy, setSortBy] = useState('newest');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalPatients, setTotalPatients] = useState(0);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [currentPatient, setCurrentPatient] = useState<Patient>(emptyPatient);
   const [isEditing, setIsEditing] = useState(false);
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [deleteAlert, setDeleteAlert] = useState<{ isOpen: boolean; patient: Patient | null }>({ isOpen: false, patient: null });
   const [backendConnected, setBackendConnected] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [pagination, setPagination] = useState({
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 0
-  });
-
-  // Testar conexão com backend ao carregar
-  useEffect(() => {
-    checkBackendConnection();
-  }, []);
-
-  // Carregar pacientes do backend quando conectado
-  useEffect(() => {
-    if (backendConnected) {
-      loadPatientsFromAPI();
-    }
-  }, [backendConnected, pagination.page, searchTerm]);
+  const [loading, setLoading] = useState(true);
   
+  const itemsPerPage = 50;
+
   // Adicionar estilos CSS dinamicamente
   useEffect(() => {
     const styleElement = document.createElement('style');
@@ -552,63 +639,153 @@ const Patients = () => {
     document.head.appendChild(styleElement);
     
     return () => {
-      // Limpar quando o componente desmontar
       document.head.removeChild(styleElement);
     };
   }, []);
 
-  const filteredPatients = patients.filter(patient => 
-    patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    patient.diagnosis.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Testar conexão com backend ao carregar
+  useEffect(() => {
+    checkBackendConnection();
+  }, []);
+
+  // Recarregar dados quando mudar página, busca ou filtros
+  useEffect(() => {
+    if (backendConnected) {
+      loadPatientsFromAPI();
+    }
+  }, [currentPage, searchTerm, backendConnected]);
 
   const checkBackendConnection = async () => {
+    console.log('🔧 Verificando conexão com backend...');
     const connected = await testarConexaoBackend();
     setBackendConnected(connected);
     
     if (connected) {
+      console.log('✅ Backend conectado, testando banco...');
       const dbConnected = await testarConexaoBanco();
       if (dbConnected) {
-        {/*toast.success('Backend conectado com sucesso!', {
-          description: 'Dados serão carregados do banco de dados'
-        });*/}
+        console.log('✅ Banco conectado, carregando pacientes...');
+        // Não precisa chamar loadPatientsFromAPI aqui, será chamado pelo useEffect
       } else {
+        console.log('❌ Problema com banco, usando dados locais');
         toast.warning('Backend conectado, mas banco com problemas');
+        setPatients(initialPatients);
+        setLoading(false);
       }
     } else {
+      console.log('❌ Backend não conectado, usando dados locais');
       toast.error('Backend não está conectado', {
         description: 'Usando dados locais. Inicie o servidor Node.js na porta 3001'
       });
-      // Usar dados mockados se backend não estiver disponível
       setPatients(initialPatients);
+      setTotalPatients(initialPatients.length);
+      setTotalPages(Math.ceil(initialPatients.length / itemsPerPage));
+      setLoading(false);
     }
   };
 
   const loadPatientsFromAPI = async () => {
-    if (!backendConnected) return;
+    if (!backendConnected) {
+      console.log('⚠️ Backend não conectado, não carregando da API');
+      return;
+    }
+    
+    console.log('📡 Carregando pacientes da API...', { 
+      page: currentPage, 
+      limit: itemsPerPage, 
+      search: searchTerm 
+    });
     
     setLoading(true);
     try {
       const result = await PacienteService.listarPacientes({
-        page: pagination.page,
-        limit: pagination.limit,
+        page: currentPage,
+        limit: itemsPerPage,
         search: searchTerm
       });
       
-      console.log('Pacientes carregados do backend:', result.data);
+      console.log('✅ Pacientes carregados da API:', result);
       setPatients(result.data);
-      setPagination(result.pagination);
+      setTotalPatients(result.pagination.total);
+      setTotalPages(result.pagination.totalPages);
+      
+      if (result.data.length === 0 && searchTerm) {
+        toast.info('Nenhum paciente encontrado para esta busca');
+      }
+      
     } catch (error) {
-      console.error('Erro ao carregar pacientes do backend:', error);
-      toast.error('Erro ao carregar pacientes do backend', {
-        description: 'Usando dados locais'
+      console.error('❌ Erro ao carregar pacientes da API:', error);
+      toast.error('Erro ao carregar pacientes do banco', {
+        description: 'Verifique a conexão com o servidor'
       });
-      // Fallback para dados mockados
+      // Em caso de erro, usar dados locais como fallback
       setPatients(initialPatients);
+      setTotalPatients(initialPatients.length);
+      setTotalPages(Math.ceil(initialPatients.length / itemsPerPage));
     } finally {
       setLoading(false);
     }
   };
+
+  // Filtrar e ordenar pacientes (apenas para dados locais)
+  const filteredAndSortedPatients = (() => {
+    // Se estamos usando dados do backend, a filtragem já foi feita no servidor
+    if (backendConnected) {
+      return patients;
+    }
+
+    // Filtrar apenas para dados locais
+    let filtered = patients.filter(patient => {
+      const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           patient.diagnosis.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           patient.Codigo.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesStatus = statusFilter === 'all' || patient.status.toLowerCase().includes(statusFilter.toLowerCase());
+      
+      return matchesSearch && matchesStatus;
+    });
+
+    // Ordenar apenas para dados locais
+    filtered.sort((a, b) => {
+      switch (sortBy) {
+        case 'newest':
+          return new Date(b.startDate.split('/').reverse().join('-')).getTime() - 
+                 new Date(a.startDate.split('/').reverse().join('-')).getTime();
+        case 'oldest':
+          return new Date(a.startDate.split('/').reverse().join('-')).getTime() - 
+                 new Date(b.startDate.split('/').reverse().join('-')).getTime();
+        case 'name':
+          return a.name.localeCompare(b.name);
+        case 'status':
+          return a.status.localeCompare(b.status);
+        default:
+          return 0;
+      }
+    });
+
+    return filtered;
+  })();
+
+  // Paginação para dados locais
+  const displayedPatients = (() => {
+    if (backendConnected) {
+      // Para backend, os dados já vêm paginados
+      return filteredAndSortedPatients;
+    }
+    
+    // Para dados locais, fazer paginação manual
+    const localTotalPages = Math.ceil(filteredAndSortedPatients.length / itemsPerPage);
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const paginatedPatients = filteredAndSortedPatients.slice(startIndex, startIndex + itemsPerPage);
+    
+    // Atualizar o estado de paginação para dados locais
+    if (totalPages !== localTotalPages) {
+      setTotalPages(localTotalPages);
+      setTotalPatients(filteredAndSortedPatients.length);
+    }
+    
+    return paginatedPatients;
+  })();
 
   const handleAddNew = () => {
     setCurrentPatient(emptyPatient);
@@ -625,22 +802,32 @@ const Patients = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = (id: string) => {
+    const patientToDelete = patients.find(patient => patient.id === id);
+    if (patientToDelete) {
+      setDeleteAlert({ isOpen: true, patient: patientToDelete });
+    }
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteAlert.patient) return;
+
     if (backendConnected) {
-      // Usar API do backend
       try {
-        await PacienteService.deletarPaciente(parseInt(id));
-        toast.success('Paciente deletado com sucesso!');
-        loadPatientsFromAPI(); // Recarregar da API
+        await PacienteService.deletarPaciente(parseInt(deleteAlert.patient.id));
+        toast.success('Paciente excluído com sucesso!');
+        // Recarregar dados da API
+        await loadPatientsFromAPI();
       } catch (error) {
-        console.error('Erro ao deletar paciente:', error);
-        toast.error(error instanceof Error ? error.message : 'Erro ao deletar paciente');
+        console.error('Erro ao excluir paciente:', error);
+        toast.error('Erro ao excluir paciente');
       }
     } else {
-      // Usar lógica local existente
-      setPatients(patients.filter(patient => patient.id !== id));
+      setPatients(patients.filter(patient => patient.id !== deleteAlert.patient!.id));
       toast.success('Paciente removido localmente!');
     }
+    
+    setDeleteAlert({ isOpen: false, patient: null });
   };
 
   const handleShowInfo = (id: string) => {
@@ -652,7 +839,6 @@ const Patients = () => {
   };
 
   const handleSubmit = async () => {
-    // Validações básicas
     if (!currentPatient.Paciente_Nome || !currentPatient.Codigo || !currentPatient.Data_Nascimento || 
         !currentPatient.Cid_Diagnostico || !currentPatient.stage || !currentPatient.treatment || 
         !currentPatient.startDate || !currentPatient.status || !currentPatient.Operadora || !currentPatient.Prestador) {
@@ -661,7 +847,6 @@ const Patients = () => {
     }
     
     if (backendConnected) {
-      // Usar API do backend
       setLoading(true);
       try {
         // Preparar dados com conversão de datas
@@ -670,25 +855,24 @@ const Patients = () => {
           // Garantir que as datas estejam no formato correto para o backend
           Data_Nascimento: convertToISODate(currentPatient.Data_Nascimento),
           Data_Primeira_Solicitacao: convertToISODate(currentPatient.startDate),
-          // Garantir que Operadora e Prestador sejam números
+          // Garantir que Operadora e Prestador sejam números se necessário
           Operadora: typeof currentPatient.Operadora === 'string' ? 1 : currentPatient.Operadora,
           Prestador: typeof currentPatient.Prestador === 'string' ? 1 : currentPatient.Prestador,
           // Adicionar clinica_id se não existir
           clinica_id: currentPatient.clinica_id || 1
         };
         
-        console.log('🔧 Dados preparados para envio:', dadosParaEnvio);
-        
         if (isEditing) {
-          const updated = await PacienteService.atualizarPaciente(parseInt(currentPatient.id!), dadosParaEnvio);
+          await PacienteService.atualizarPaciente(parseInt(currentPatient.id!), dadosParaEnvio);
           toast.success('Paciente atualizado com sucesso!');
         } else {
-          const created = await PacienteService.criarPaciente(dadosParaEnvio);
+          await PacienteService.criarPaciente(dadosParaEnvio);
           toast.success('Paciente criado com sucesso!');
         }
         
         setIsDialogOpen(false);
-        loadPatientsFromAPI(); // Recarregar da API
+        // Recarregar dados da API
+        await loadPatientsFromAPI();
       } catch (error) {
         console.error('Erro ao salvar paciente:', error);
         toast.error(error instanceof Error ? error.message : 'Erro ao salvar paciente');
@@ -738,13 +922,6 @@ const Patients = () => {
     });
   };
 
-  const handleDateChange = (name: string, value: string) => {
-    setCurrentPatient({
-      ...currentPatient,
-      [name]: value,
-    });
-  };
-
   return (
     <div className="space-y-6">
       <AnimatedSection>
@@ -753,24 +930,6 @@ const Patients = () => {
             <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
               Pacientes
             </h1>
-            
-            {/* Indicador de status */}
-            {/*
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <div className={`w-3 h-3 rounded-full ${backendConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
-                <span className="text-sm text-muted-foreground">
-                  {backendConnected ? 'API Online' : 'API Offline'}
-                </span>
-              </div>
-              
-              {loading && (
-                <div className="flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                  <span className="text-sm text-muted-foreground">Carregando...</span>
-                </div>
-              )}
-            </div>*/}
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3">
@@ -780,7 +939,10 @@ const Patients = () => {
                 placeholder="Buscar pacientes..."
                 className="pl-8 transition-all duration-300 focus:ring-2 focus:ring-primary/20"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                onChange={(e) => {
+                  setSearchTerm(e.target.value);
+                  setCurrentPage(1);
+                }}
               />
             </div>
             
@@ -794,14 +956,65 @@ const Patients = () => {
           </div>
         </div>
       </AnimatedSection>
+
+      {/* Filtros */}
+      <AnimatedSection delay={100}>
+        <div className="flex flex-wrap gap-4 p-4 bg-muted/30 rounded-lg">
+          <div className="flex items-center gap-2">
+            <Filter className="h-4 w-4 text-muted-foreground" />
+            <span className="text-sm font-medium">Filtros:</span>
+          </div>
+          
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Ordenar por" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="newest">Mais recente</SelectItem>
+              <SelectItem value="oldest">Mais antigo</SelectItem>
+              <SelectItem value="name">Nome (A-Z)</SelectItem>
+              <SelectItem value="status">Status</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger className="w-40">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os status</SelectItem>
+              <SelectItem value="em tratamento">Em tratamento</SelectItem>
+              <SelectItem value="em remissão">Em remissão</SelectItem>
+              <SelectItem value="alta">Alta</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <div className="text-sm text-muted-foreground ml-auto">
+            {backendConnected ? (
+              `${totalPatients} paciente(s) encontrado(s)`
+            ) : (
+              `${filteredAndSortedPatients.length} paciente(s) encontrado(s)`
+            )}
+          </div>
+        </div>
+      </AnimatedSection>
       
-      {filteredPatients.length === 0 ? (
+      {loading && (
+        <div className="flex justify-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      )}
+
+      {displayedPatients.length === 0 && !loading ? (
         <AnimatedSection delay={200}>
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <User className="w-16 h-16 text-muted-foreground mb-4 opacity-50" />
             <h3 className="text-lg font-medium">Nenhum paciente encontrado</h3>
             <p className="text-muted-foreground mt-2">
-              Tente mudar sua busca ou adicione um novo paciente
+              {searchTerm ? 
+                'Tente mudar sua busca ou filtros, ou adicione um novo paciente' :
+                'Nenhum paciente cadastrado ainda. Adicione o primeiro paciente!'
+              }
             </p>
             
             <Button 
@@ -815,19 +1028,40 @@ const Patients = () => {
           </div>
         </AnimatedSection>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPatients.map((patient, index) => (
-            <AnimatedSection key={patient.id} delay={100 * index}>
-              <PatientCard 
-                patient={patient} 
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onShowInfo={handleShowInfo}
-              />
-            </AnimatedSection>
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {displayedPatients.map((patient, index) => (
+              <AnimatedSection key={patient.id} delay={100 * index}>
+                <PatientCard 
+                  patient={patient} 
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                  onShowInfo={handleShowInfo}
+                />
+              </AnimatedSection>
+            ))}
+          </div>
+
+          {totalPages > 1 && (
+            <Pagination 
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          )}
+        </>
       )}
+
+      {/* Alert de Confirmação Moderno */}
+      <ModernAlert
+        isOpen={deleteAlert.isOpen}
+        onClose={() => setDeleteAlert({ isOpen: false, patient: null })}
+        onConfirm={confirmDelete}
+        title="Confirmar Exclusão"
+        description="Tem certeza que deseja excluir o paciente"
+        type="delete"
+        patientName={deleteAlert.patient?.name}
+      />
       
       {/* Modal de Adicionar/Editar Paciente */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
