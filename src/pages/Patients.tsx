@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Search, User, Calendar as CalendarIcon, Info, Phone, Mail, MapPin, CreditCard, Building2, FlipHorizontal, Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { PacienteService, testarConexaoBackend, testarConexaoBanco } from '@/services/api';
+import { toast } from 'sonner';
 
 // Interface Authorization
 interface Authorization {
@@ -468,11 +470,79 @@ const Patients = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [isInfoDialogOpen, setIsInfoDialogOpen] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
+  const [backendConnected, setBackendConnected] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 0
+  });
+
+  // Testar conexão com backend ao carregar
+  useEffect(() => {
+    checkBackendConnection();
+  }, []);
+
+  // Carregar pacientes do backend quando conectado
+  useEffect(() => {
+    if (backendConnected) {
+      loadPatientsFromAPI();
+    }
+  }, [backendConnected, pagination.page, searchTerm]);
 
   const filteredPatients = patients.filter(patient => 
     patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     patient.diagnosis.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const checkBackendConnection = async () => {
+    const connected = await testarConexaoBackend();
+    setBackendConnected(connected);
+    
+    if (connected) {
+      const dbConnected = await testarConexaoBanco();
+      if (dbConnected) {
+        toast.success('Backend conectado com sucesso!', {
+          description: 'Dados serão carregados do banco de dados'
+        });
+      } else {
+        toast.warning('Backend conectado, mas banco com problemas');
+      }
+    } else {
+      toast.error('Backend não está conectado', {
+        description: 'Usando dados locais. Inicie o servidor Node.js na porta 3001'
+      });
+      // Usar dados mockados se backend não estiver disponível
+      setPatients(initialPatients);
+    }
+  };
+
+  const loadPatientsFromAPI = async () => {
+    if (!backendConnected) return;
+    
+    setLoading(true);
+    try {
+      const result = await PacienteService.listarPacientes({
+        page: pagination.page,
+        limit: pagination.limit,
+        search: searchTerm
+      });
+      
+      console.log('Pacientes carregados do backend:', result.data);
+      setPatients(result.data);
+      setPagination(result.pagination);
+    } catch (error) {
+      console.error('Erro ao carregar pacientes do backend:', error);
+      toast.error('Erro ao carregar pacientes do backend', {
+        description: 'Usando dados locais'
+      });
+      // Fallback para dados mockados
+      setPatients(initialPatients);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAddNew = () => {
     setCurrentPatient(emptyPatient);
@@ -489,8 +559,22 @@ const Patients = () => {
     }
   };
 
-  const handleDelete = (id: string) => {
-    setPatients(patients.filter(patient => patient.id !== id));
+  const handleDelete = async (id: string) => {
+    if (backendConnected) {
+      // Usar API do backend
+      try {
+        await PacienteService.deletarPaciente(parseInt(id));
+        toast.success('Paciente deletado com sucesso!');
+        loadPatientsFromAPI(); // Recarregar da API
+      } catch (error) {
+        console.error('Erro ao deletar paciente:', error);
+        toast.error(error instanceof Error ? error.message : 'Erro ao deletar paciente');
+      }
+    } else {
+      // Usar lógica local existente
+      setPatients(patients.filter(patient => patient.id !== id));
+      toast.success('Paciente removido localmente!');
+    }
   };
 
   const handleShowInfo = (id: string) => {
@@ -501,34 +585,60 @@ const Patients = () => {
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!currentPatient.Paciente_Nome || !currentPatient.Codigo || !currentPatient.Data_Nascimento || 
         !currentPatient.Cid_Diagnostico || !currentPatient.stage || !currentPatient.treatment || 
         !currentPatient.startDate || !currentPatient.status || !currentPatient.Operadora || !currentPatient.Prestador) {
+      toast.error('Preencha todos os campos obrigatórios');
       return;
     }
     
-    const updatedPatient = {
-      ...currentPatient,
-      name: currentPatient.Paciente_Nome,
-      age: calculateAge(currentPatient.Data_Nascimento),
-      gender: currentPatient.Sexo,
-      diagnosis: currentPatient.Cid_Diagnostico,
-    };
-    
-    if (isEditing) {
-      setPatients(patients.map(patient => 
-        patient.id === updatedPatient.id ? updatedPatient : patient
-      ));
+    if (backendConnected) {
+      // Usar API do backend
+      setLoading(true);
+      try {
+        if (isEditing) {
+          const updated = await PacienteService.atualizarPaciente(parseInt(currentPatient.id!), currentPatient);
+          toast.success('Paciente atualizado com sucesso!');
+        } else {
+          const created = await PacienteService.criarPaciente(currentPatient);
+          toast.success('Paciente criado com sucesso!');
+        }
+        
+        setIsDialogOpen(false);
+        loadPatientsFromAPI(); // Recarregar da API
+      } catch (error) {
+        console.error('Erro ao salvar paciente:', error);
+        toast.error(error instanceof Error ? error.message : 'Erro ao salvar paciente');
+      } finally {
+        setLoading(false);
+      }
     } else {
-      const newPatient = {
-        ...updatedPatient,
-        id: Date.now().toString(),
+      // Usar lógica local existente
+      const updatedPatient = {
+        ...currentPatient,
+        name: currentPatient.Paciente_Nome,
+        age: calculateAge(currentPatient.Data_Nascimento),
+        gender: currentPatient.Sexo,
+        diagnosis: currentPatient.Cid_Diagnostico,
       };
-      setPatients([...patients, newPatient]);
+      
+      if (isEditing) {
+        setPatients(patients.map(patient => 
+          patient.id === updatedPatient.id ? updatedPatient : patient
+        ));
+        toast.success('Paciente atualizado localmente!');
+      } else {
+        const newPatient = {
+          ...updatedPatient,
+          id: Date.now().toString(),
+        };
+        setPatients([...patients, newPatient]);
+        toast.success('Paciente criado localmente!');
+      }
+      
+      setIsDialogOpen(false);
     }
-    
-    setIsDialogOpen(false);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
@@ -587,9 +697,28 @@ const Patients = () => {
       
       <AnimatedSection>
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-            Pacientes
-          </h1>
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+              Pacientes
+            </h1>
+            
+            {/* Indicador de status */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className={`w-3 h-3 rounded-full ${backendConnected ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                <span className="text-sm text-muted-foreground">
+                  {backendConnected ? 'API Online' : 'API Offline'}
+                </span>
+              </div>
+              
+              {loading && (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                  <span className="text-sm text-muted-foreground">Carregando...</span>
+                </div>
+              )}
+            </div>
+          </div>
           
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative max-w-xs">
