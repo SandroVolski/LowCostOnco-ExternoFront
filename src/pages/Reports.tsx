@@ -543,7 +543,7 @@ const Reports = () => {
                   </Button>
                   <Button type="submit" className="lco-btn-primary">
                     <SendIcon className="mr-2 h-4 w-4" />
-                    Gerar Relatório
+                    Gerar Solicitação
                   </Button>
                 </div>
               </form>
