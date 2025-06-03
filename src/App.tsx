@@ -16,6 +16,7 @@ import Reports from "./pages/Reports";
 import Analysis from "./pages/Analysis";
 import Expenses from "./pages/Expenses";
 import Chat from "./pages/Chat";
+import ClinicProfile from "./pages/ClinicProfile";
 import NotFound from "./pages/NotFound";
 import RecursosGlosas from "./pages/RecursosGlosas";
 
@@ -61,6 +62,17 @@ const App = () => (
                     <ProtectedRoute allowedRoles={['clinic']}>
                       <Layout pageTitle="Solicitação de Autorização">
                         <Reports />
+                      </Layout>
+                    </ProtectedRoute>
+                  } 
+                />
+                
+                <Route 
+                  path="/profile" 
+                  element={
+                    <ProtectedRoute allowedRoles={['clinic']}>
+                      <Layout pageTitle="Perfil da Clínica">
+                        <ClinicProfile />
                       </Layout>
                     </ProtectedRoute>
                   } 

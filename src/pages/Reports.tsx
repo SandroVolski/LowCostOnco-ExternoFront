@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -25,12 +26,28 @@ import {
   CheckCircle,
   Clock,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  UserPlus,
+  Building2,
+  Search
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { SolicitacaoService, SolicitacaoFromAPI, testarConexaoBackend } from '@/services/api';
+import { SolicitacaoService, SolicitacaoFromAPI, testarConexaoBackend, PacienteService } from '@/services/api';
+
+interface PatientOption {
+  id: string;
+  name: string;
+  codigo: string;
+  cpf: string;
+  dataNascimento: string;
+  idade: number;
+  sexo: string;
+  cidDiagnostico: string;
+}
 
 const Reports = () => {
+  const navigate = useNavigate();
+  
   // Estados para o formulário
   const [formData, setFormData] = useState({
     hospital_nome: '',
@@ -70,6 +87,12 @@ const Reports = () => {
     numero_autorizacao: '',
   });
 
+  // Estados para pacientes e clínica
+  const [patients, setPatients] = useState<PatientOption[]>([]);
+  const [selectedPatientId, setSelectedPatientId] = useState<string>('');
+  const [clinicProfile, setClinicProfile] = useState<any>(null);
+  const [loadingPatients, setLoadingPatients] = useState(false);
+
   // Estados para o histórico
   const [solicitacoes, setSolicitacoes] = useState<SolicitacaoFromAPI[]>([]);
   const [loading, setLoading] = useState(false);
@@ -81,12 +104,14 @@ const Reports = () => {
   // Verificar conexão com backend ao carregar
   useEffect(() => {
     checkBackendConnection();
+    loadClinicProfile();
   }, []);
 
   // Carregar solicitações quando conectar
   useEffect(() => {
     if (backendConnected) {
       loadSolicitacoes();
+      loadPatients();
     }
   }, [backendConnected, currentPage]);
 
@@ -108,6 +133,102 @@ const Reports = () => {
         description: 'Verifique se o servidor está rodando na porta 3001'
       });
     }
+  };
+
+  const loadClinicProfile = () => {
+    try {
+      const savedProfile = localStorage.getItem('clinic_profile');
+      if (savedProfile) {
+        const profile = JSON.parse(savedProfile);
+        setClinicProfile(profile);
+        
+        // Preencher automaticamente os dados da clínica
+        setFormData(prev => ({
+          ...prev,
+          hospital_nome: profile.nome || '',
+          hospital_codigo: profile.codigo || '',
+          medico_assinatura_crm: profile.responsavel_crm || '',
+        }));
+      } else {
+        toast.info('Configure o perfil da clínica', {
+          description: 'Acesse Configurações para definir as informações da clínica',
+          action: {
+            label: 'Configurar',
+            onClick: () => navigate('/profile'),
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao carregar perfil da clínica:', error);
+    }
+  };
+
+  const loadPatients = async () => {
+    if (!backendConnected) return;
+    
+    setLoadingPatients(true);
+    try {
+      const result = await PacienteService.listarPacientes({
+        page: 1,
+        limit: 100, // Carregar mais pacientes para o select
+      });
+      
+      // Converter para formato do select
+      const patientOptions: PatientOption[] = result.data.map((patient: any) => ({
+        id: patient.id,
+        name: patient.name || patient.Paciente_Nome,
+        codigo: patient.Codigo,
+        cpf: patient.cpf || '',
+        dataNascimento: patient.Data_Nascimento,
+        idade: patient.age,
+        sexo: patient.Sexo || patient.gender,
+        cidDiagnostico: patient.Cid_Diagnostico || patient.diagnosis,
+      }));
+      
+      setPatients(patientOptions);
+    } catch (error) {
+      console.error('Erro ao carregar pacientes:', error);
+      toast.error('Erro ao carregar lista de pacientes');
+    } finally {
+      setLoadingPatients(false);
+    }
+  };
+
+  const handlePatientSelect = (patientId: string) => {
+    setSelectedPatientId(patientId);
+    
+    const selectedPatient = patients.find(p => p.id === patientId);
+    if (selectedPatient) {
+      // Preencher automaticamente os dados do paciente
+      setFormData(prev => ({
+        ...prev,
+        cliente_nome: selectedPatient.name,
+        cliente_codigo: selectedPatient.codigo,
+        sexo: selectedPatient.sexo === 'Masculino' ? 'M' : selectedPatient.sexo === 'Feminino' ? 'F' : selectedPatient.sexo,
+        data_nascimento: convertDateToInput(selectedPatient.dataNascimento),
+        idade: selectedPatient.idade.toString(),
+        diagnostico_cid: selectedPatient.cidDiagnostico,
+      }));
+      
+      toast.success('Dados do paciente preenchidos automaticamente!');
+    }
+  };
+
+  const convertDateToInput = (dateStr: string): string => {
+    if (!dateStr) return '';
+    
+    // Se está no formato brasileiro (DD/MM/YYYY), converter para YYYY-MM-DD
+    if (dateStr.includes('/')) {
+      const [day, month, year] = dateStr.split('/');
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+    
+    // Se já está no formato ISO (YYYY-MM-DD), retorna como está
+    if (dateStr.includes('-') && dateStr.length === 10) {
+      return dateStr;
+    }
+    
+    return '';
   };
 
   const loadSolicitacoes = async () => {
@@ -239,10 +360,10 @@ const Reports = () => {
         },
       });
 
-      // Limpar formulário
+      // Limpar formulário (mantendo dados da clínica)
       setFormData({
-        hospital_nome: '',
-        hospital_codigo: '',
+        hospital_nome: clinicProfile?.nome || '',
+        hospital_codigo: clinicProfile?.codigo || '',
         cliente_nome: '',
         cliente_codigo: '',
         sexo: '',
@@ -274,9 +395,12 @@ const Reports = () => {
         via_administracao: '',
         dias_aplicacao_intervalo: '',
         medicacoes_associadas: '',
-        medico_assinatura_crm: '',
+        medico_assinatura_crm: clinicProfile?.responsavel_crm || '',
         numero_autorizacao: '',
       });
+
+      // Limpar seleção de paciente
+      setSelectedPatientId('');
 
       // Recarregar lista
       await loadSolicitacoes();
@@ -351,11 +475,24 @@ const Reports = () => {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Solicitação de Autorização</h1>
-        {!backendConnected && (
-          <Badge variant="destructive" className="animate-pulse">
-            Backend Desconectado
-          </Badge>
-        )}
+        <div className="flex items-center gap-3">
+          {!backendConnected && (
+            <Badge variant="destructive" className="animate-pulse">
+              Backend Desconectado
+            </Badge>
+          )}
+          {!clinicProfile && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/profile')}
+              className="text-orange-600 border-orange-600 hover:bg-orange-50"
+            >
+              <Building2 className="h-4 w-4 mr-2" />
+              Configurar Clínica
+            </Button>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue="new" className="w-full">
@@ -381,33 +518,116 @@ const Reports = () => {
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Informações da Clínica */}
                   <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Informações da Clínica</h3>
-                    <div className="space-y-2">
-                      <Label htmlFor="hospital_nome">Hospital/Clínica Solicitante *</Label>
-                      <Input
-                        id="hospital_nome"
-                        name="hospital_nome"
-                        value={formData.hospital_nome}
-                        onChange={handleChange}
-                        className="lco-input"
-                        required
-                      />
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-lg font-medium">Informações da Clínica</h3>
+                      {clinicProfile && (
+                        <Badge variant="outline" className="text-green-600 border-green-600">
+                          <Building2 className="h-3 w-3 mr-1" />
+                          Configurado
+                        </Badge>
+                      )}
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="hospital_codigo">Código Hospital/Clínica</Label>
-                      <Input
-                        id="hospital_codigo"
-                        name="hospital_codigo"
-                        value={formData.hospital_codigo}
-                        onChange={handleChange}
-                        className="lco-input"
-                      />
-                    </div>
+                    
+                    {clinicProfile ? (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-2">
+                        <div className="flex items-center gap-2">
+                          {clinicProfile.logo_url && (
+                            <img 
+                              src={clinicProfile.logo_url} 
+                              alt="Logo" 
+                              className="w-8 h-8 object-contain rounded" 
+                            />
+                          )}
+                          <div>
+                            <p className="font-medium text-green-800">{clinicProfile.nome}</p>
+                            <p className="text-sm text-green-600">Código: {clinicProfile.codigo}</p>
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => navigate('/profile')}
+                          className="w-full mt-2"
+                        >
+                          Editar Informações da Clínica
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                        <p className="text-orange-800 mb-3">
+                          Configure as informações da clínica para preenchimento automático
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => navigate('/profile')}
+                          className="w-full text-orange-600 border-orange-600 hover:bg-orange-100"
+                        >
+                          <Building2 className="h-4 w-4 mr-2" />
+                          Configurar Clínica
+                        </Button>
+                      </div>
+                    )}
                   </div>
 
+                  {/* Informações do Paciente */}
                   <div className="space-y-4">
                     <h3 className="text-lg font-medium">Informações do Paciente</h3>
+                    
+                    {/* Select de Paciente */}
+                    <div className="space-y-2">
+                      <Label htmlFor="patient-select">Selecionar Paciente</Label>
+                      <div className="flex gap-2">
+                        <Select 
+                          value={selectedPatientId} 
+                          onValueChange={handlePatientSelect}
+                          disabled={loadingPatients || !backendConnected}
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder={
+                              loadingPatients ? "Carregando pacientes..." : 
+                              !backendConnected ? "Backend desconectado" :
+                              "Selecione um paciente cadastrado"
+                            } />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <div className="p-2">
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                                <Search className="h-4 w-4" />
+                                <span>{patients.length} paciente(s) encontrado(s)</span>
+                              </div>
+                            </div>
+                            {patients.map((patient) => (
+                              <SelectItem key={patient.id} value={patient.id}>
+                                <div className="flex flex-col">
+                                  <span className="font-medium">{patient.name}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {patient.codigo} • {patient.cpf} • {patient.idade} anos
+                                  </span>
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => navigate('/patients')}
+                          className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                        >
+                          <UserPlus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Não encontrou o paciente? Clique no botão + para cadastrar um novo paciente
+                      </p>
+                    </div>
+
+                    {/* Campos do Paciente */}
                     <div className="space-y-2">
                       <Label htmlFor="cliente_nome">Nome do Cliente *</Label>
                       <Input
@@ -417,8 +637,10 @@ const Reports = () => {
                         onChange={handleChange}
                         className="lco-input"
                         required
+                        placeholder={selectedPatientId ? "Preenchido automaticamente" : "Digite o nome do cliente"}
                       />
                     </div>
+                    
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="cliente_codigo">Código do Cliente</Label>
@@ -428,6 +650,7 @@ const Reports = () => {
                           value={formData.cliente_codigo}
                           onChange={handleChange}
                           className="lco-input"
+                          placeholder={selectedPatientId ? "Preenchido automaticamente" : "Código"}
                         />
                       </div>
                       <div className="space-y-2">
@@ -446,6 +669,7 @@ const Reports = () => {
                         </Select>
                       </div>
                     </div>
+                    
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label htmlFor="data_nascimento">Data de Nascimento *</Label>
@@ -472,6 +696,7 @@ const Reports = () => {
                         />
                       </div>
                     </div>
+                    
                     <div className="space-y-2">
                       <Label htmlFor="data_solicitacao">Data da Solicitação</Label>
                       <Input
@@ -486,6 +711,7 @@ const Reports = () => {
                   </div>
                 </div>
 
+                {/* Resto do formulário permanece igual... */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium border-b pb-2">Diagnóstico e Estadiamento</h3>
                   <div className="grid grid-cols-2 gap-4">
@@ -498,6 +724,7 @@ const Reports = () => {
                         onChange={handleChange}
                         className="lco-input"
                         required
+                        placeholder={selectedPatientId ? "Preenchido automaticamente" : "Digite o CID"}
                       />
                     </div>
                     <div className="space-y-2">
@@ -812,6 +1039,7 @@ const Reports = () => {
                       onChange={handleChange}
                       className="lco-input"
                       required
+                      placeholder={clinicProfile?.responsavel_crm ? "Preenchido automaticamente" : "Ex: CRM 123456/SP"}
                     />
                   </div>
                   <div className="space-y-2">
