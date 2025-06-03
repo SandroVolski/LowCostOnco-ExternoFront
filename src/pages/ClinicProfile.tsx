@@ -1,12 +1,22 @@
 import { useState, useEffect } from 'react';
-import { Building2, Upload, Save, Camera, MapPin, Phone, Mail, FileText, Globe } from 'lucide-react';
+import { Building2, Upload, Save, Camera, MapPin, Phone, Mail, FileText, Globe, Plus, Edit, Trash2, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+
+interface ResponsavelTecnico {
+  id: string;
+  nome: string;
+  crm: string;
+  especialidade: string;
+  telefone?: string;
+  email?: string;
+}
 
 interface ClinicProfile {
   id?: number;
@@ -20,11 +30,9 @@ interface ClinicProfile {
   telefone: string;
   email: string;
   website?: string;
-  responsavel_nome: string;
-  responsavel_crm: string;
-  responsavel_especialidade: string;
   logo_url?: string;
   observacoes?: string;
+  responsaveis_tecnicos: ResponsavelTecnico[];
 }
 
 const emptyProfile: ClinicProfile = {
@@ -38,19 +46,27 @@ const emptyProfile: ClinicProfile = {
   telefone: '',
   email: '',
   website: '',
-  responsavel_nome: '',
-  responsavel_crm: '',
-  responsavel_especialidade: '',
   logo_url: '',
   observacoes: '',
+  responsaveis_tecnicos: [],
 };
 
-
+const emptyResponsavel: ResponsavelTecnico = {
+  id: '',
+  nome: '',
+  crm: '',
+  especialidade: '',
+  telefone: '',
+  email: '',
+};
 
 const ClinicProfile = () => {
   const [profile, setProfile] = useState<ClinicProfile>(emptyProfile);
   const [loading, setLoading] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string>('');
+  const [isResponsavelDialogOpen, setIsResponsavelDialogOpen] = useState(false);
+  const [currentResponsavel, setCurrentResponsavel] = useState<ResponsavelTecnico>(emptyResponsavel);
+  const [isEditingResponsavel, setIsEditingResponsavel] = useState(false);
 
   // Carregar dados do perfil ao montar o componente
   useEffect(() => {
@@ -63,6 +79,12 @@ const ClinicProfile = () => {
       const savedProfile = localStorage.getItem('clinic_profile');
       if (savedProfile) {
         const profileData = JSON.parse(savedProfile);
+        
+        // Garantir que responsaveis_tecnicos existe
+        if (!profileData.responsaveis_tecnicos) {
+          profileData.responsaveis_tecnicos = [];
+        }
+        
         setProfile(profileData);
         setLogoPreview(profileData.logo_url || '');
       }
@@ -132,6 +154,60 @@ const ClinicProfile = () => {
     }
   };
 
+  // Funções para responsáveis técnicos
+  const handleAddResponsavel = () => {
+    setCurrentResponsavel({...emptyResponsavel, id: Date.now().toString()});
+    setIsEditingResponsavel(false);
+    setIsResponsavelDialogOpen(true);
+  };
+
+  const handleEditResponsavel = (responsavel: ResponsavelTecnico) => {
+    setCurrentResponsavel(responsavel);
+    setIsEditingResponsavel(true);
+    setIsResponsavelDialogOpen(true);
+  };
+
+  const handleDeleteResponsavel = (id: string) => {
+    setProfile({
+      ...profile,
+      responsaveis_tecnicos: profile.responsaveis_tecnicos.filter(r => r.id !== id)
+    });
+    toast.success('Responsável removido com sucesso!');
+  };
+
+  const handleSaveResponsavel = () => {
+    if (!currentResponsavel.nome || !currentResponsavel.crm || !currentResponsavel.especialidade) {
+      toast.error('Nome, CRM e especialidade são obrigatórios');
+      return;
+    }
+
+    if (isEditingResponsavel) {
+      setProfile({
+        ...profile,
+        responsaveis_tecnicos: profile.responsaveis_tecnicos.map(r => 
+          r.id === currentResponsavel.id ? currentResponsavel : r
+        )
+      });
+      toast.success('Responsável atualizado com sucesso!');
+    } else {
+      setProfile({
+        ...profile,
+        responsaveis_tecnicos: [...profile.responsaveis_tecnicos, currentResponsavel]
+      });
+      toast.success('Responsável adicionado com sucesso!');
+    }
+    
+    setIsResponsavelDialogOpen(false);
+  };
+
+  const handleResponsavelInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setCurrentResponsavel({
+      ...currentResponsavel,
+      [name]: value,
+    });
+  };
+
   const formatCEP = (value: string) => {
     const numbers = value.replace(/\D/g, '');
     if (numbers.length <= 5) return numbers;
@@ -156,18 +232,18 @@ const ClinicProfile = () => {
   };
 
   // Seção animada
-    const AnimatedSection = ({ children, delay = 0, className = "" }: {
+  const AnimatedSection = ({ children, delay = 0, className = "" }: {
     children: React.ReactNode;
     delay?: number;  
     className?: string;
-    }) => (
+  }) => (
     <div 
-        className={`animate-fade-in-up ${className}`}
-        style={{ animationDelay: `${delay}ms` }}
+      className={`animate-fade-in-up ${className}`}
+      style={{ animationDelay: `${delay}ms` }}
     >
-        {children}
+      {children}
     </div>
-    );
+  );
 
   return (
     <div className="space-y-6">
@@ -449,53 +525,88 @@ const ClinicProfile = () => {
         </Card>
       </AnimatedSection>
 
-      {/* Responsável Técnico */}
+      {/* Responsáveis Técnicos */}
       <AnimatedSection delay={500}>
         <Card className="lco-card">
           <CardHeader>
-            <CardTitle className="flex items-center">
-              <FileText className="h-5 w-5 mr-2 text-primary" />
-              Responsável Técnico
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center">
+                <FileText className="h-5 w-5 mr-2 text-primary" />
+                Responsáveis Técnicos
+              </div>
+              <Button
+                onClick={handleAddResponsavel}
+                variant="outline"
+                size="sm"
+                className="text-primary border-primary hover:bg-primary/10"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Adicionar Responsável
+              </Button>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="responsavel_nome">Nome do Responsável</Label>
-                <Input
-                  id="responsavel_nome"
-                  name="responsavel_nome"
-                  value={profile.responsavel_nome}
-                  onChange={handleInputChange}
-                  placeholder="Dr. João Silva"
-                  className="lco-input"
-                />
+            {profile.responsaveis_tecnicos.length === 0 ? (
+              <div className="text-center py-8 border-2 border-dashed border-border rounded-lg">
+                <UserPlus className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-muted-foreground mb-2">
+                  Nenhum responsável técnico cadastrado
+                </h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Adicione os médicos responsáveis pela clínica para usar nas solicitações de autorização
+                </p>
+                <Button
+                  onClick={handleAddResponsavel}
+                  variant="outline"
+                  className="text-primary border-primary hover:bg-primary/10"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Adicionar Primeiro Responsável
+                </Button>
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="responsavel_crm">CRM</Label>
-                <Input
-                  id="responsavel_crm"
-                  name="responsavel_crm"
-                  value={profile.responsavel_crm}
-                  onChange={handleInputChange}
-                  placeholder="CRM 123456/SP"
-                  className="lco-input"
-                />
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {profile.responsaveis_tecnicos.map((responsavel) => (
+                  <Card key={responsavel.id} className="border border-border hover:border-primary/30 transition-colors">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-primary">{responsavel.nome}</h4>
+                          <p className="text-sm text-muted-foreground">{responsavel.crm}</p>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:bg-primary/10"
+                            onClick={() => handleEditResponsavel(responsavel)}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 hover:bg-destructive/10 text-destructive"
+                            onClick={() => handleDeleteResponsavel(responsavel.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="space-y-1 text-sm">
+                        <p><span className="font-medium">Especialidade:</span> {responsavel.especialidade}</p>
+                        {responsavel.telefone && (
+                          <p><span className="font-medium">Telefone:</span> {responsavel.telefone}</p>
+                        )}
+                        {responsavel.email && (
+                          <p><span className="font-medium">E-mail:</span> {responsavel.email}</p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="responsavel_especialidade">Especialidade</Label>
-                <Input
-                  id="responsavel_especialidade"
-                  name="responsavel_especialidade"
-                  value={profile.responsavel_especialidade}
-                  onChange={handleInputChange}
-                  placeholder="Oncologia"
-                  className="lco-input"
-                />
-              </div>
-            </div>
+            )}
           </CardContent>
         </Card>
       </AnimatedSection>
@@ -545,6 +656,100 @@ const ClinicProfile = () => {
           </Button>
         </div>
       </AnimatedSection>
+
+      {/* Dialog para Responsável Técnico */}
+      <Dialog open={isResponsavelDialogOpen} onOpenChange={setIsResponsavelDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {isEditingResponsavel ? 'Editar Responsável Técnico' : 'Adicionar Responsável Técnico'}
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="responsavel_nome">Nome Completo *</Label>
+              <Input
+                id="responsavel_nome"
+                name="nome"
+                value={currentResponsavel.nome}
+                onChange={handleResponsavelInputChange}
+                placeholder="Dr. João Silva"
+                className="lco-input"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="responsavel_crm">CRM *</Label>
+              <Input
+                id="responsavel_crm"
+                name="crm"
+                value={currentResponsavel.crm}
+                onChange={handleResponsavelInputChange}
+                placeholder="CRM 123456/SP"
+                className="lco-input"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="responsavel_especialidade">Especialidade *</Label>
+              <Input
+                id="responsavel_especialidade"
+                name="especialidade"
+                value={currentResponsavel.especialidade}
+                onChange={handleResponsavelInputChange}
+                placeholder="Oncologia"
+                className="lco-input"
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="responsavel_telefone">Telefone</Label>
+              <Input
+                id="responsavel_telefone"
+                name="telefone"
+                value={currentResponsavel.telefone}
+                onChange={handleResponsavelInputChange}
+                placeholder="(11) 99999-9999"
+                className="lco-input"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="responsavel_email">E-mail</Label>
+              <Input
+                id="responsavel_email"
+                name="email"
+                type="email"
+                value={currentResponsavel.email}
+                onChange={handleResponsavelInputChange}
+                placeholder="joao.silva@clinica.com"
+                className="lco-input"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={() => setIsResponsavelDialogOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              type="button" 
+              className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+              onClick={handleSaveResponsavel}
+            >
+              {isEditingResponsavel ? 'Salvar Alterações' : 'Adicionar Responsável'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

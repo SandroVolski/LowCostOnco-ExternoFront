@@ -297,6 +297,14 @@ const Header = () => {
             <div className="px-2 py-1.5 text-sm font-medium">{user?.username}</div>
             <div className="px-2 pb-1.5 text-xs text-muted-foreground">{roleLabel}</div>
             <DropdownMenuSeparator />
+            {user?.role === 'clinic' && (
+              <DropdownMenuItem 
+                className="cursor-pointer hover:bg-primary/10" 
+                onClick={() => navigateWithTransition('/profile')}
+              >
+                Perfil da Clínica
+              </DropdownMenuItem>
+            )}
             <DropdownMenuItem className="cursor-pointer hover:text-destructive" onClick={logout}>
               Sair
             </DropdownMenuItem>
