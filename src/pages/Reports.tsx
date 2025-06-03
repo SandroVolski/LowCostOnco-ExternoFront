@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -12,72 +12,351 @@ import {
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
-import { Download, File, FilePlus, PencilIcon, SendIcon } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Download, 
+  File, 
+  FilePlus, 
+  PencilIcon, 
+  SendIcon, 
+  Eye,
+  Trash2,
+  FileText,
+  CheckCircle,
+  Clock,
+  XCircle,
+  AlertCircle
+} from 'lucide-react';
 import { toast } from 'sonner';
+import { SolicitacaoService, SolicitacaoFromAPI, testarConexaoBackend } from '@/services/api';
 
 const Reports = () => {
+  // Estados para o formulário
   const [formData, setFormData] = useState({
-    hospital: '',
-    hospitalCode: '',
-    clientName: '',
-    clientCode: '',
-    gender: '',
-    birthDate: '',
-    age: '',
-    requestDate: '',
-    diagnosisCID: '',
-    diagnosis: '',
-    metastasisLocation: '',
-    stageT: '',
-    stageN: '',
-    stageM: '',
-    clinicalStage: '',
-    previousSurgery: '',
-    previousChemoAdjuvant: '',
-    previousChemo1stLine: '',
-    previousChemo2ndLine: '',
-    purpose: '',
-    performanceStatus: '',
-    acronym: '',
-    plannedCycles: '',
-    currentCycle: '',
-    bodySurface: '',
-    weight: '',
-    height: '',
-    medications: '',
-    dosage: '',
-    totalDose: '',
-    applicationDays: '',
-    administrationRoute: '',
-    associatedMedications: '',
-    doctorSignature: '',
-    authorizationNumber: '',
+    hospital_nome: '',
+    hospital_codigo: '',
+    cliente_nome: '',
+    cliente_codigo: '',
+    sexo: '',
+    data_nascimento: '',
+    idade: '',
+    data_solicitacao: '',
+    diagnostico_cid: '',
+    diagnostico_descricao: '',
+    local_metastases: '',
+    estagio_t: '',
+    estagio_n: '',
+    estagio_m: '',
+    estagio_clinico: '',
+    tratamento_cirurgia_radio: '',
+    tratamento_quimio_adjuvante: '',
+    tratamento_quimio_primeira_linha: '',
+    tratamento_quimio_segunda_linha: '',
+    finalidade: '',
+    performance_status: '',
+    siglas: '',
+    ciclos_previstos: '',
+    ciclo_atual: '',
+    superficie_corporal: '',
+    peso: '',
+    altura: '',
+    medicamentos_antineoplasticos: '',
+    dose_por_m2: '',
+    dose_total: '',
+    via_administracao: '',
+    dias_aplicacao_intervalo: '',
+    medicacoes_associadas: '',
+    medico_assinatura_crm: '',
+    numero_autorizacao: '',
   });
+
+  // Estados para o histórico
+  const [solicitacoes, setSolicitacoes] = useState<SolicitacaoFromAPI[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [backendConnected, setBackendConnected] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Verificar conexão com backend ao carregar
+  useEffect(() => {
+    checkBackendConnection();
+  }, []);
+
+  // Carregar solicitações quando conectar
+  useEffect(() => {
+    if (backendConnected) {
+      loadSolicitacoes();
+    }
+  }, [backendConnected, currentPage]);
+
+  // Definir data atual como padrão
+  useEffect(() => {
+    const today = new Date().toISOString().split('T')[0];
+    setFormData(prev => ({
+      ...prev,
+      data_solicitacao: today
+    }));
+  }, []);
+
+  const checkBackendConnection = async () => {
+    const connected = await testarConexaoBackend();
+    setBackendConnected(connected);
+    
+    if (!connected) {
+      toast.error('Backend não conectado', {
+        description: 'Verifique se o servidor está rodando na porta 3001'
+      });
+    }
+  };
+
+  const loadSolicitacoes = async () => {
+    if (!backendConnected) return;
+    
+    setLoading(true);
+    try {
+      const result = await SolicitacaoService.listarSolicitacoes({
+        page: currentPage,
+        limit: 10,
+        clinica_id: 1 // Valor fixo para testes
+      });
+      
+      setSolicitacoes(result.data);
+      setTotalPages(result.pagination.totalPages);
+    } catch (error) {
+      console.error('Erro ao carregar solicitações:', error);
+      toast.error('Erro ao carregar histórico de solicitações');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Função para calcular idade automaticamente
+  const calculateAge = (birthDate: string): number => {
+    if (!birthDate) return 0;
+    
+    const today = new Date();
+    const birth = new Date(birthDate);
+    let age = today.getFullYear() - birth.getFullYear();
+    const monthDiff = today.getMonth() - birth.getMonth();
+    
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--;
+    }
+    
+    return age;
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
+    
+    // Se mudou a data de nascimento, calcular idade automaticamente
+    if (name === 'data_nascimento') {
+      const age = calculateAge(value);
+      setFormData({ 
+        ...formData, 
+        [name]: value,
+        idade: age.toString()
+      });
+    } else {
+      setFormData({ ...formData, [name]: value });
+    }
   };
 
   const handleSelectChange = (name: string) => (value: string) => {
     setFormData({ ...formData, [name]: value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In a real application, here we would generate the PDF
-    toast.success('Relatório gerado com sucesso!', {
-      description: 'O documento está pronto para download.',
-      action: {
-        label: 'Download',
-        onClick: () => console.log('Download action'),
-      },
-    });
+    
+    if (!backendConnected) {
+      toast.error('Backend não conectado', {
+        description: 'Não é possível enviar a solicitação sem conexão com o servidor'
+      });
+      return;
+    }
+
+    // Validações básicas
+    if (!formData.hospital_nome || !formData.cliente_nome || 
+        !formData.diagnostico_cid || !formData.medicamentos_antineoplasticos) {
+      toast.error('Campos obrigatórios não preenchidos', {
+        description: 'Preencha pelo menos: Hospital, Cliente, CID e Medicamentos'
+      });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Converter dados do formulário para o formato da API
+      const solicitacaoData: Partial<SolicitacaoFromAPI> = {
+        clinica_id: 1, // Valor fixo para testes
+        hospital_nome: formData.hospital_nome,
+        hospital_codigo: formData.hospital_codigo,
+        cliente_nome: formData.cliente_nome,
+        cliente_codigo: formData.cliente_codigo,
+        sexo: formData.sexo as 'M' | 'F',
+        data_nascimento: formData.data_nascimento,
+        idade: parseInt(formData.idade) || 0,
+        data_solicitacao: formData.data_solicitacao,
+        diagnostico_cid: formData.diagnostico_cid,
+        diagnostico_descricao: formData.diagnostico_descricao,
+        local_metastases: formData.local_metastases,
+        estagio_t: formData.estagio_t,
+        estagio_n: formData.estagio_n,
+        estagio_m: formData.estagio_m,
+        estagio_clinico: formData.estagio_clinico,
+        tratamento_cirurgia_radio: formData.tratamento_cirurgia_radio,
+        tratamento_quimio_adjuvante: formData.tratamento_quimio_adjuvante,
+        tratamento_quimio_primeira_linha: formData.tratamento_quimio_primeira_linha,
+        tratamento_quimio_segunda_linha: formData.tratamento_quimio_segunda_linha,
+        finalidade: formData.finalidade as any,
+        performance_status: formData.performance_status,
+        siglas: formData.siglas,
+        ciclos_previstos: parseInt(formData.ciclos_previstos) || 0,
+        ciclo_atual: parseInt(formData.ciclo_atual) || 0,
+        superficie_corporal: parseFloat(formData.superficie_corporal) || 0,
+        peso: parseFloat(formData.peso) || 0,
+        altura: parseInt(formData.altura) || 0,
+        medicamentos_antineoplasticos: formData.medicamentos_antineoplasticos,
+        dose_por_m2: formData.dose_por_m2,
+        dose_total: formData.dose_total,
+        via_administracao: formData.via_administracao,
+        dias_aplicacao_intervalo: formData.dias_aplicacao_intervalo,
+        medicacoes_associadas: formData.medicacoes_associadas,
+        medico_assinatura_crm: formData.medico_assinatura_crm,
+        numero_autorizacao: formData.numero_autorizacao,
+      };
+
+      // Criar solicitação
+      const novaSolicitacao = await SolicitacaoService.criarSolicitacao(solicitacaoData);
+      
+      toast.success('Solicitação criada com sucesso!', {
+        description: `ID: ${novaSolicitacao.id}. Clique em "Baixar PDF" para obter o documento.`,
+        action: {
+          label: 'Baixar PDF',
+          onClick: () => handleDownloadPDF(novaSolicitacao.id!),
+        },
+      });
+
+      // Limpar formulário
+      setFormData({
+        hospital_nome: '',
+        hospital_codigo: '',
+        cliente_nome: '',
+        cliente_codigo: '',
+        sexo: '',
+        data_nascimento: '',
+        idade: '',
+        data_solicitacao: new Date().toISOString().split('T')[0],
+        diagnostico_cid: '',
+        diagnostico_descricao: '',
+        local_metastases: '',
+        estagio_t: '',
+        estagio_n: '',
+        estagio_m: '',
+        estagio_clinico: '',
+        tratamento_cirurgia_radio: '',
+        tratamento_quimio_adjuvante: '',
+        tratamento_quimio_primeira_linha: '',
+        tratamento_quimio_segunda_linha: '',
+        finalidade: '',
+        performance_status: '',
+        siglas: '',
+        ciclos_previstos: '',
+        ciclo_atual: '',
+        superficie_corporal: '',
+        peso: '',
+        altura: '',
+        medicamentos_antineoplasticos: '',
+        dose_por_m2: '',
+        dose_total: '',
+        via_administracao: '',
+        dias_aplicacao_intervalo: '',
+        medicacoes_associadas: '',
+        medico_assinatura_crm: '',
+        numero_autorizacao: '',
+      });
+
+      // Recarregar lista
+      await loadSolicitacoes();
+      
+    } catch (error) {
+      console.error('Erro ao criar solicitação:', error);
+      toast.error('Erro ao criar solicitação', {
+        description: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleDownloadPDF = async (id: number) => {
+    try {
+      toast.info('Gerando PDF...', {
+        description: 'Aguarde enquanto o documento é preparado.'
+      });
+      
+      await SolicitacaoService.downloadPDF(id, `solicitacao_autorizacao_${id}.pdf`);
+      
+      toast.success('PDF baixado com sucesso!');
+    } catch (error) {
+      console.error('Erro ao baixar PDF:', error);
+      toast.error('Erro ao gerar PDF', {
+        description: 'Tente novamente em alguns instantes.'
+      });
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'aprovada':
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'pendente':
+        return <Clock className="h-4 w-4 text-yellow-600" />;
+      case 'rejeitada':
+        return <XCircle className="h-4 w-4 text-red-600" />;
+      case 'em_analise':
+        return <AlertCircle className="h-4 w-4 text-blue-600" />;
+      default:
+        return <Clock className="h-4 w-4 text-gray-600" />;
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'aprovada':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'pendente':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'rejeitada':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'em_analise':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const formatDate = (dateStr: string): string => {
+    if (!dateStr) return '';
+    try {
+      return new Date(dateStr).toLocaleDateString('pt-BR');
+    } catch {
+      return dateStr;
+    }
   };
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <h1 className="text-2xl font-bold">Solicitação de Autorização</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Solicitação de Autorização</h1>
+        {!backendConnected && (
+          <Badge variant="destructive" className="animate-pulse">
+            Backend Desconectado
+          </Badge>
+        )}
+      </div>
 
       <Tabs defaultValue="new" className="w-full">
         <TabsList className="grid grid-cols-2 w-[400px]">
@@ -105,25 +384,24 @@ const Reports = () => {
                   <div className="space-y-4">
                     <h3 className="text-lg font-medium">Informações da Clínica</h3>
                     <div className="space-y-2">
-                      <Label htmlFor="hospital">Hospital/Clínica Solicitante</Label>
+                      <Label htmlFor="hospital_nome">Hospital/Clínica Solicitante *</Label>
                       <Input
-                        id="hospital"
-                        name="hospital"
-                        value={formData.hospital}
+                        id="hospital_nome"
+                        name="hospital_nome"
+                        value={formData.hospital_nome}
                         onChange={handleChange}
                         className="lco-input"
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="hospitalCode">Código Hospital/Clínica</Label>
+                      <Label htmlFor="hospital_codigo">Código Hospital/Clínica</Label>
                       <Input
-                        id="hospitalCode"
-                        name="hospitalCode"
-                        value={formData.hospitalCode}
+                        id="hospital_codigo"
+                        name="hospital_codigo"
+                        value={formData.hospital_codigo}
                         onChange={handleChange}
                         className="lco-input"
-                        required
                       />
                     </div>
                   </div>
@@ -131,11 +409,11 @@ const Reports = () => {
                   <div className="space-y-4">
                     <h3 className="text-lg font-medium">Informações do Paciente</h3>
                     <div className="space-y-2">
-                      <Label htmlFor="clientName">Nome do Cliente</Label>
+                      <Label htmlFor="cliente_nome">Nome do Cliente *</Label>
                       <Input
-                        id="clientName"
-                        name="clientName"
-                        value={formData.clientName}
+                        id="cliente_nome"
+                        name="cliente_nome"
+                        value={formData.cliente_nome}
                         onChange={handleChange}
                         className="lco-input"
                         required
@@ -143,21 +421,20 @@ const Reports = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="clientCode">Código do Cliente</Label>
+                        <Label htmlFor="cliente_codigo">Código do Cliente</Label>
                         <Input
-                          id="clientCode"
-                          name="clientCode"
-                          value={formData.clientCode}
+                          id="cliente_codigo"
+                          name="cliente_codigo"
+                          value={formData.cliente_codigo}
                           onChange={handleChange}
                           className="lco-input"
-                          required
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="gender">Sexo</Label>
+                        <Label htmlFor="sexo">Sexo *</Label>
                         <Select 
-                          onValueChange={handleSelectChange("gender")} 
-                          defaultValue={formData.gender}
+                          onValueChange={handleSelectChange("sexo")} 
+                          value={formData.sexo}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione" />
@@ -171,29 +448,40 @@ const Reports = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="birthDate">Data de Nascimento</Label>
+                        <Label htmlFor="data_nascimento">Data de Nascimento *</Label>
                         <Input
-                          id="birthDate"
-                          name="birthDate"
-                          value={formData.birthDate}
+                          id="data_nascimento"
+                          name="data_nascimento"
+                          type="date"
+                          value={formData.data_nascimento}
                           onChange={handleChange}
                           className="lco-input"
-                          placeholder="DD/MM/AAAA"
                           required
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="age">Idade</Label>
+                        <Label htmlFor="idade">Idade</Label>
                         <Input
-                          id="age"
-                          name="age"
+                          id="idade"
+                          name="idade"
                           type="number"
-                          value={formData.age}
+                          value={formData.idade}
                           onChange={handleChange}
                           className="lco-input"
-                          required
+                          readOnly
                         />
                       </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="data_solicitacao">Data da Solicitação</Label>
+                      <Input
+                        id="data_solicitacao"
+                        name="data_solicitacao"
+                        type="date"
+                        value={formData.data_solicitacao}
+                        onChange={handleChange}
+                        className="lco-input"
+                      />
                     </div>
                   </div>
                 </div>
@@ -202,81 +490,76 @@ const Reports = () => {
                   <h3 className="text-lg font-medium border-b pb-2">Diagnóstico e Estadiamento</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="diagnosisCID">CID-10</Label>
+                      <Label htmlFor="diagnostico_cid">CID-10 *</Label>
                       <Input
-                        id="diagnosisCID"
-                        name="diagnosisCID"
-                        value={formData.diagnosisCID}
+                        id="diagnostico_cid"
+                        name="diagnostico_cid"
+                        value={formData.diagnostico_cid}
                         onChange={handleChange}
                         className="lco-input"
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="diagnosis">Diagnóstico</Label>
+                      <Label htmlFor="diagnostico_descricao">Diagnóstico</Label>
                       <Input
-                        id="diagnosis"
-                        name="diagnosis"
-                        value={formData.diagnosis}
+                        id="diagnostico_descricao"
+                        name="diagnostico_descricao"
+                        value={formData.diagnostico_descricao}
                         onChange={handleChange}
                         className="lco-input"
-                        required
                       />
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="metastasisLocation">Local das metástases</Label>
+                    <Label htmlFor="local_metastases">Local das metástases</Label>
                     <Input
-                      id="metastasisLocation"
-                      name="metastasisLocation"
-                      value={formData.metastasisLocation}
+                      id="local_metastases"
+                      name="local_metastases"
+                      value={formData.local_metastases}
                       onChange={handleChange}
                       className="lco-input"
                     />
                   </div>
                   <div className="grid grid-cols-4 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="stageT">T</Label>
+                      <Label htmlFor="estagio_t">T</Label>
                       <Input
-                        id="stageT"
-                        name="stageT"
-                        value={formData.stageT}
+                        id="estagio_t"
+                        name="estagio_t"
+                        value={formData.estagio_t}
                         onChange={handleChange}
                         className="lco-input"
-                        required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="stageN">N</Label>
+                      <Label htmlFor="estagio_n">N</Label>
                       <Input
-                        id="stageN"
-                        name="stageN"
-                        value={formData.stageN}
+                        id="estagio_n"
+                        name="estagio_n"
+                        value={formData.estagio_n}
                         onChange={handleChange}
                         className="lco-input"
-                        required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="stageM">M</Label>
+                      <Label htmlFor="estagio_m">M</Label>
                       <Input
-                        id="stageM"
-                        name="stageM"
-                        value={formData.stageM}
+                        id="estagio_m"
+                        name="estagio_m"
+                        value={formData.estagio_m}
                         onChange={handleChange}
                         className="lco-input"
-                        required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="clinicalStage">Estágio Clínico</Label>
+                      <Label htmlFor="estagio_clinico">Estágio Clínico</Label>
                       <Input
-                        id="clinicalStage"
-                        name="clinicalStage"
-                        value={formData.clinicalStage}
+                        id="estagio_clinico"
+                        name="estagio_clinico"
+                        value={formData.estagio_clinico}
                         onChange={handleChange}
                         className="lco-input"
-                        required
                       />
                     </div>
                   </div>
@@ -288,41 +571,41 @@ const Reports = () => {
                   </h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="previousSurgery">Cirurgia ou Radioterapia</Label>
+                      <Label htmlFor="tratamento_cirurgia_radio">Cirurgia ou Radioterapia</Label>
                       <Textarea
-                        id="previousSurgery"
-                        name="previousSurgery"
-                        value={formData.previousSurgery}
+                        id="tratamento_cirurgia_radio"
+                        name="tratamento_cirurgia_radio"
+                        value={formData.tratamento_cirurgia_radio}
                         onChange={handleChange}
                         className="lco-input h-20"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="previousChemoAdjuvant">Quimioterapia Adjuvante</Label>
+                      <Label htmlFor="tratamento_quimio_adjuvante">Quimioterapia Adjuvante</Label>
                       <Textarea
-                        id="previousChemoAdjuvant"
-                        name="previousChemoAdjuvant"
-                        value={formData.previousChemoAdjuvant}
+                        id="tratamento_quimio_adjuvante"
+                        name="tratamento_quimio_adjuvante"
+                        value={formData.tratamento_quimio_adjuvante}
                         onChange={handleChange}
                         className="lco-input h-20"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="previousChemo1stLine">Quimioterapia 1ª linha</Label>
+                      <Label htmlFor="tratamento_quimio_primeira_linha">Quimioterapia 1ª linha</Label>
                       <Textarea
-                        id="previousChemo1stLine"
-                        name="previousChemo1stLine"
-                        value={formData.previousChemo1stLine}
+                        id="tratamento_quimio_primeira_linha"
+                        name="tratamento_quimio_primeira_linha"
+                        value={formData.tratamento_quimio_primeira_linha}
                         onChange={handleChange}
                         className="lco-input h-20"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="previousChemo2ndLine">Quimioterapia 2ª linha ou mais</Label>
+                      <Label htmlFor="tratamento_quimio_segunda_linha">Quimioterapia 2ª linha ou mais</Label>
                       <Textarea
-                        id="previousChemo2ndLine"
-                        name="previousChemo2ndLine"
-                        value={formData.previousChemo2ndLine}
+                        id="tratamento_quimio_segunda_linha"
+                        name="tratamento_quimio_segunda_linha"
+                        value={formData.tratamento_quimio_segunda_linha}
                         onChange={handleChange}
                         className="lco-input h-20"
                       />
@@ -335,10 +618,10 @@ const Reports = () => {
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="purpose">Finalidade</Label>
+                      <Label htmlFor="finalidade">Finalidade *</Label>
                       <Select 
-                        onValueChange={handleSelectChange("purpose")} 
-                        defaultValue={formData.purpose}
+                        onValueChange={handleSelectChange("finalidade")} 
+                        value={formData.finalidade}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione" />
@@ -354,11 +637,11 @@ const Reports = () => {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="performanceStatus">Performance status atual</Label>
+                      <Label htmlFor="performance_status">Performance status atual *</Label>
                       <Input
-                        id="performanceStatus"
-                        name="performanceStatus"
-                        value={formData.performanceStatus}
+                        id="performance_status"
+                        name="performance_status"
+                        value={formData.performance_status}
                         onChange={handleChange}
                         className="lco-input"
                         required
@@ -368,45 +651,47 @@ const Reports = () => {
                   
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="acronym">Siglas</Label>
+                      <Label htmlFor="siglas">Siglas</Label>
                       <Input
-                        id="acronym"
-                        name="acronym"
-                        value={formData.acronym}
+                        id="siglas"
+                        name="siglas"
+                        value={formData.siglas}
                         onChange={handleChange}
                         className="lco-input"
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="plannedCycles">Números de Ciclos Previstos</Label>
+                      <Label htmlFor="ciclos_previstos">Números de Ciclos Previstos *</Label>
                       <Input
-                        id="plannedCycles"
-                        name="plannedCycles"
+                        id="ciclos_previstos"
+                        name="ciclos_previstos"
                         type="number"
-                        value={formData.plannedCycles}
+                        value={formData.ciclos_previstos}
                         onChange={handleChange}
                         className="lco-input"
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="currentCycle">Número de ciclos Atual</Label>
+                      <Label htmlFor="ciclo_atual">Número de ciclos Atual *</Label>
                       <Input
-                        id="currentCycle"
-                        name="currentCycle"
+                        id="ciclo_atual"
+                        name="ciclo_atual"
                         type="number"
-                        value={formData.currentCycle}
+                        value={formData.ciclo_atual}
                         onChange={handleChange}
                         className="lco-input"
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="bodySurface">Superfície Corporal</Label>
+                      <Label htmlFor="superficie_corporal">Superfície Corporal (m²) *</Label>
                       <Input
-                        id="bodySurface"
-                        name="bodySurface"
-                        value={formData.bodySurface}
+                        id="superficie_corporal"
+                        name="superficie_corporal"
+                        type="number"
+                        step="0.01"
+                        value={formData.superficie_corporal}
                         onChange={handleChange}
                         className="lco-input"
                         required
@@ -416,22 +701,25 @@ const Reports = () => {
                   
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="weight">Peso (kg)</Label>
+                      <Label htmlFor="peso">Peso (kg) *</Label>
                       <Input
-                        id="weight"
-                        name="weight"
-                        value={formData.weight}
+                        id="peso"
+                        name="peso"
+                        type="number"
+                        step="0.1"
+                        value={formData.peso}
                         onChange={handleChange}
                         className="lco-input"
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="height">Altura (cm)</Label>
+                      <Label htmlFor="altura">Altura (cm) *</Label>
                       <Input
-                        id="height"
-                        name="height"
-                        value={formData.height}
+                        id="altura"
+                        name="altura"
+                        type="number"
+                        value={formData.altura}
                         onChange={handleChange}
                         className="lco-input"
                         required
@@ -440,11 +728,11 @@ const Reports = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="medications">Medicamentos antineoplásticos</Label>
+                    <Label htmlFor="medicamentos_antineoplasticos">Medicamentos antineoplásticos *</Label>
                     <Textarea
-                      id="medications"
-                      name="medications"
-                      value={formData.medications}
+                      id="medicamentos_antineoplasticos"
+                      name="medicamentos_antineoplasticos"
+                      value={formData.medicamentos_antineoplasticos}
                       onChange={handleChange}
                       className="lco-input"
                       required
@@ -453,33 +741,33 @@ const Reports = () => {
                   
                   <div className="grid grid-cols-3 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="dosage">Dose por m²</Label>
+                      <Label htmlFor="dose_por_m2">Dose por m² *</Label>
                       <Input
-                        id="dosage"
-                        name="dosage"
-                        value={formData.dosage}
+                        id="dose_por_m2"
+                        name="dose_por_m2"
+                        value={formData.dose_por_m2}
                         onChange={handleChange}
                         className="lco-input"
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="totalDose">Dose Total</Label>
+                      <Label htmlFor="dose_total">Dose Total *</Label>
                       <Input
-                        id="totalDose"
-                        name="totalDose"
-                        value={formData.totalDose}
+                        id="dose_total"
+                        name="dose_total"
+                        value={formData.dose_total}
                         onChange={handleChange}
                         className="lco-input"
                         required
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="administrationRoute">Via de Adm.</Label>
+                      <Label htmlFor="via_administracao">Via de Administração *</Label>
                       <Input
-                        id="administrationRoute"
-                        name="administrationRoute"
-                        value={formData.administrationRoute}
+                        id="via_administracao"
+                        name="via_administracao"
+                        value={formData.via_administracao}
                         onChange={handleChange}
                         className="lco-input"
                         required
@@ -488,11 +776,11 @@ const Reports = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="applicationDays">Dias de Aplicação e intervalo</Label>
+                    <Label htmlFor="dias_aplicacao_intervalo">Dias de Aplicação e intervalo *</Label>
                     <Input
-                      id="applicationDays"
-                      name="applicationDays"
-                      value={formData.applicationDays}
+                      id="dias_aplicacao_intervalo"
+                      name="dias_aplicacao_intervalo"
+                      value={formData.dias_aplicacao_intervalo}
                       onChange={handleChange}
                       className="lco-input"
                       required
@@ -504,46 +792,65 @@ const Reports = () => {
                   <h3 className="text-lg font-medium border-b pb-2">Medicações Associadas</h3>
                   <div className="space-y-2">
                     <Textarea
-                      id="associatedMedications"
-                      name="associatedMedications"
-                      value={formData.associatedMedications}
+                      id="medicacoes_associadas"
+                      name="medicacoes_associadas"
+                      value={formData.medicacoes_associadas}
                       onChange={handleChange}
                       className="lco-input min-h-[100px]"
+                      placeholder="Descreva as medicações associadas..."
                     />
                   </div>
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="doctorSignature">Assinatura/CRM do Médico Solicitante</Label>
+                    <Label htmlFor="medico_assinatura_crm">Assinatura/CRM do Médico Solicitante *</Label>
                     <Input
-                      id="doctorSignature"
-                      name="doctorSignature"
-                      value={formData.doctorSignature}
+                      id="medico_assinatura_crm"
+                      name="medico_assinatura_crm"
+                      value={formData.medico_assinatura_crm}
                       onChange={handleChange}
                       className="lco-input"
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="authorizationNumber">Número da Autorização</Label>
+                    <Label htmlFor="numero_autorizacao">Número da Autorização</Label>
                     <Input
-                      id="authorizationNumber"
-                      name="authorizationNumber"
-                      value={formData.authorizationNumber}
+                      id="numero_autorizacao"
+                      name="numero_autorizacao"
+                      value={formData.numero_autorizacao}
                       onChange={handleChange}
                       className="lco-input"
+                      placeholder="Preenchido após aprovação"
                     />
                   </div>
                 </div>
                 
                 <div className="flex justify-end space-x-4">
-                  <Button type="button" variant="outline">
+                  <Button 
+                    type="button" 
+                    variant="outline"
+                    onClick={() => window.location.reload()}
+                  >
                     Cancelar
                   </Button>
-                  <Button type="submit" className="lco-btn-primary">
-                    <SendIcon className="mr-2 h-4 w-4" />
-                    Gerar Solicitação
+                  <Button 
+                    type="submit" 
+                    className="lco-btn-primary"
+                    disabled={submitting || !backendConnected}
+                  >
+                    {submitting ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        Criando...
+                      </>
+                    ) : (
+                      <>
+                        <SendIcon className="mr-2 h-4 w-4" />
+                        Gerar Solicitação
+                      </>
+                    )}
                   </Button>
                 </div>
               </form>
@@ -554,35 +861,129 @@ const Reports = () => {
         <TabsContent value="history">
           <Card>
             <CardHeader>
-              <CardTitle>Histórico de Relatórios</CardTitle>
+              <CardTitle className="flex items-center justify-between">
+                <span>Histórico de Solicitações</span>
+                {backendConnected && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={loadSolicitacoes}
+                    disabled={loading}
+                  >
+                    {loading ? 'Carregando...' : 'Atualizar'}
+                  </Button>
+                )}
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <div 
-                    key={i}
-                    className="flex items-center justify-between border-b pb-4 last:border-0"
-                  >
-                    <div>
-                      <h4 className="font-medium">Autorização de Tratamento #{1270 + i}</h4>
-                      <p className="text-sm text-muted-foreground">Paciente: {i === 1 ? 'Maria Silva' : i === 2 ? 'João Mendes' : 'Ana Costa'}</p>
-                      <p className="text-sm text-muted-foreground">
-                        Criado em: {i === 1 ? '10/05/2024' : i === 2 ? '08/05/2024' : '02/05/2024'}
-                      </p>
+              {!backendConnected ? (
+                <div className="text-center py-8">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Backend não conectado</h3>
+                  <p className="text-muted-foreground">
+                    Para visualizar o histórico, certifique-se de que o servidor backend está rodando.
+                  </p>
+                </div>
+              ) : loading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : solicitacoes.length === 0 ? (
+                <div className="text-center py-8">
+                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Nenhuma solicitação encontrada</h3>
+                  <p className="text-muted-foreground">
+                    Crie sua primeira solicitação na aba "Nova Solicitação".
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {solicitacoes.map((solicitacao) => (
+                    <div 
+                      key={solicitacao.id}
+                      className="flex items-center justify-between border-b pb-4 last:border-0 hover:bg-muted/50 p-4 rounded-lg transition-colors"
+                    >
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h4 className="font-medium">
+                            Solicitação #{solicitacao.id}
+                          </h4>
+                          <Badge 
+                            variant="outline" 
+                            className={getStatusColor(solicitacao.status || 'pendente')}
+                          >
+                            <div className="flex items-center gap-1">
+                              {getStatusIcon(solicitacao.status || 'pendente')}
+                              {solicitacao.status?.toUpperCase() || 'PENDENTE'}
+                            </div>
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-1">
+                          <strong>Paciente:</strong> {solicitacao.cliente_nome}
+                        </p>
+                        <p className="text-sm text-muted-foreground mb-1">
+                          <strong>Hospital:</strong> {solicitacao.hospital_nome}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          <strong>Criado em:</strong> {formatDate(solicitacao.created_at || '')}
+                        </p>
+                        {solicitacao.numero_autorizacao && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            <strong>Autorização:</strong> {solicitacao.numero_autorizacao}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex items-center space-x-2 ml-4">
+                        <Button 
+                          size="sm" 
+                          variant="outline" 
+                          className="flex items-center"
+                          onClick={() => handleDownloadPDF(solicitacao.id!)}
+                        >
+                          <Download className="mr-2 h-4 w-4" />
+                          PDF
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="flex items-center"
+                          onClick={() => {
+                            // Implementar visualização detalhada se necessário
+                            toast.info('Funcionalidade em desenvolvimento');
+                          }}
+                        >
+                          <Eye className="mr-2 h-4 w-4" />
+                          Ver
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <Button size="sm" variant="outline" className="flex items-center">
-                        <Download className="mr-2 h-4 w-4" />
-                        PDF
+                  ))}
+                  
+                  {totalPages > 1 && (
+                    <div className="flex justify-center gap-2 mt-6">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                        disabled={currentPage === 1}
+                      >
+                        Anterior
                       </Button>
-                      <Button size="sm" className="lco-btn-primary">
-                        <PencilIcon className="mr-2 h-4 w-4" />
-                        Editar
+                      <span className="flex items-center px-3 text-sm">
+                        Página {currentPage} de {totalPages}
+                      </span>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                        disabled={currentPage === totalPages}
+                      >
+                        Próxima
                       </Button>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
