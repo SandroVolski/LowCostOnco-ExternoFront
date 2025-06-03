@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Plus, Search, User, Calendar as CalendarIcon, Info, Phone, Mail, MapPin, CreditCard, Building2, FlipHorizontal, Edit, Trash2, Filter, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle } from 'lucide-react';
+import { usePageNavigation } from '@/components/transitions/PageTransitionContext';
 
 // CSS como string constante
 const patientCardStyles = `
@@ -629,6 +630,7 @@ const Patients = () => {
   const [deleteAlert, setDeleteAlert] = useState<{ isOpen: boolean; patient: Patient | null }>({ isOpen: false, patient: null });
   const [backendConnected, setBackendConnected] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { navigateWithTransition } = usePageNavigation();
   
   const itemsPerPage = 50;
 
@@ -788,8 +790,8 @@ const Patients = () => {
   })();
 
   const handleAddNew = () => {
-    setCurrentPatient(emptyPatient);
     setIsEditing(false);
+    setCurrentPatient(emptyPatient);
     setIsDialogOpen(true);
   };
 

@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SolicitacaoService, SolicitacaoFromAPI, testarConexaoBackend, PacienteService } from '@/services/api';
+import { usePageNavigation } from '@/components/transitions/PageTransitionContext';
 
 interface PatientOption {
   id: string;
@@ -47,6 +48,7 @@ interface PatientOption {
 
 const Reports = () => {
   const navigate = useNavigate();
+  const { navigateWithTransition } = usePageNavigation();
   
   // Estados para o formulário
   const [formData, setFormData] = useState({
@@ -147,14 +149,14 @@ const Reports = () => {
           ...prev,
           hospital_nome: profile.nome || '',
           hospital_codigo: profile.codigo || '',
-          medico_assinatura_crm: profile.responsavel_crm || '',
+          medico_assinatura_crm: profile.responsaveis_tecnicos?.[0]?.crm || '',
         }));
       } else {
         toast.info('Configure o perfil da clínica', {
           description: 'Acesse Configurações para definir as informações da clínica',
           action: {
             label: 'Configurar',
-            onClick: () => navigate('/profile'),
+            onClick: () => navigateWithTransition('/profile'),
           },
         });
       }
@@ -395,7 +397,7 @@ const Reports = () => {
         via_administracao: '',
         dias_aplicacao_intervalo: '',
         medicacoes_associadas: '',
-        medico_assinatura_crm: clinicProfile?.responsavel_crm || '',
+        medico_assinatura_crm: clinicProfile?.responsaveis_tecnicos?.[0]?.crm || '',
         numero_autorizacao: '',
       });
 
@@ -485,7 +487,7 @@ const Reports = () => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => navigate('/profile')}
+              onClick={() => navigateWithTransition('/profile')}
               className="text-orange-600 border-orange-600 hover:bg-orange-50"
             >
               <Building2 className="h-4 w-4 mr-2" />
@@ -531,7 +533,7 @@ const Reports = () => {
                     </div>
                     
                     {clinicProfile ? (
-                      <div className="bg-green-50 border border-green-200 rounded-lg p-4 space-y-2">
+                      <div className="bg-green-50 dark:bg-green-950/50 border border-green-200 dark:border-green-800 rounded-lg p-4 space-y-2">
                         <div className="flex items-center gap-2">
                           {clinicProfile.logo_url && (
                             <img 
@@ -541,8 +543,8 @@ const Reports = () => {
                             />
                           )}
                           <div>
-                            <p className="font-medium text-green-800">{clinicProfile.nome}</p>
-                            <p className="text-sm text-green-600">Código: {clinicProfile.codigo}</p>
+                            <p className="font-medium text-green-800 dark:text-green-300">{clinicProfile.nome}</p>
+                            <p className="text-sm text-green-600 dark:text-green-400">Código: {clinicProfile.codigo}</p>
                           </div>
                         </div>
                         <Button
@@ -556,15 +558,15 @@ const Reports = () => {
                         </Button>
                       </div>
                     ) : (
-                      <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                        <p className="text-orange-800 mb-3">
+                      <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30 rounded-lg p-4">
+                        <p className="text-primary dark:text-primary/90 mb-3">
                           Configure as informações da clínica para preenchimento automático
                         </p>
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => navigate('/profile')}
-                          className="w-full text-orange-600 border-orange-600 hover:bg-orange-100"
+                          onClick={() => navigateWithTransition('/profile')}
+                          className="w-full text-primary border-primary hover:bg-primary/10 dark:hover:bg-primary/20"
                         >
                           <Building2 className="h-4 w-4 mr-2" />
                           Configurar Clínica
@@ -599,25 +601,20 @@ const Reports = () => {
                                 <Search className="h-4 w-4" />
                                 <span>{patients.length} paciente(s) encontrado(s)</span>
                               </div>
+                              {patients.map((patient) => (
+                                <SelectItem key={patient.id} value={patient.id}>
+                                  {patient.name}
+                                </SelectItem>
+                              ))}
                             </div>
-                            {patients.map((patient) => (
-                              <SelectItem key={patient.id} value={patient.id}>
-                                <div className="flex flex-col">
-                                  <span className="font-medium">{patient.name}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {patient.codigo} • {patient.cpf} • {patient.idade} anos
-                                  </span>
-                                </div>
-                              </SelectItem>
-                            ))}
                           </SelectContent>
                         </Select>
-                        
                         <Button
                           type="button"
                           variant="outline"
-                          onClick={() => navigate('/patients')}
-                          className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                          size="icon"
+                          onClick={() => navigateWithTransition('/patients')}
+                          className="text-primary border-primary hover:bg-primary/10 dark:hover:bg-primary/20"
                         >
                           <UserPlus className="h-4 w-4" />
                         </Button>
@@ -1031,16 +1028,22 @@ const Reports = () => {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label htmlFor="medico_assinatura_crm">Assinatura/CRM do Médico Solicitante *</Label>
-                    <Input
-                      id="medico_assinatura_crm"
-                      name="medico_assinatura_crm"
+                    <Label htmlFor="medico_assinatura_crm">Médico Solicitante *</Label>
+                    <Select
                       value={formData.medico_assinatura_crm}
-                      onChange={handleChange}
-                      className="lco-input"
-                      required
-                      placeholder={clinicProfile?.responsavel_crm ? "Preenchido automaticamente" : "Ex: CRM 123456/SP"}
-                    />
+                      onValueChange={(value) => setFormData(prev => ({ ...prev, medico_assinatura_crm: value }))}
+                    >
+                      <SelectTrigger className="lco-input">
+                        <SelectValue placeholder="Selecione o médico solicitante" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {clinicProfile?.responsaveis_tecnicos?.map((responsavel) => (
+                          <SelectItem key={responsavel.id} value={responsavel.crm}>
+                            {responsavel.nome} - CRM: {responsavel.crm}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="numero_autorizacao">Número da Autorização</Label>
