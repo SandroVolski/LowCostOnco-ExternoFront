@@ -8,32 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-
-interface ResponsavelTecnico {
-  id: string;
-  nome: string;
-  crm: string;
-  especialidade: string;
-  telefone?: string;
-  email?: string;
-}
-
-interface ClinicProfile {
-  id?: number;
-  nome: string;
-  codigo: string;
-  cnpj: string;
-  endereco: string;
-  cidade: string;
-  estado: string;
-  cep: string;
-  telefone: string;
-  email: string;
-  website?: string;
-  logo_url?: string;
-  observacoes?: string;
-  responsaveis_tecnicos: ResponsavelTecnico[];
-}
+import { ClinicService, ClinicProfile, ResponsavelTecnico, UpdateProfileRequest } from '@/services/clinicService';
 
 const emptyProfile: ClinicProfile = {
   nome: '',
@@ -48,11 +23,9 @@ const emptyProfile: ClinicProfile = {
   website: '',
   logo_url: '',
   observacoes: '',
-  responsaveis_tecnicos: [],
 };
 
 const emptyResponsavel: ResponsavelTecnico = {
-  id: '',
   nome: '',
   crm: '',
   especialidade: '',
@@ -60,13 +33,15 @@ const emptyResponsavel: ResponsavelTecnico = {
   email: '',
 };
 
-const ClinicProfile = () => {
+const ClinicProfileComponent = () => {
   const [profile, setProfile] = useState<ClinicProfile>(emptyProfile);
+  const [responsaveis, setResponsaveis] = useState<ResponsavelTecnico[]>([]);
   const [loading, setLoading] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string>('');
   const [isResponsavelDialogOpen, setIsResponsavelDialogOpen] = useState(false);
   const [currentResponsavel, setCurrentResponsavel] = useState<ResponsavelTecnico>(emptyResponsavel);
   const [isEditingResponsavel, setIsEditingResponsavel] = useState(false);
+  const [apiConnected, setApiConnected] = useState(false);
 
   // Carregar dados do perfil ao montar o componente
   useEffect(() => {
@@ -75,43 +50,59 @@ const ClinicProfile = () => {
 
   const loadProfile = async () => {
     try {
-      // Por enquanto, usar dados do localStorage
-      const savedProfile = localStorage.getItem('clinic_profile');
-      if (savedProfile) {
-        const profileData = JSON.parse(savedProfile);
+      setLoading(true);
+      
+      // Tentar carregar da API primeiro
+      try {
+        const profileData = await ClinicService.getProfile();
+        setProfile(profileData.clinica);
+        setResponsaveis(profileData.responsaveis_tecnicos || []);
+        setLogoPreview(profileData.clinica.logo_url || '');
+        setApiConnected(true);
+        console.log('✅ Perfil carregado da API');
+      } catch (apiError) {
+        console.warn('⚠️  API não disponível, usando localStorage:', apiError);
+        setApiConnected(false);
         
-        // Garantir que responsaveis_tecnicos existe
-        if (!profileData.responsaveis_tecnicos) {
-          profileData.responsaveis_tecnicos = [];
+        // Fallback para localStorage
+        const savedProfile = localStorage.getItem('clinic_profile');
+        if (savedProfile) {
+          const profileData = JSON.parse(savedProfile);
+          
+          // Garantir que responsaveis_tecnicos existe
+          if (!profileData.responsaveis_tecnicos) {
+            profileData.responsaveis_tecnicos = [];
+          }
+          
+          setProfile(profileData);
+          setResponsaveis(profileData.responsaveis_tecnicos);
+          setLogoPreview(profileData.logo_url || '');
         }
-        
-        setProfile(profileData);
-        setLogoPreview(profileData.logo_url || '');
       }
     } catch (error) {
       console.error('Erro ao carregar perfil:', error);
       toast.error('Erro ao carregar dados do perfil');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setProfile({
-      ...profile,
+    setProfile(prevProfile => ({
+      ...prevProfile,
       [name]: value,
-    });
+    }));
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Verificar se é uma imagem
       if (!file.type.startsWith('image/')) {
         toast.error('Por favor, selecione apenas arquivos de imagem');
         return;
       }
 
-      // Verificar tamanho (máximo 5MB)
       if (file.size > 5 * 1024 * 1024) {
         toast.error('A imagem deve ter no máximo 5MB');
         return;
@@ -121,10 +112,10 @@ const ClinicProfile = () => {
       reader.onload = () => {
         const dataUrl = reader.result as string;
         setLogoPreview(dataUrl);
-        setProfile({
-          ...profile,
+        setProfile(prevProfile => ({
+          ...prevProfile,
           logo_url: dataUrl,
-        });
+        }));
       };
       reader.readAsDataURL(file);
     }
@@ -139,16 +130,34 @@ const ClinicProfile = () => {
 
     setLoading(true);
     try {
-      // Por enquanto, salvar no localStorage
-      localStorage.setItem('clinic_profile', JSON.stringify(profile));
-      
-      // TODO: Quando implementar o backend, salvar na API
-      // await ClinicService.updateProfile(profile);
-      
-      toast.success('Perfil salvo com sucesso!');
+      if (apiConnected) {
+        // Usar API
+        const updateRequest: UpdateProfileRequest = {
+          clinica: profile
+        };
+        
+        const updatedProfile = await ClinicService.updateProfile(updateRequest);
+        setProfile(updatedProfile.clinica);
+        setResponsaveis(updatedProfile.responsaveis_tecnicos || []);
+        
+        toast.success('Perfil salvo com sucesso na API!');
+      } else {
+        // Fallback para localStorage
+        const profileData = {
+          ...profile,
+          responsaveis_tecnicos: responsaveis
+        };
+        localStorage.setItem('clinic_profile', JSON.stringify(profileData));
+        
+        toast.success('Perfil salvo localmente!', {
+          description: 'API não disponível. Dados salvos no navegador.'
+        });
+      }
     } catch (error) {
       console.error('Erro ao salvar perfil:', error);
-      toast.error('Erro ao salvar perfil');
+      toast.error('Erro ao salvar perfil', {
+        description: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
     } finally {
       setLoading(false);
     }
@@ -156,7 +165,7 @@ const ClinicProfile = () => {
 
   // Funções para responsáveis técnicos
   const handleAddResponsavel = () => {
-    setCurrentResponsavel({...emptyResponsavel, id: Date.now().toString()});
+    setCurrentResponsavel({...emptyResponsavel});
     setIsEditingResponsavel(false);
     setIsResponsavelDialogOpen(true);
   };
@@ -167,45 +176,101 @@ const ClinicProfile = () => {
     setIsResponsavelDialogOpen(true);
   };
 
-  const handleDeleteResponsavel = (id: string) => {
-    setProfile({
-      ...profile,
-      responsaveis_tecnicos: profile.responsaveis_tecnicos.filter(r => r.id !== id)
-    });
-    toast.success('Responsável removido com sucesso!');
+  const handleDeleteResponsavel = async (responsavel: ResponsavelTecnico) => {
+    try {
+      if (apiConnected && responsavel.id) {
+        // Usar API
+        await ClinicService.removeResponsavel(responsavel.id);
+        setResponsaveis(responsaveis.filter(r => r.id !== responsavel.id));
+        toast.success('Responsável removido com sucesso!');
+      } else {
+        // Fallback para localStorage
+        const updatedResponsaveis = responsaveis.filter(r => r !== responsavel);
+        setResponsaveis(updatedResponsaveis);
+        
+        // Salvar no localStorage
+        const profileData = {
+          ...profile,
+          responsaveis_tecnicos: updatedResponsaveis
+        };
+        localStorage.setItem('clinic_profile', JSON.stringify(profileData));
+        
+        toast.success('Responsável removido com sucesso!');
+      }
+    } catch (error) {
+      console.error('Erro ao remover responsável:', error);
+      toast.error('Erro ao remover responsável', {
+        description: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    }
   };
 
-  const handleSaveResponsavel = () => {
+  const handleSaveResponsavel = async () => {
     if (!currentResponsavel.nome || !currentResponsavel.crm || !currentResponsavel.especialidade) {
       toast.error('Nome, CRM e especialidade são obrigatórios');
       return;
     }
 
-    if (isEditingResponsavel) {
-      setProfile({
-        ...profile,
-        responsaveis_tecnicos: profile.responsaveis_tecnicos.map(r => 
-          r.id === currentResponsavel.id ? currentResponsavel : r
-        )
+    try {
+      if (apiConnected) {
+        // Usar API
+        if (isEditingResponsavel && currentResponsavel.id) {
+          const updatedResponsavel = await ClinicService.updateResponsavel(
+            currentResponsavel.id, 
+            currentResponsavel
+          );
+          setResponsaveis(responsaveis.map(r => 
+            r.id === currentResponsavel.id ? updatedResponsavel : r
+          ));
+          toast.success('Responsável atualizado com sucesso!');
+        } else {
+          const newResponsavel = await ClinicService.addResponsavel(currentResponsavel);
+          setResponsaveis([...responsaveis, newResponsavel]);
+          toast.success('Responsável adicionado com sucesso!');
+        }
+      } else {
+        // Fallback para localStorage
+        let updatedResponsaveis;
+        
+        if (isEditingResponsavel) {
+          updatedResponsaveis = responsaveis.map(r => 
+            r === currentResponsavel ? currentResponsavel : r
+          );
+          toast.success('Responsável atualizado com sucesso!');
+        } else {
+          const responsavelWithId = {
+            ...currentResponsavel,
+            id: Date.now() // ID temporário
+          };
+          updatedResponsaveis = [...responsaveis, responsavelWithId];
+          toast.success('Responsável adicionado com sucesso!');
+        }
+        
+        setResponsaveis(updatedResponsaveis);
+        
+        // Salvar no localStorage
+        const profileData = {
+          ...profile,
+          responsaveis_tecnicos: updatedResponsaveis
+        };
+        localStorage.setItem('clinic_profile', JSON.stringify(profileData));
+      }
+      
+      setIsResponsavelDialogOpen(false);
+    } catch (error) {
+      console.error('Erro ao salvar responsável:', error);
+      toast.error('Erro ao salvar responsável', {
+        description: error instanceof Error ? error.message : 'Erro desconhecido'
       });
-      toast.success('Responsável atualizado com sucesso!');
-    } else {
-      setProfile({
-        ...profile,
-        responsaveis_tecnicos: [...profile.responsaveis_tecnicos, currentResponsavel]
-      });
-      toast.success('Responsável adicionado com sucesso!');
     }
-    
-    setIsResponsavelDialogOpen(false);
   };
 
   const handleResponsavelInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setCurrentResponsavel({
-      ...currentResponsavel,
+    setCurrentResponsavel(prevResponsavel => ({
+      ...prevResponsavel,
       [name]: value,
-    });
+    }));
   };
 
   const formatCEP = (value: string) => {
@@ -231,6 +296,31 @@ const ClinicProfile = () => {
     return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
   };
 
+  // Funções de formatação específicas para cada campo
+  const handleCEPChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCEP(e.target.value);
+    setProfile(prevProfile => ({
+      ...prevProfile,
+      cep: formatted,
+    }));
+  };
+
+  const handleCNPJChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCNPJ(e.target.value);
+    setProfile(prevProfile => ({
+      ...prevProfile,
+      cnpj: formatted,
+    }));
+  };
+
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhone(e.target.value);
+    setProfile(prevProfile => ({
+      ...prevProfile,
+      telefone: formatted,
+    }));
+  };
+
   // Seção animada
   const AnimatedSection = ({ children, delay = 0, className = "" }: {
     children: React.ReactNode;
@@ -245,6 +335,15 @@ const ClinicProfile = () => {
     </div>
   );
 
+  if (loading && !profile.nome) {
+    return (
+      <div className="flex justify-center items-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <span className="ml-3">Carregando perfil da clínica...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <AnimatedSection>
@@ -256,6 +355,11 @@ const ClinicProfile = () => {
             <p className="text-muted-foreground mt-2">
               Configure as informações da sua clínica para uso nos documentos e solicitações
             </p>
+            {!apiConnected && (
+              <p className="text-orange-600 text-sm mt-1">
+                ⚠️ API não disponível. Dados salvos localmente.
+              </p>
+            )}
           </div>
           <Button 
             onClick={handleSave}
@@ -377,10 +481,7 @@ const ClinicProfile = () => {
                     id="cnpj"
                     name="cnpj"
                     value={profile.cnpj}
-                    onChange={(e) => {
-                      const formatted = formatCNPJ(e.target.value);
-                      setProfile({ ...profile, cnpj: formatted });
-                    }}
+                    onChange={handleCNPJChange}
                     placeholder="00.000.000/0000-00"
                     className="lco-input"
                     maxLength={18}
@@ -436,10 +537,7 @@ const ClinicProfile = () => {
                   id="cep"
                   name="cep"
                   value={profile.cep}
-                  onChange={(e) => {
-                    const formatted = formatCEP(e.target.value);
-                    setProfile({ ...profile, cep: formatted });
-                  }}
+                  onChange={handleCEPChange}
                   placeholder="00000-000"
                   className="lco-input"
                   maxLength={9}
@@ -494,10 +592,7 @@ const ClinicProfile = () => {
                     id="telefone"
                     name="telefone"
                     value={profile.telefone}
-                    onChange={(e) => {
-                      const formatted = formatPhone(e.target.value);
-                      setProfile({ ...profile, telefone: formatted });
-                    }}
+                    onChange={handlePhoneChange}
                     placeholder="(11) 99999-9999"
                     className="lco-input pl-10"
                     maxLength={15}
@@ -546,7 +641,7 @@ const ClinicProfile = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {profile.responsaveis_tecnicos.length === 0 ? (
+            {responsaveis.length === 0 ? (
               <div className="text-center py-8 border-2 border-dashed border-border rounded-lg">
                 <UserPlus className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg font-medium text-muted-foreground mb-2">
@@ -566,8 +661,8 @@ const ClinicProfile = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {profile.responsaveis_tecnicos.map((responsavel) => (
-                  <Card key={responsavel.id} className="border border-border hover:border-primary/30 transition-colors">
+                {responsaveis.map((responsavel) => (
+                  <Card key={responsavel.id || responsavel.crm} className="border border-border hover:border-primary/30 transition-colors">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
@@ -587,7 +682,7 @@ const ClinicProfile = () => {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 hover:bg-destructive/10 text-destructive"
-                            onClick={() => handleDeleteResponsavel(responsavel.id)}
+                            onClick={() => handleDeleteResponsavel(responsavel)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -754,4 +849,4 @@ const ClinicProfile = () => {
   );
 };
 
-export default ClinicProfile;
+export default ClinicProfileComponent;
