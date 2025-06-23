@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Building2, Upload, Save, Camera, MapPin, Phone, Mail, FileText, Globe, Plus, Edit, Trash2, UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -33,6 +33,20 @@ const emptyResponsavel: ResponsavelTecnico = {
   email: '',
 };
 
+// Mover AnimatedSection para fora do componente para evitar re-criação
+const AnimatedSection = ({ children, delay = 0, className = "" }: {
+  children: React.ReactNode;
+  delay?: number;  
+  className?: string;
+}) => (
+  <div 
+    className={`animate-fade-in-up ${className}`}
+    style={{ animationDelay: `${delay}ms` }}
+  >
+    {children}
+  </div>
+);
+
 const ClinicProfileComponent = () => {
   const [profile, setProfile] = useState<ClinicProfile>(emptyProfile);
   const [responsaveis, setResponsaveis] = useState<ResponsavelTecnico[]>([]);
@@ -48,7 +62,7 @@ const ClinicProfileComponent = () => {
     loadProfile();
   }, []);
 
-  const loadProfile = async () => {
+  const loadProfile = useCallback(async () => {
     try {
       setLoading(true);
       
@@ -85,17 +99,18 @@ const ClinicProfileComponent = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  // Função otimizada para mudanças de input
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setProfile(prevProfile => ({
       ...prevProfile,
       [name]: value,
     }));
-  };
+  }, []);
 
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoUpload = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('image/')) {
@@ -119,9 +134,9 @@ const ClinicProfileComponent = () => {
       };
       reader.readAsDataURL(file);
     }
-  };
+  }, []);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     // Validações básicas
     if (!profile.nome || !profile.codigo) {
       toast.error('Nome e código da clínica são obrigatórios');
@@ -161,27 +176,76 @@ const ClinicProfileComponent = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [profile, responsaveis, apiConnected]);
 
-  // Funções para responsáveis técnicos
-  const handleAddResponsavel = () => {
+  // Funções de formatação otimizadas
+  const formatCEP = useCallback((value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    if (numbers.length <= 5) return numbers;
+    return `${numbers.slice(0, 5)}-${numbers.slice(5, 8)}`;
+  }, []);
+
+  const formatCNPJ = useCallback((value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    if (numbers.length <= 2) return numbers;
+    if (numbers.length <= 5) return `${numbers.slice(0, 2)}.${numbers.slice(2)}`;
+    if (numbers.length <= 8) return `${numbers.slice(0, 2)}.${numbers.slice(2, 5)}.${numbers.slice(5)}`;
+    if (numbers.length <= 12) return `${numbers.slice(0, 2)}.${numbers.slice(2, 5)}.${numbers.slice(5, 8)}/${numbers.slice(8)}`;
+    return `${numbers.slice(0, 2)}.${numbers.slice(2, 5)}.${numbers.slice(5, 8)}/${numbers.slice(8, 12)}-${numbers.slice(12, 14)}`;
+  }, []);
+
+  const formatPhone = useCallback((value: string) => {
+    const numbers = value.replace(/\D/g, '');
+    if (numbers.length <= 2) return `(${numbers}`;
+    if (numbers.length <= 6) return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
+    if (numbers.length <= 10) return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(6)}`;
+    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
+  }, []);
+
+  // Funções de formatação específicas para cada campo otimizadas
+  const handleCEPChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCEP(e.target.value);
+    setProfile(prevProfile => ({
+      ...prevProfile,
+      cep: formatted,
+    }));
+  }, [formatCEP]);
+
+  const handleCNPJChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCNPJ(e.target.value);
+    setProfile(prevProfile => ({
+      ...prevProfile,
+      cnpj: formatted,
+    }));
+  }, [formatCNPJ]);
+
+  const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhone(e.target.value);
+    setProfile(prevProfile => ({
+      ...prevProfile,
+      telefone: formatted,
+    }));
+  }, [formatPhone]);
+
+  // Funções para responsáveis técnicos otimizadas
+  const handleAddResponsavel = useCallback(() => {
     setCurrentResponsavel({...emptyResponsavel});
     setIsEditingResponsavel(false);
     setIsResponsavelDialogOpen(true);
-  };
+  }, []);
 
-  const handleEditResponsavel = (responsavel: ResponsavelTecnico) => {
+  const handleEditResponsavel = useCallback((responsavel: ResponsavelTecnico) => {
     setCurrentResponsavel(responsavel);
     setIsEditingResponsavel(true);
     setIsResponsavelDialogOpen(true);
-  };
+  }, []);
 
-  const handleDeleteResponsavel = async (responsavel: ResponsavelTecnico) => {
+  const handleDeleteResponsavel = useCallback(async (responsavel: ResponsavelTecnico) => {
     try {
       if (apiConnected && responsavel.id) {
         // Usar API
         await ClinicService.removeResponsavel(responsavel.id);
-        setResponsaveis(responsaveis.filter(r => r.id !== responsavel.id));
+        setResponsaveis(prev => prev.filter(r => r.id !== responsavel.id));
         toast.success('Responsável removido com sucesso!');
       } else {
         // Fallback para localStorage
@@ -203,9 +267,9 @@ const ClinicProfileComponent = () => {
         description: error instanceof Error ? error.message : 'Erro desconhecido'
       });
     }
-  };
+  }, [apiConnected, responsaveis, profile]);
 
-  const handleSaveResponsavel = async () => {
+  const handleSaveResponsavel = useCallback(async () => {
     if (!currentResponsavel.nome || !currentResponsavel.crm || !currentResponsavel.especialidade) {
       toast.error('Nome, CRM e especialidade são obrigatórios');
       return;
@@ -219,13 +283,13 @@ const ClinicProfileComponent = () => {
             currentResponsavel.id, 
             currentResponsavel
           );
-          setResponsaveis(responsaveis.map(r => 
+          setResponsaveis(prev => prev.map(r => 
             r.id === currentResponsavel.id ? updatedResponsavel : r
           ));
           toast.success('Responsável atualizado com sucesso!');
         } else {
           const newResponsavel = await ClinicService.addResponsavel(currentResponsavel);
-          setResponsaveis([...responsaveis, newResponsavel]);
+          setResponsaveis(prev => [...prev, newResponsavel]);
           toast.success('Responsável adicionado com sucesso!');
         }
       } else {
@@ -263,77 +327,28 @@ const ClinicProfileComponent = () => {
         description: error instanceof Error ? error.message : 'Erro desconhecido'
       });
     }
-  };
+  }, [currentResponsavel, isEditingResponsavel, apiConnected, responsaveis, profile]);
 
-  const handleResponsavelInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleResponsavelInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setCurrentResponsavel(prevResponsavel => ({
       ...prevResponsavel,
       [name]: value,
     }));
-  };
+  }, []);
 
-  const formatCEP = (value: string) => {
-    const numbers = value.replace(/\D/g, '');
-    if (numbers.length <= 5) return numbers;
-    return `${numbers.slice(0, 5)}-${numbers.slice(5, 8)}`;
-  };
-
-  const formatCNPJ = (value: string) => {
-    const numbers = value.replace(/\D/g, '');
-    if (numbers.length <= 2) return numbers;
-    if (numbers.length <= 5) return `${numbers.slice(0, 2)}.${numbers.slice(2)}`;
-    if (numbers.length <= 8) return `${numbers.slice(0, 2)}.${numbers.slice(2, 5)}.${numbers.slice(5)}`;
-    if (numbers.length <= 12) return `${numbers.slice(0, 2)}.${numbers.slice(2, 5)}.${numbers.slice(5, 8)}/${numbers.slice(8)}`;
-    return `${numbers.slice(0, 2)}.${numbers.slice(2, 5)}.${numbers.slice(5, 8)}/${numbers.slice(8, 12)}-${numbers.slice(12, 14)}`;
-  };
-
-  const formatPhone = (value: string) => {
-    const numbers = value.replace(/\D/g, '');
-    if (numbers.length <= 2) return `(${numbers}`;
-    if (numbers.length <= 6) return `(${numbers.slice(0, 2)}) ${numbers.slice(2)}`;
-    if (numbers.length <= 10) return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(6)}`;
-    return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7, 11)}`;
-  };
-
-  // Funções de formatação específicas para cada campo
-  const handleCEPChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCEP(e.target.value);
-    setProfile(prevProfile => ({
-      ...prevProfile,
-      cep: formatted,
-    }));
-  };
-
-  const handleCNPJChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatCNPJ(e.target.value);
-    setProfile(prevProfile => ({
-      ...prevProfile,
-      cnpj: formatted,
-    }));
-  };
-
-  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhone(e.target.value);
-    setProfile(prevProfile => ({
-      ...prevProfile,
-      telefone: formatted,
-    }));
-  };
-
-  // Seção animada
-  const AnimatedSection = ({ children, delay = 0, className = "" }: {
-    children: React.ReactNode;
-    delay?: number;  
-    className?: string;
-  }) => (
-    <div 
-      className={`animate-fade-in-up ${className}`}
-      style={{ animationDelay: `${delay}ms` }}
+  // Memoizar elementos que não mudam frequentemente
+  const logoUploadButton = useMemo(() => (
+    <Button 
+      type="button"
+      variant="outline" 
+      className="w-full"
+      onClick={() => document.getElementById('logo-upload')?.click()}
     >
-      {children}
-    </div>
-  );
+      <Upload className="h-4 w-4 mr-2" />
+      {logoPreview ? 'Alterar Logo' : 'Fazer Upload'}
+    </Button>
+  ), [logoPreview]);
 
   if (loading && !profile.nome) {
     return (
@@ -419,15 +434,7 @@ const ClinicProfileComponent = () => {
                     onChange={handleLogoUpload}
                     className="hidden"
                   />
-                  <Button 
-                    type="button"
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => document.getElementById('logo-upload')?.click()}
-                  >
-                    <Upload className="h-4 w-4 mr-2" />
-                    {logoPreview ? 'Alterar Logo' : 'Fazer Upload'}
-                  </Button>
+                  {logoUploadButton}
                 </div>
                 
                 <p className="text-xs text-muted-foreground text-center mt-2">
@@ -661,8 +668,8 @@ const ClinicProfileComponent = () => {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {responsaveis.map((responsavel) => (
-                  <Card key={responsavel.id || responsavel.crm} className="border border-border hover:border-primary/30 transition-colors">
+                {responsaveis.map((responsavel, index) => (
+                  <Card key={responsavel.id || index} className="border border-border hover:border-primary/30 transition-colors">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1">
