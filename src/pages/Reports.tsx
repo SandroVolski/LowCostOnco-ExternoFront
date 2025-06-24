@@ -29,10 +29,12 @@ import {
   AlertCircle,
   UserPlus,
   Building2,
-  Search
+  Search,
+  Edit
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SolicitacaoService, SolicitacaoFromAPI, testarConexaoBackend, PacienteService } from '@/services/api';
+import { ClinicService } from '@/services/clinicService';
 import { usePageNavigation } from '@/components/transitions/PageTransitionContext';
 
 interface PatientOption {
@@ -94,6 +96,8 @@ const Reports = () => {
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [clinicProfile, setClinicProfile] = useState<any>(null);
   const [loadingPatients, setLoadingPatients] = useState(false);
+  const [loadingClinic, setLoadingClinic] = useState(false);
+  const [useCustomCRM, setUseCustomCRM] = useState(false);
 
   // Estados para o histórico
   const [solicitacoes, setSolicitacoes] = useState<SolicitacaoFromAPI[]>([]);
@@ -137,21 +141,97 @@ const Reports = () => {
     }
   };
 
-  const loadClinicProfile = () => {
+  // ✅ FUNÇÃO CORRIGIDA - Carregamento do perfil da clínica
+  const loadClinicProfile = async () => {
+    setLoadingClinic(true);
     try {
+      // Primeiro, tentar carregar da API se conectada
+      if (backendConnected) {
+        try {
+          console.log('🔧 Tentando carregar perfil da API...');
+          const apiProfile = await ClinicService.getProfile();
+          
+          if (apiProfile && apiProfile.clinica) {
+            console.log('✅ Perfil carregado da API:', apiProfile);
+            setClinicProfile(apiProfile);
+            
+            // Preencher automaticamente os dados da clínica
+            setFormData(prev => ({
+              ...prev,
+              hospital_nome: apiProfile.clinica.nome || '',
+              hospital_codigo: apiProfile.clinica.codigo || '',
+              medico_assinatura_crm: apiProfile.responsaveis_tecnicos?.[0]?.crm || '',
+            }));
+            
+            console.log('📋 Responsáveis técnicos encontrados:', apiProfile.responsaveis_tecnicos?.length || 0);
+            return;
+          }
+        } catch (apiError) {
+          console.warn('⚠️ Erro ao carregar da API, tentando localStorage:', apiError);
+        }
+      }
+      
+      // Fallback para localStorage
+      console.log('🔧 Carregando perfil do localStorage...');
       const savedProfile = localStorage.getItem('clinic_profile');
       if (savedProfile) {
         const profile = JSON.parse(savedProfile);
-        setClinicProfile(profile);
+        console.log('📋 Perfil do localStorage:', profile);
+        
+        // ✅ CORREÇÃO: Estruturar dados corretamente
+        let structuredProfile;
+        
+        // Se o profile já tem a estrutura correta (clinica + responsaveis_tecnicos)
+        if (profile.clinica && profile.responsaveis_tecnicos) {
+          structuredProfile = profile;
+        }
+        // Se o profile é direto (dados da clínica na raiz)
+        else if (profile.nome || profile.codigo) {
+          structuredProfile = {
+            clinica: profile,
+            responsaveis_tecnicos: profile.responsaveis_tecnicos || []
+          };
+        }
+        // Se tem responsaveis_tecnicos na raiz mas outros dados também
+        else {
+          structuredProfile = {
+            clinica: {
+              nome: profile.nome,
+              codigo: profile.codigo,
+              cnpj: profile.cnpj,
+              endereco: profile.endereco,
+              cidade: profile.cidade,
+              estado: profile.estado,
+              cep: profile.cep,
+              telefone: profile.telefone,
+              email: profile.email,
+              website: profile.website,
+              logo_url: profile.logo_url,
+              observacoes: profile.observacoes,
+            },
+            responsaveis_tecnicos: profile.responsaveis_tecnicos || []
+          };
+        }
+        
+        console.log('✅ Perfil estruturado:', structuredProfile);
+        setClinicProfile(structuredProfile);
         
         // Preencher automaticamente os dados da clínica
         setFormData(prev => ({
           ...prev,
-          hospital_nome: profile.nome || '',
-          hospital_codigo: profile.codigo || '',
-          medico_assinatura_crm: profile.responsaveis_tecnicos?.[0]?.crm || '',
+          hospital_nome: structuredProfile.clinica.nome || '',
+          hospital_codigo: structuredProfile.clinica.codigo || '',
+          medico_assinatura_crm: structuredProfile.responsaveis_tecnicos?.[0]?.crm || '',
         }));
+        
+        console.log('👨‍⚕️ Responsáveis técnicos encontrados:', structuredProfile.responsaveis_tecnicos?.length || 0);
+        if (structuredProfile.responsaveis_tecnicos?.length > 0) {
+          structuredProfile.responsaveis_tecnicos.forEach((resp, index) => {
+            console.log(`   ${index + 1}. ${resp.nome} - CRM: ${resp.crm}`);
+          });
+        }
       } else {
+        console.log('⚠️ Nenhum perfil encontrado no localStorage');
         toast.info('Configure o perfil da clínica', {
           description: 'Acesse Configurações para definir as informações da clínica',
           action: {
@@ -161,7 +241,10 @@ const Reports = () => {
         });
       }
     } catch (error) {
-      console.error('Erro ao carregar perfil da clínica:', error);
+      console.error('❌ Erro ao carregar perfil da clínica:', error);
+      toast.error('Erro ao carregar perfil da clínica');
+    } finally {
+      setLoadingClinic(false);
     }
   };
 
@@ -364,8 +447,8 @@ const Reports = () => {
 
       // Limpar formulário (mantendo dados da clínica)
       setFormData({
-        hospital_nome: clinicProfile?.nome || '',
-        hospital_codigo: clinicProfile?.codigo || '',
+        hospital_nome: clinicProfile?.clinica?.nome || '',
+        hospital_codigo: clinicProfile?.clinica?.codigo || '',
         cliente_nome: '',
         cliente_codigo: '',
         sexo: '',
@@ -520,14 +603,24 @@ const Reports = () => {
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Informações da Clínica */}
+                  {/* ✅ SEÇÃO CORRIGIDA - Informações da Clínica */}
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
                       <h3 className="text-lg font-medium">Informações da Clínica</h3>
-                      {clinicProfile && (
+                      {loadingClinic ? (
+                        <Badge variant="outline" className="animate-pulse">
+                          <div className="w-3 h-3 rounded-full bg-blue-500 mr-1 animate-spin"></div>
+                          Carregando...
+                        </Badge>
+                      ) : clinicProfile ? (
                         <Badge variant="outline" className="text-green-600 border-green-600">
                           <Building2 className="h-3 w-3 mr-1" />
                           Configurado
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-orange-600 border-orange-600">
+                          <AlertCircle className="h-3 w-3 mr-1" />
+                          Não configurado
                         </Badge>
                       )}
                     </div>
@@ -535,27 +628,47 @@ const Reports = () => {
                     {clinicProfile ? (
                       <div className="bg-green-50 dark:bg-green-950/50 border border-green-200 dark:border-green-800 rounded-lg p-4 space-y-2">
                         <div className="flex items-center gap-2">
-                          {clinicProfile.logo_url && (
+                          {clinicProfile.clinica?.logo_url && (
                             <img 
-                              src={clinicProfile.logo_url} 
+                              src={clinicProfile.clinica.logo_url} 
                               alt="Logo" 
                               className="w-8 h-8 object-contain rounded" 
                             />
                           )}
                           <div>
-                            <p className="font-medium text-green-800 dark:text-green-300">{clinicProfile.nome}</p>
-                            <p className="text-sm text-green-600 dark:text-green-400">Código: {clinicProfile.codigo}</p>
+                            <p className="font-medium text-green-800 dark:text-green-300">
+                              {clinicProfile.clinica?.nome || 'Nome da clínica não definido'}
+                            </p>
+                            <p className="text-sm text-green-600 dark:text-green-400">
+                              Código: {clinicProfile.clinica?.codigo || 'Não definido'}
+                            </p>
                           </div>
                         </div>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => navigate('/profile')}
-                          className="w-full mt-2"
-                        >
-                          Editar Informações da Clínica
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate('/profile')}
+                            className="flex-1"
+                          >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Editar Informações
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={loadClinicProfile}
+                            disabled={loadingClinic}
+                          >
+                            {loadingClinic ? (
+                              <div className="w-4 h-4 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+                            ) : (
+                              'Atualizar'
+                            )}
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30 rounded-lg p-4">
@@ -1026,25 +1139,88 @@ const Reports = () => {
                   </div>
                 </div>
                 
+                {/* ✅ SEÇÃO CORRIGIDA - Médico Solicitante */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label htmlFor="medico_assinatura_crm">Médico Solicitante *</Label>
-                    <Select
-                      value={formData.medico_assinatura_crm}
-                      onValueChange={(value) => setFormData(prev => ({ ...prev, medico_assinatura_crm: value }))}
-                    >
-                      <SelectTrigger className="lco-input">
-                        <SelectValue placeholder="Selecione o médico solicitante" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {clinicProfile?.responsaveis_tecnicos?.map((responsavel) => (
-                          <SelectItem key={responsavel.id} value={responsavel.crm}>
-                            {responsavel.nome} - CRM: {responsavel.crm}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    
+                    {/* Toggle entre Select e Input customizado */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <button
+                        type="button"
+                        onClick={() => setUseCustomCRM(!useCustomCRM)}
+                        className="text-sm text-blue-600 hover:text-blue-800 underline"
+                      >
+                        {useCustomCRM ? 'Usar lista de médicos' : 'Digitar CRM personalizado'}
+                      </button>
+                    </div>
+                    
+                    {useCustomCRM ? (
+                      // Input customizado para CRM
+                      <Input
+                        id="medico_assinatura_crm"
+                        name="medico_assinatura_crm"
+                        value={formData.medico_assinatura_crm}
+                        onChange={handleChange}
+                        className="lco-input"
+                        placeholder="Digite o CRM do médico (ex: CRM 123456/SP)"
+                        required
+                      />
+                    ) : (
+                      // Select com responsáveis técnicos
+                      <Select
+                        value={formData.medico_assinatura_crm}
+                        onValueChange={(value) => setFormData(prev => ({ ...prev, medico_assinatura_crm: value }))}
+                      >
+                        <SelectTrigger className="lco-input">
+                          <SelectValue placeholder="Selecione o médico solicitante" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <div className="p-2">
+                            {clinicProfile?.responsaveis_tecnicos?.length > 0 ? (
+                              <>
+                                <div className="text-xs text-muted-foreground mb-2 px-2">
+                                  {clinicProfile.responsaveis_tecnicos.length} médico(s) encontrado(s):
+                                </div>
+                                {clinicProfile.responsaveis_tecnicos.map((responsavel) => (
+                                  <SelectItem key={responsavel.id || responsavel.crm} value={responsavel.crm}>
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">{responsavel.nome}</span>
+                                      <span className="text-xs text-muted-foreground">
+                                        CRM: {responsavel.crm} • {responsavel.especialidade}
+                                      </span>
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </>
+                            ) : (
+                              <div className="px-2 py-3 text-sm text-muted-foreground text-center">
+                                <AlertCircle className="h-4 w-4 mx-auto mb-2" />
+                                Nenhum responsável técnico cadastrado.
+                                <br />
+                                <button
+                                  type="button"
+                                  onClick={() => navigateWithTransition('/profile')}
+                                  className="text-blue-600 hover:text-blue-800 underline mt-1"
+                                >
+                                  Cadastrar médicos responsáveis
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </SelectContent>
+                      </Select>
+                    )}
+                    
+                    {/* Informações adicionais */}
+                    <p className="text-xs text-muted-foreground">
+                      {clinicProfile?.responsaveis_tecnicos?.length > 0 
+                        ? `${clinicProfile.responsaveis_tecnicos.length} médico(s) cadastrado(s) na clínica`
+                        : 'Nenhum médico cadastrado. Configure no perfil da clínica.'
+                      }
+                    </p>
                   </div>
+                  
                   <div className="space-y-2">
                     <Label htmlFor="numero_autorizacao">Número da Autorização</Label>
                     <Input

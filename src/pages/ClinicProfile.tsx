@@ -136,6 +136,7 @@ const ClinicProfileComponent = () => {
     }
   }, []);
 
+  // ✅ FUNÇÃO CORRIGIDA - Filtrar apenas campos necessários para atualização
   const handleSave = useCallback(async () => {
     // Validações básicas
     if (!profile.nome || !profile.codigo) {
@@ -146,9 +147,16 @@ const ClinicProfileComponent = () => {
     setLoading(true);
     try {
       if (apiConnected) {
-        // Usar API
+        // ✅ CORREÇÃO: Filtrar apenas campos que devem ser atualizados
+        const fieldsToExclude = ['id', 'created_at', 'updated_at'];
+        const cleanProfile = Object.fromEntries(
+          Object.entries(profile).filter(([key]) => !fieldsToExclude.includes(key))
+        );
+        
+        console.log('🔧 Enviando dados limpos para API:', cleanProfile);
+        
         const updateRequest: UpdateProfileRequest = {
-          clinica: profile
+          clinica: cleanProfile
         };
         
         const updatedProfile = await ClinicService.updateProfile(updateRequest);
@@ -277,18 +285,23 @@ const ClinicProfileComponent = () => {
 
     try {
       if (apiConnected) {
-        // Usar API
+        // ✅ CORREÇÃO: Filtrar campos para responsáveis também
+        const fieldsToExclude = ['id', 'clinica_id', 'created_at', 'updated_at'];
+        const cleanResponsavel = Object.fromEntries(
+          Object.entries(currentResponsavel).filter(([key]) => !fieldsToExclude.includes(key))
+        );
+        
         if (isEditingResponsavel && currentResponsavel.id) {
           const updatedResponsavel = await ClinicService.updateResponsavel(
             currentResponsavel.id, 
-            currentResponsavel
+            cleanResponsavel
           );
           setResponsaveis(prev => prev.map(r => 
             r.id === currentResponsavel.id ? updatedResponsavel : r
           ));
           toast.success('Responsável atualizado com sucesso!');
         } else {
-          const newResponsavel = await ClinicService.addResponsavel(currentResponsavel);
+          const newResponsavel = await ClinicService.addResponsavel(cleanResponsavel);
           setResponsaveis(prev => [...prev, newResponsavel]);
           toast.success('Responsável adicionado com sucesso!');
         }
