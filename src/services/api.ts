@@ -482,6 +482,66 @@ export class SolicitacaoService {
     }
   }
   
+  // 🆕 NOVA FUNÇÃO: Visualizar PDF em nova aba (método mais compatível)
+  static async viewPDF(id: number): Promise<void> {
+    try {
+      console.log('🔧 Abrindo PDF para visualização:', id);
+      
+      // Primeiro tentar gerar o blob e abrir
+      try {
+        const blob = await this.gerarPDF(id);
+        const blobUrl = URL.createObjectURL(blob);
+        
+        const newWindow = window.open(blobUrl, '_blank');
+        
+        if (!newWindow) {
+          throw new Error('Pop-up bloqueado. Permita pop-ups para visualizar o PDF.');
+        }
+        
+        // Cleanup após um tempo
+        setTimeout(() => {
+          URL.revokeObjectURL(blobUrl);
+        }, 60000); // 1 minuto
+        
+        console.log('✅ PDF aberto via blob');
+        return;
+      } catch (blobError) {
+        console.warn('⚠️  Erro com blob, tentando URL direta:', blobError);
+        
+        // Fallback para URL direta
+        const pdfUrl = `${API_BASE_URL}/solicitacoes/${id}/pdf?view=true`;
+        const newWindow = window.open(pdfUrl, '_blank');
+        
+        if (!newWindow) {
+          throw new Error('Pop-up bloqueado. Permita pop-ups para visualizar o PDF.');
+        }
+        
+        console.log('✅ PDF aberto via URL direta');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao visualizar PDF:', error);
+      throw error;
+    }
+  }
+
+  // 🆕 FUNÇÃO MELHORADA: Obter URL do PDF com fallback
+  static getPDFViewUrl(id: number): string {
+    return `${API_BASE_URL}/solicitacoes/${id}/pdf?view=true&inline=true&t=${Date.now()}`;
+  }
+
+  // 🆕 NOVA FUNÇÃO: Verificar se PDF existe
+  static async checkPDFExists(id: number): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/solicitacoes/${id}`, {
+        method: 'HEAD'
+      });
+      return response.ok;
+    } catch (error) {
+      console.error('Erro ao verificar se PDF existe:', error);
+      return false;
+    }
+  }
+
   // Fazer download do PDF
   static async downloadPDF(id: number, nomeArquivo?: string): Promise<void> {
     try {

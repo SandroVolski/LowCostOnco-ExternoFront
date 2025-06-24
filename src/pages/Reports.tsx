@@ -38,6 +38,7 @@ import { toast } from 'sonner';
 import { SolicitacaoService, SolicitacaoFromAPI, testarConexaoBackend, PacienteService } from '@/services/api';
 import { ClinicService } from '@/services/clinicService';
 import { usePageNavigation } from '@/components/transitions/PageTransitionContext';
+import PDFViewerModal from '@/components/PDFViewerModal';
 
 interface PatientOption {
   id: string;
@@ -108,6 +109,10 @@ const Reports = () => {
   const [backendConnected, setBackendConnected] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+
+  // Estados para visualização de PDF
+  const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoFromAPI | null>(null);
+  const [isPDFViewerOpen, setIsPDFViewerOpen] = useState(false);
 
   // Verificar conexão com backend ao carregar
   useEffect(() => {
@@ -517,6 +522,24 @@ const Reports = () => {
         description: 'Tente novamente em alguns instantes.'
       });
     }
+  };
+
+  // Adicione esta nova função para visualizar PDF:
+  const handleViewPDF = (solicitacao: SolicitacaoFromAPI) => {
+    if (!backendConnected) {
+      toast.error('Backend não conectado', {
+        description: 'Não é possível visualizar o PDF sem conexão com o servidor'
+      });
+      return;
+    }
+
+    console.log('🔧 Abrindo modal de visualização para solicitação:', solicitacao.id);
+    
+    // ✅ ABRE O MODAL IMEDIATAMENTE
+    setSelectedSolicitacao(solicitacao);
+    setIsPDFViewerOpen(true);
+    
+    // O PDF será carregado dentro do modal já aberto
   };
 
   const getStatusIcon = (status: string) => {
@@ -1485,10 +1508,8 @@ const Reports = () => {
                           size="sm" 
                           variant="outline"
                           className="flex items-center"
-                          onClick={() => {
-                            // Implementar visualização detalhada se necessário
-                            toast.info('Funcionalidade em desenvolvimento');
-                          }}
+                          onClick={() => handleViewPDF(solicitacao)}
+                          title="Visualizar documento PDF"
                         >
                           <Eye className="mr-2 h-4 w-4" />
                           Ver
@@ -1526,6 +1547,18 @@ const Reports = () => {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* 🆕 MODAL DE VISUALIZAÇÃO PDF */}
+      {selectedSolicitacao && (
+        <PDFViewerModal
+          isOpen={isPDFViewerOpen}
+          onClose={() => {
+            setIsPDFViewerOpen(false);
+            setSelectedSolicitacao(null);
+          }}
+          solicitacao={selectedSolicitacao}
+        />
+      )}
     </div>
   );
 };
