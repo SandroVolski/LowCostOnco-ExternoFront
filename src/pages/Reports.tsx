@@ -30,7 +30,9 @@ import {
   UserPlus,
   Building2,
   Search,
-  Edit
+  Edit,
+  Users,
+  Stethoscope
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { SolicitacaoService, SolicitacaoFromAPI, testarConexaoBackend, PacienteService } from '@/services/api';
@@ -593,231 +595,277 @@ const Reports = () => {
         </TabsList>
 
         <TabsContent value="new">
-          <Card>
+          <Card className="shadow-sm hover:shadow-md transition-shadow duration-300">
             <CardHeader>
               <CardTitle className="flex items-center">
-                <PencilIcon className="h-5 w-5 mr-2 text-support-teal" />
+                <PencilIcon className="h-5 w-5 mr-2 text-primary" />
                 Autorização/Processamento de Tratamento Oncológico
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* ✅ SEÇÃO CORRIGIDA - Informações da Clínica */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-lg font-medium">Informações da Clínica</h3>
-                      {loadingClinic ? (
-                        <Badge variant="outline" className="animate-pulse">
-                          <div className="w-3 h-3 rounded-full bg-blue-500 mr-1 animate-spin"></div>
-                          Carregando...
-                        </Badge>
-                      ) : clinicProfile ? (
-                        <Badge variant="outline" className="text-green-600 border-green-600">
-                          <Building2 className="h-3 w-3 mr-1" />
-                          Configurado
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline" className="text-orange-600 border-orange-600">
-                          <AlertCircle className="h-3 w-3 mr-1" />
-                          Não configurado
-                        </Badge>
-                      )}
+              <form onSubmit={handleSubmit} className="space-y-8">
+                {/* ===== INDICADOR DE CARREGAMENTO ===== */}
+                {loadingClinic && (
+                  <div className="mb-6">
+                    <div className="flex items-center justify-center bg-muted/30 border border-border rounded-lg px-4 py-3 shadow-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-4 h-4 rounded-full border-2 border-primary border-t-transparent animate-spin"></div>
+                        <span className="text-sm text-foreground">
+                          Carregando informações da clínica...
+                        </span>
+                      </div>
                     </div>
-                    
-                    {clinicProfile ? (
-                      <div className="bg-green-50 dark:bg-green-950/50 border border-green-200 dark:border-green-800 rounded-lg p-4 space-y-2">
+                  </div>
+                )}
+
+                {/* ===== SEÇÃO MELHORADA: INFORMAÇÕES BÁSICAS ===== */}
+                
+                {/* ===== INFORMAÇÕES DA CLÍNICA - APENAS SE NÃO CONFIGURADA ===== */}
+                {!clinicProfile && !loadingClinic && (
+                  <div className="mb-8">
+                    <Card className="border-l-4 border-l-primary/50 bg-gradient-to-r from-primary/5 to-transparent">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-lg flex items-center text-primary">
+                          <Building2 className="h-5 w-5 mr-3" />
+                          Configuração Necessária
+                        </CardTitle>
+                      </CardHeader>
+                      
+                      <CardContent>
+                        <div className="bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/30 rounded-lg p-6 text-center">
+                          <Building2 className="h-12 w-12 text-primary mx-auto mb-3" />
+                          <p className="text-primary font-medium mb-3">
+                            Configure as informações da clínica para preenchimento automático
+                          </p>
+                          <Button
+                            type="button"
+                            onClick={() => navigateWithTransition('/profile')}
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                          >
+                            <Building2 className="h-4 w-4 mr-2" />
+                            Configurar Clínica
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
+
+                {/* ===== INFORMAÇÃO SUTIL DA CLÍNICA - SE JÁ CONFIGURADA ===== */}
+                {clinicProfile && !loadingClinic && (
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        {clinicProfile.clinica?.logo_url && (
+                          <img 
+                            src={clinicProfile.clinica.logo_url} 
+                            alt="Logo" 
+                            className="w-8 h-8 object-contain rounded border" 
+                          />
+                        )}
                         <div className="flex items-center gap-2">
-                          {clinicProfile.clinica?.logo_url && (
-                            <img 
-                              src={clinicProfile.clinica.logo_url} 
-                              alt="Logo" 
-                              className="w-8 h-8 object-contain rounded" 
-                            />
+                          <Building2 className="h-4 w-4 text-green-600" />
+                          <span className="text-sm font-medium text-green-800 dark:text-green-300">
+                            ✓ {clinicProfile.clinica?.nome || 'Clínica Configurada'}
+                          </span>
+                          <span className="text-xs text-green-600 dark:text-green-400">
+                            • {clinicProfile.clinica?.codigo}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate('/profile')}
+                          className="text-green-700 hover:bg-green-100 dark:hover:bg-green-900/50 h-8 px-3"
+                        >
+                          <Edit className="h-3 w-3 mr-1" />
+                          Editar
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={loadClinicProfile}
+                          disabled={loadingClinic}
+                          className="text-green-700 hover:bg-green-100 dark:hover:bg-green-900/50 h-8 px-2"
+                        >
+                          {loadingClinic ? (
+                            <div className="w-3 h-3 rounded-full border-2 border-green-500 border-t-transparent animate-spin" />
+                          ) : (
+                            '🔄'
                           )}
-                          <div>
-                            <p className="font-medium text-green-800 dark:text-green-300">
-                              {clinicProfile.clinica?.nome || 'Nome da clínica não definido'}
-                            </p>
-                            <p className="text-sm text-green-600 dark:text-green-400">
-                              Código: {clinicProfile.clinica?.codigo || 'Não definido'}
-                            </p>
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className={clinicProfile ? "grid grid-cols-1 gap-8" : "grid grid-cols-1 xl:grid-cols-2 gap-8"}>
+                  {/* ===== MANTÉM O ESPAÇO APENAS SE NÃO TIVER CLÍNICA CONFIGURADA ===== */}
+                  {!clinicProfile && <div></div>}
+
+                  {/* ===== INFORMAÇÕES DO PACIENTE ===== */}
+                  <div className="space-y-6">
+                    <Card className="shadow-sm hover:shadow-md transition-shadow duration-300">
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-lg flex items-center text-foreground">
+                          <Users className="h-5 w-5 mr-3 text-primary" />
+                          Informações do Paciente
+                        </CardTitle>
+                      </CardHeader>
+                      
+                      <CardContent className="space-y-4">
+                        {/* Seleção de Paciente */}
+                        <div className="border border-border rounded-lg p-4 bg-muted/10">
+                          <Label htmlFor="patient-select" className="text-foreground font-medium mb-3 block">
+                            Selecionar Paciente Cadastrado
+                          </Label>
+                          <div className="flex gap-3">
+                            <Select 
+                              value={selectedPatientId} 
+                              onValueChange={handlePatientSelect}
+                              disabled={loadingPatients || !backendConnected}
+                            >
+                              <SelectTrigger className="flex-1 border-border focus:border-primary">
+                                <SelectValue placeholder={
+                                  loadingPatients ? "Carregando pacientes..." : 
+                                  !backendConnected ? "Backend desconectado" :
+                                  "Selecione um paciente cadastrado"
+                                } />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <div className="p-3">
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-3 pb-2 border-b">
+                                    <Search className="h-4 w-4" />
+                                    <span className="font-medium">{patients.length} paciente(s) encontrado(s)</span>
+                                  </div>
+                                  {patients.map((patient) => (
+                                    <SelectItem key={patient.id} value={patient.id} className="py-3 px-3">
+                                      <div className="flex flex-col items-start w-full space-y-1">
+                                        <span className="font-medium leading-tight">{patient.name}</span>
+                                        <span className="text-xs text-muted-foreground">
+                                          {patient.codigo} • {patient.sexo} • {patient.idade} anos
+                                        </span>
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </div>
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              onClick={() => navigateWithTransition('/patients')}
+                              className="text-primary border-primary hover:bg-primary/10"
+                              title="Cadastrar novo paciente"
+                            >
+                              <UserPlus className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            Não encontrou o paciente? Clique no botão + para cadastrar um novo
+                          </p>
+                        </div>
+
+                        {/* Campos do Paciente */}
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="cliente_nome" className="flex items-center gap-2">
+                              <span>Nome do Cliente</span>
+                              <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              id="cliente_nome"
+                              name="cliente_nome"
+                              value={formData.cliente_nome}
+                              onChange={handleChange}
+                              className="lco-input"
+                              required
+                              placeholder={selectedPatientId ? "Preenchido automaticamente" : "Digite o nome do cliente"}
+                            />
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="cliente_codigo">Código do Cliente</Label>
+                              <Input
+                                id="cliente_codigo"
+                                name="cliente_codigo"
+                                value={formData.cliente_codigo}
+                                onChange={handleChange}
+                                className="lco-input"
+                                placeholder={selectedPatientId ? "Preenchido" : "Código"}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="sexo" className="flex items-center gap-2">
+                                <span>Sexo</span>
+                                <span className="text-red-500">*</span>
+                              </Label>
+                              <Select 
+                                onValueChange={handleSelectChange("sexo")} 
+                                value={formData.sexo}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="M">Masculino</SelectItem>
+                                  <SelectItem value="F">Feminino</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                          
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label htmlFor="data_nascimento" className="flex items-center gap-2">
+                                <span>Data de Nascimento</span>
+                                <span className="text-red-500">*</span>
+                              </Label>
+                              <Input
+                                id="data_nascimento"
+                                name="data_nascimento"
+                                type="date"
+                                value={formData.data_nascimento}
+                                onChange={handleChange}
+                                className="lco-input"
+                                required
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="idade">Idade (calculada automaticamente)</Label>
+                              <Input
+                                id="idade"
+                                name="idade"
+                                type="number"
+                                value={formData.idade}
+                                onChange={handleChange}
+                                className="lco-input bg-muted/50"
+                                readOnly
+                                placeholder="Idade automática"
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-2">
+                            <Label htmlFor="data_solicitacao">Data da Solicitação</Label>
+                            <Input
+                              id="data_solicitacao"
+                              name="data_solicitacao"
+                              type="date"
+                              value={formData.data_solicitacao}
+                              onChange={handleChange}
+                              className="lco-input"
+                            />
                           </div>
                         </div>
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => navigate('/profile')}
-                            className="flex-1"
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Editar Informações
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={loadClinicProfile}
-                            disabled={loadingClinic}
-                          >
-                            {loadingClinic ? (
-                              <div className="w-4 h-4 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
-                            ) : (
-                              'Atualizar'
-                            )}
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="bg-primary/5 dark:bg-primary/10 border border-primary/20 dark:border-primary/30 rounded-lg p-4">
-                        <p className="text-primary dark:text-primary/90 mb-3">
-                          Configure as informações da clínica para preenchimento automático
-                        </p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => navigateWithTransition('/profile')}
-                          className="w-full text-primary border-primary hover:bg-primary/10 dark:hover:bg-primary/20"
-                        >
-                          <Building2 className="h-4 w-4 mr-2" />
-                          Configurar Clínica
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Informações do Paciente */}
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Informações do Paciente</h3>
-                    
-                    {/* Select de Paciente */}
-                    <div className="space-y-2">
-                      <Label htmlFor="patient-select">Selecionar Paciente</Label>
-                      <div className="flex gap-2">
-                        <Select 
-                          value={selectedPatientId} 
-                          onValueChange={handlePatientSelect}
-                          disabled={loadingPatients || !backendConnected}
-                        >
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder={
-                              loadingPatients ? "Carregando pacientes..." : 
-                              !backendConnected ? "Backend desconectado" :
-                              "Selecione um paciente cadastrado"
-                            } />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <div className="p-2">
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                                <Search className="h-4 w-4" />
-                                <span>{patients.length} paciente(s) encontrado(s)</span>
-                              </div>
-                              {patients.map((patient) => (
-                                <SelectItem key={patient.id} value={patient.id}>
-                                  {patient.name}
-                                </SelectItem>
-                              ))}
-                            </div>
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => navigateWithTransition('/patients')}
-                          className="text-primary border-primary hover:bg-primary/10 dark:hover:bg-primary/20"
-                        >
-                          <UserPlus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        Não encontrou o paciente? Clique no botão + para cadastrar um novo paciente
-                      </p>
-                    </div>
-
-                    {/* Campos do Paciente */}
-                    <div className="space-y-2">
-                      <Label htmlFor="cliente_nome">Nome do Cliente *</Label>
-                      <Input
-                        id="cliente_nome"
-                        name="cliente_nome"
-                        value={formData.cliente_nome}
-                        onChange={handleChange}
-                        className="lco-input"
-                        required
-                        placeholder={selectedPatientId ? "Preenchido automaticamente" : "Digite o nome do cliente"}
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="cliente_codigo">Código do Cliente</Label>
-                        <Input
-                          id="cliente_codigo"
-                          name="cliente_codigo"
-                          value={formData.cliente_codigo}
-                          onChange={handleChange}
-                          className="lco-input"
-                          placeholder={selectedPatientId ? "Preenchido automaticamente" : "Código"}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="sexo">Sexo *</Label>
-                        <Select 
-                          onValueChange={handleSelectChange("sexo")} 
-                          value={formData.sexo}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecione" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="M">Masculino</SelectItem>
-                            <SelectItem value="F">Feminino</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="data_nascimento">Data de Nascimento *</Label>
-                        <Input
-                          id="data_nascimento"
-                          name="data_nascimento"
-                          type="date"
-                          value={formData.data_nascimento}
-                          onChange={handleChange}
-                          className="lco-input"
-                          required
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="idade">Idade</Label>
-                        <Input
-                          id="idade"
-                          name="idade"
-                          type="number"
-                          value={formData.idade}
-                          onChange={handleChange}
-                          className="lco-input"
-                          readOnly
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="data_solicitacao">Data da Solicitação</Label>
-                      <Input
-                        id="data_solicitacao"
-                        name="data_solicitacao"
-                        type="date"
-                        value={formData.data_solicitacao}
-                        onChange={handleChange}
-                        className="lco-input"
-                      />
-                    </div>
+                      </CardContent>
+                    </Card>
                   </div>
                 </div>
 
@@ -1139,123 +1187,154 @@ const Reports = () => {
                   </div>
                 </div>
                 
-                {/* ✅ SEÇÃO CORRIGIDA - Médico Solicitante */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="medico_assinatura_crm">Médico Solicitante *</Label>
-                    
-                    {/* Toggle entre Select e Input customizado */}
-                    <div className="flex items-center gap-2 mb-2">
-                      <button
-                        type="button"
-                        onClick={() => setUseCustomCRM(!useCustomCRM)}
-                        className="text-sm text-blue-600 hover:text-blue-800 underline"
-                      >
-                        {useCustomCRM ? 'Usar lista de médicos' : 'Digitar CRM personalizado'}
-                      </button>
-                    </div>
-                    
-                    {useCustomCRM ? (
-                      // Input customizado para CRM
-                      <Input
-                        id="medico_assinatura_crm"
-                        name="medico_assinatura_crm"
-                        value={formData.medico_assinatura_crm}
-                        onChange={handleChange}
-                        className="lco-input"
-                        placeholder="Digite o CRM do médico (ex: CRM 123456/SP)"
-                        required
-                      />
-                    ) : (
-                      // Select com responsáveis técnicos
-                      <Select
-                        value={formData.medico_assinatura_crm}
-                        onValueChange={(value) => setFormData(prev => ({ ...prev, medico_assinatura_crm: value }))}
-                      >
-                        <SelectTrigger className="lco-input">
-                          <SelectValue placeholder="Selecione o médico solicitante" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <div className="p-2">
-                            {clinicProfile?.responsaveis_tecnicos?.length > 0 ? (
-                              <>
-                                <div className="text-xs text-muted-foreground mb-2 px-2">
-                                  {clinicProfile.responsaveis_tecnicos.length} médico(s) encontrado(s):
-                                </div>
-                                {clinicProfile.responsaveis_tecnicos.map((responsavel) => (
-                                  <SelectItem key={responsavel.id || responsavel.crm} value={responsavel.crm}>
-                                    <div className="flex flex-col">
-                                      <span className="font-medium">{responsavel.nome}</span>
-                                      <span className="text-xs text-muted-foreground">
-                                        CRM: {responsavel.crm} • {responsavel.especialidade}
-                                      </span>
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </>
-                            ) : (
-                              <div className="px-2 py-3 text-sm text-muted-foreground text-center">
-                                <AlertCircle className="h-4 w-4 mx-auto mb-2" />
-                                Nenhum responsável técnico cadastrado.
-                                <br />
-                                <button
-                                  type="button"
-                                  onClick={() => navigateWithTransition('/profile')}
-                                  className="text-blue-600 hover:text-blue-800 underline mt-1"
-                                >
-                                  Cadastrar médicos responsáveis
-                                </button>
-                              </div>
-                            )}
+                {/* ===== SEÇÃO MELHORADA: MÉDICO SOLICITANTE ===== */}
+                <Card className="shadow-sm hover:shadow-md transition-shadow duration-300">
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center text-foreground">
+                      <Stethoscope className="h-5 w-5 mr-3 text-primary" />
+                      Médico Solicitante
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-3">
+                        <Label htmlFor="medico_assinatura_crm" className="flex items-center gap-2">
+                          <span>Médico Responsável</span>
+                          <span className="text-red-500">*</span>
+                        </Label>
+                        
+                        {/* ===== BOTÃO COM COR CORRIGIDA ===== */}
+                        <div className="flex items-center gap-2 mb-3">
+                          <button
+                            type="button"
+                            onClick={() => setUseCustomCRM(!useCustomCRM)}
+                            className="text-sm text-primary hover:text-primary/80 underline underline-offset-2 transition-colors duration-200 font-medium"
+                          >
+                            {useCustomCRM ? 'Usar lista de médicos cadastrados' : 'Digitar CRM personalizado'}
+                          </button>
+                        </div>
+                        
+                        {useCustomCRM ? (
+                          // Input customizado para CRM
+                          <div className="space-y-2">
+                            <Input
+                              id="medico_assinatura_crm"
+                              name="medico_assinatura_crm"
+                              value={formData.medico_assinatura_crm}
+                              onChange={handleChange}
+                              className="lco-input"
+                              placeholder="Digite o CRM do médico (ex: CRM 123456/SP)"
+                              required
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Digite o CRM completo do médico responsável
+                            </p>
                           </div>
-                        </SelectContent>
-                      </Select>
-                    )}
-                    
-                    {/* Informações adicionais */}
-                    <p className="text-xs text-muted-foreground">
-                      {clinicProfile?.responsaveis_tecnicos?.length > 0 
-                        ? `${clinicProfile.responsaveis_tecnicos.length} médico(s) cadastrado(s) na clínica`
-                        : 'Nenhum médico cadastrado. Configure no perfil da clínica.'
-                      }
-                    </p>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="numero_autorizacao">Número da Autorização</Label>
-                    <Input
-                      id="numero_autorizacao"
-                      name="numero_autorizacao"
-                      value={formData.numero_autorizacao}
-                      onChange={handleChange}
-                      className="lco-input"
-                      placeholder="Preenchido após aprovação"
-                    />
-                  </div>
-                </div>
+                        ) : (
+                          // Select com responsáveis técnicos
+                          <div className="space-y-2">
+                            <Select
+                              value={formData.medico_assinatura_crm}
+                              onValueChange={(value) => setFormData(prev => ({ ...prev, medico_assinatura_crm: value }))}
+                            >
+                              <SelectTrigger className="lco-input">
+                                <SelectValue placeholder="Selecione o médico solicitante" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <div className="p-3">
+                                  {clinicProfile?.responsaveis_tecnicos?.length > 0 ? (
+                                    <>
+                                      <div className="text-xs text-muted-foreground mb-3 px-2 py-1 bg-muted/50 rounded">
+                                        {clinicProfile.responsaveis_tecnicos.length} médico(s) cadastrado(s):
+                                      </div>
+                                      {clinicProfile.responsaveis_tecnicos.map((responsavel) => (
+                                        <SelectItem key={responsavel.id || responsavel.crm} value={responsavel.crm} className="py-4 px-3">
+                                          <div className="flex flex-col items-start w-full space-y-2">
+                                            <span className="font-medium text-sm leading-tight">{responsavel.nome}</span>
+                                            <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                              <span className="font-medium">CRM: {responsavel.crm}</span>
+                                              <span>{responsavel.especialidade}</span>
+                                            </div>
+                                            {responsavel.telefone && (
+                                              <span className="text-xs text-muted-foreground">
+                                                Telefone: {responsavel.telefone}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </>
+                                  ) : (
+                                    <div className="px-3 py-6 text-sm text-muted-foreground text-center">
+                                      <AlertCircle className="h-8 w-8 mx-auto mb-3 text-muted-foreground" />
+                                      <p className="font-medium mb-2">Nenhum médico cadastrado</p>
+                                      <p className="text-xs mb-3">
+                                        Cadastre os responsáveis técnicos no perfil da clínica para seleção automática
+                                      </p>
+                                      <button
+                                        type="button"
+                                        onClick={() => navigateWithTransition('/profile')}
+                                        className="text-primary hover:text-primary/80 underline text-xs font-medium"
+                                      >
+                                        Cadastrar médicos responsáveis
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </SelectContent>
+                            </Select>
+                            
+                            <p className="text-xs text-muted-foreground">
+                              {clinicProfile?.responsaveis_tecnicos?.length > 0 
+                                ? `${clinicProfile.responsaveis_tecnicos.length} médico(s) disponível(is) para seleção`
+                                : 'Nenhum médico cadastrado. Configure no perfil da clínica.'
+                              }
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="numero_autorizacao">Número da Autorização</Label>
+                        <Input
+                          id="numero_autorizacao"
+                          name="numero_autorizacao"
+                          value={formData.numero_autorizacao}
+                          onChange={handleChange}
+                          className="lco-input"
+                          placeholder="Preenchido após aprovação"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Este campo será preenchido automaticamente após a aprovação
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
                 
-                <div className="flex justify-end space-x-4">
+                <div className="flex justify-end space-x-4 pt-6 border-t">
                   <Button 
                     type="button" 
                     variant="outline"
                     onClick={() => window.location.reload()}
+                    className="px-6"
                   >
                     Cancelar
                   </Button>
                   <Button 
                     type="submit" 
-                    className="lco-btn-primary"
+                    className="bg-primary hover:bg-primary/90 text-primary-foreground px-8"
                     disabled={submitting || !backendConnected}
                   >
                     {submitting ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                        Criando...
+                        Criando Solicitação...
                       </>
                     ) : (
                       <>
                         <SendIcon className="mr-2 h-4 w-4" />
-                        Gerar Solicitação
+                        Gerar Solicitação de Autorização
                       </>
                     )}
                   </Button>
@@ -1266,7 +1345,7 @@ const Reports = () => {
         </TabsContent>
 
         <TabsContent value="history">
-          <Card>
+          <Card className="shadow-sm hover:shadow-md transition-shadow duration-300">
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <span>Histórico de Solicitações</span>
