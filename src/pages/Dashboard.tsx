@@ -17,8 +17,11 @@ interface DashboardMetrics {
   totalSolicitacoes: number;
   solicitacoesPendentes: number;
   solicitacoesAprovadas: number;
+  solicitacoesRejeitadas: number;
+  solicitacoesEmAnalise: number;
   pacientesAtivos: number;
   mediaIdadePacientes: number;
+  taxaAprovacao: number;
 }
 
 interface PatientStatusData {
@@ -44,6 +47,9 @@ interface UpcomingTreatmentData {
   daysRemaining: number;
   cycle: string;
   status: 'urgent' | 'warning' | 'normal';
+  solicitacaoId: number;
+  intervaloOriginal: string;
+  dataSolicitacao: string;
 }
 
 interface SolicitacoesPorMesData {
@@ -52,6 +58,7 @@ interface SolicitacoesPorMesData {
   aprovadas: number;
   pendentes: number;
   rejeitadas: number;
+  emAnalise: number;
 }
 
 // Cores consistentes com o tema
@@ -63,7 +70,6 @@ const CHART_COLORS = [
   { fill: '#6b7bb3', stroke: '#8a94c7', glow: '0 0 10px rgba(107, 123, 179, 0.5)' },
 ];
 
-// Cores para distribuição de tratamentos (diferentes das solicitações)
 const TREATMENT_COLORS = [
   { fill: '#c6d651', stroke: '#d4e37b', glow: '0 0 10px rgba(198, 214, 81, 0.5)' },
   { fill: '#8cb369', stroke: '#a8c97d', glow: '0 0 10px rgba(140, 179, 105, 0.5)' },
@@ -84,8 +90,11 @@ const Dashboard = () => {
     totalSolicitacoes: 0,
     solicitacoesPendentes: 0,
     solicitacoesAprovadas: 0,
+    solicitacoesRejeitadas: 0,
+    solicitacoesEmAnalise: 0,
     pacientesAtivos: 0,
     mediaIdadePacientes: 0,
+    taxaAprovacao: 0,
   });
   
   const [patientStatusData, setPatientStatusData] = useState<PatientStatusData[]>([]);
@@ -141,45 +150,17 @@ const Dashboard = () => {
       const patients = patientsResult.data;
       const solicitacoes = solicitacoesResult.data;
 
-      // Calcular métricas básicas
-      const totalPacientes = patients.length;
-      const pacientesAtivos = patients.filter(p => 
-        p.status === 'Em tratamento' || p.status === 'ativo'
-      ).length;
-      
-      const totalSolicitacoes = solicitacoes.length;
-      const solicitacoesPendentes = solicitacoes.filter(s => 
-        s.status === 'pendente' || s.status === 'em_analise'
-      ).length;
-      const solicitacoesAprovadas = solicitacoes.filter(s => 
-        s.status === 'aprovada'
-      ).length;
+      debugJoaoData(solicitacoes);
 
-      // Calcular média de idade
-      const idades = patients
-        .map(p => p.age || calculateAge(p.Data_Nascimento))
-        .filter(age => age > 0);
-      const mediaIdadePacientes = idades.length > 0 
-        ? Math.round(idades.reduce((sum, age) => sum + age, 0) / idades.length)
-        : 0;
-
-      setMetrics({
-        totalPacientes,
-        totalSolicitacoes,
-        solicitacoesPendentes,
-        solicitacoesAprovadas,
-        pacientesAtivos,
-        mediaIdadePacientes,
-      });
-
-      // Processar dados para gráficos
+      // Calcular métricas básicas com dados reais
+      processMetrics(patients, solicitacoes);
       processPatientStatusData(patients);
       processSolicitacaoStatusData(solicitacoes);
       processTreatmentDistribution(solicitacoes);
-      processUpcomingTreatments(solicitacoes, patients);
+      processUpcomingTreatments(solicitacoes);
       processSolicitacoesPorMes(solicitacoes);
       
-      // Pegar solicitações recentes
+      // Pegar solicitações recentes (limitado a 5)
       setRecentSolicitacoes(solicitacoes.slice(0, 5));
 
     } catch (error) {
@@ -188,22 +169,76 @@ const Dashboard = () => {
     }
   };
 
+  // ✅ PROCESSA MÉTRICAS REAIS
+  const processMetrics = (patients: any[], solicitacoes: SolicitacaoFromAPI[]) => {
+    const totalPacientes = patients.length;
+    const totalSolicitacoes = solicitacoes.length;
+    
+    // Contar status reais das solicitações
+    const solicitacoesPendentes = solicitacoes.filter(s => s.status === 'pendente').length;
+    const solicitacoesAprovadas = solicitacoes.filter(s => s.status === 'aprovada').length;
+    const solicitacoesRejeitadas = solicitacoes.filter(s => s.status === 'rejeitada').length;
+    const solicitacoesEmAnalise = solicitacoes.filter(s => s.status === 'em_analise').length;
+    
+    // Contar pacientes ativos (baseado no status real)
+    const pacientesAtivos = patients.filter(p => 
+      p.status === 'Em tratamento' || p.status === 'ativo'
+    ).length;
+
+    // Calcular média de idade real
+    const idades = patients
+      .map(p => calculateAge(p.Data_Nascimento))
+      .filter(age => age > 0 && age < 120); // Filtrar idades válidas
+    
+    const mediaIdadePacientes = idades.length > 0 
+      ? Math.round(idades.reduce((sum, age) => sum + age, 0) / idades.length)
+      : 0;
+
+    // Calcular taxa de aprovação real
+    const taxaAprovacao = totalSolicitacoes > 0 
+      ? Math.round((solicitacoesAprovadas / totalSolicitacoes) * 100)
+      : 0;
+
+    setMetrics({
+      totalPacientes,
+      totalSolicitacoes,
+      solicitacoesPendentes,
+      solicitacoesAprovadas,
+      solicitacoesRejeitadas,
+      solicitacoesEmAnalise,
+      pacientesAtivos,
+      mediaIdadePacientes,
+      taxaAprovacao,
+    });
+  };
+
+  // ✅ CALCULA IDADE REAL
   const calculateAge = (birthDate: string): number => {
     if (!birthDate) return 0;
     try {
-      const birth = new Date(birthDate);
+      // Limpar data se tiver timestamp
+      let cleanDate = birthDate;
+      if (birthDate.includes('T')) {
+        cleanDate = birthDate.split('T')[0];
+      }
+      
+      const birth = new Date(cleanDate);
       const today = new Date();
+      
+      if (isNaN(birth.getTime())) return 0;
+      
       let age = today.getFullYear() - birth.getFullYear();
       const monthDiff = today.getMonth() - birth.getMonth();
       if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
         age--;
       }
-      return age;
+      return age > 0 && age < 120 ? age : 0; // Validar idade realista
     } catch {
       return 0;
     }
   };
 
+  // ✅ PROCESSA STATUS REAL DOS PACIENTES
   const processPatientStatusData = (patients: any[]) => {
     const statusCount: Record<string, number> = {};
     
@@ -220,6 +255,7 @@ const Dashboard = () => {
     setPatientStatusData(data);
   };
 
+  // ✅ PROCESSA STATUS REAL DAS SOLICITAÇÕES
   const processSolicitacaoStatusData = (solicitacoes: SolicitacaoFromAPI[]) => {
     const statusCount: Record<string, number> = {};
     
@@ -244,6 +280,7 @@ const Dashboard = () => {
     setSolicitacaoStatusData(data);
   };
 
+  // ✅ PROCESSA DISTRIBUIÇÃO REAL DE TRATAMENTOS
   const processTreatmentDistribution = (solicitacoes: SolicitacaoFromAPI[]) => {
     const treatmentCount: Record<string, number> = {};
     
@@ -272,23 +309,40 @@ const Dashboard = () => {
     setTreatmentDistribution(data);
   };
 
-  const processUpcomingTreatments = (solicitacoes: SolicitacaoFromAPI[], patients: any[]) => {
+  // ✅ FUNÇÃO CORRIGIDA: Processar tratamentos a vencer
+  const processUpcomingTreatments = (solicitacoes: SolicitacaoFromAPI[]) => {
     const upcomingData: UpcomingTreatmentData[] = [];
+    
+    console.log('🔧 Processando tratamentos a vencer:', solicitacoes.length, 'solicitações');
     
     // Pegar solicitações ativas (aprovadas ou em análise)
     const activeSolicitacoes = solicitacoes.filter(s => 
       s.status === 'aprovada' || s.status === 'em_analise'
     );
 
-    activeSolicitacoes.slice(0, 6).forEach((solicitacao, index) => {
-      // Simular próximos tratamentos baseado nos ciclos
+    console.log('✅ Solicitações ativas encontradas:', activeSolicitacoes.length);
+
+    activeSolicitacoes.forEach((solicitacao, index) => {
       const cicloAtual = solicitacao.ciclo_atual || 1;
       const ciclosPrevistos = solicitacao.ciclos_previstos || 6;
       
+      console.log(`📋 Processando ${solicitacao.cliente_nome}:`, {
+        cicloAtual,
+        ciclosPrevistos,
+        status: solicitacao.status,
+        intervalos: solicitacao.dias_aplicacao_intervalo,
+        dataSolicitacao: solicitacao.data_solicitacao,
+        createdAt: solicitacao.created_at
+      });
+      
+      // Só incluir se ainda há ciclos por fazer
       if (cicloAtual < ciclosPrevistos) {
-        // Calcular dias até próximo ciclo (simulado)
-        const diasRestantes = Math.floor(Math.random() * 14) + 1; // 1-14 dias
+        // ✅ CÁLCULO REAL DOS DIAS COM LOG DETALHADO
+        const diasRestantes = calculateRealDaysRemaining(solicitacao);
         
+        console.log(`⏰ Dias calculados para ${solicitacao.cliente_nome}:`, diasRestantes);
+        
+        // Determinar status baseado em dias reais
         let status: 'urgent' | 'warning' | 'normal' = 'normal';
         if (diasRestantes <= 3) status = 'urgent';
         else if (diasRestantes <= 7) status = 'warning';
@@ -305,32 +359,215 @@ const Dashboard = () => {
         
         const treatmentType = treatmentTypeMap[solicitacao.finalidade || ''] || 'Quimioterapia';
         
-        upcomingData.push({
+        const treatmentItem = {
           id: solicitacao.id?.toString() || index.toString(),
           patientName: solicitacao.cliente_nome,
           treatmentType,
           daysRemaining: diasRestantes,
-          cycle: `${cicloAtual + 1}/${ciclosPrevistos}`,
-          status
-        });
+          cycle: `${cicloAtual + 1}/${ciclosPrevistos}`, // Próximo ciclo
+          status,
+          solicitacaoId: solicitacao.id || 0,
+          intervaloOriginal: solicitacao.dias_aplicacao_intervalo || '',
+          dataSolicitacao: solicitacao.data_solicitacao || solicitacao.created_at || ''
+        };
+        
+        console.log(`✅ Tratamento adicionado:`, treatmentItem);
+        upcomingData.push(treatmentItem);
       }
     });
 
-    // Ordenar por urgência (dias restantes)
+    // Ordenar por urgência (dias restantes) e limitar a 6
     upcomingData.sort((a, b) => a.daysRemaining - b.daysRemaining);
     
-    setUpcomingTreatments(upcomingData);
+    console.log('📊 Tratamentos finais a vencer:', upcomingData);
+    setUpcomingTreatments(upcomingData.slice(0, 6));
   };
 
+  // ✅ FUNÇÃO CORRIGIDA: Cálculo real de dias restantes
+  const calculateRealDaysRemaining = (solicitacao: SolicitacaoFromAPI): number => {
+    try {
+      console.log(`🔧 Calculando dias para ${solicitacao.cliente_nome}:`);
+      console.log('   - Dados:', {
+        cicloAtual: solicitacao.ciclo_atual,
+        ciclosPrevistos: solicitacao.ciclos_previstos,
+        intervalo: solicitacao.dias_aplicacao_intervalo,
+        dataSolicitacao: solicitacao.data_solicitacao,
+        createdAt: solicitacao.created_at,
+        hoje: new Date().toISOString().split('T')[0]
+      });
+      
+      const hoje = new Date();
+      const cicloAtual = solicitacao.ciclo_atual || 1;
+      
+      // 1. TENTATIVA: Baseado no intervalo de aplicação
+      if (solicitacao.dias_aplicacao_intervalo) {
+        const intervaloDias = parseIntervaloDias(solicitacao.dias_aplicacao_intervalo);
+        console.log(`   - Intervalo parseado: ${intervaloDias} dias`);
+        
+        if (intervaloDias > 0) {
+          // Usar created_at como referência mais confiável
+          const dataReferencia = new Date(solicitacao.created_at || solicitacao.data_solicitacao || '');
+          
+          if (!isNaN(dataReferencia.getTime())) {
+            console.log(`   - Data de referência: ${dataReferencia.toISOString().split('T')[0]}`);
+            
+            const diasDecorridos = Math.floor((hoje.getTime() - dataReferencia.getTime()) / (1000 * 60 * 60 * 24));
+            console.log(`   - Dias decorridos desde criação: ${diasDecorridos}`);
+            
+            // ✅ LÓGICA CORRIGIDA: 
+            // Se estamos no ciclo 1, o próximo ciclo (2) será após o intervalo
+            // Se estamos no ciclo 2, o próximo ciclo (3) será após 2x o intervalo, etc.
+            const diasParaProximoCiclo = (cicloAtual * intervaloDias) - diasDecorridos;
+            console.log(`   - Dias para próximo ciclo (${cicloAtual + 1}): ${diasParaProximoCiclo}`);
+            
+            // Se já passou da data do próximo ciclo
+            if (diasParaProximoCiclo <= 0) {
+              // Calcular quantos ciclos estamos atrasados
+              const ciclosAtrasados = Math.ceil(Math.abs(diasParaProximoCiclo) / intervaloDias);
+              const proximaDataPossivel = ciclosAtrasados * intervaloDias + diasParaProximoCiclo;
+              console.log(`   - Ciclos atrasados: ${ciclosAtrasados}, próxima data possível em: ${proximaDataPossivel} dias`);
+              return Math.max(1, proximaDataPossivel);
+            }
+            
+            return Math.max(1, diasParaProximoCiclo);
+          }
+        }
+      }
+      
+      // 2. FALLBACK: Baseado em padrão de 21 dias
+      console.log('   - Usando fallback de 21 dias');
+      const dataReferencia = new Date(solicitacao.created_at || solicitacao.data_solicitacao || '');
+      
+      if (!isNaN(dataReferencia.getTime())) {
+        const diasDesdeCriacao = Math.floor((hoje.getTime() - dataReferencia.getTime()) / (1000 * 60 * 60 * 24));
+        const diasPorCiclo = 21; // Padrão comum em oncologia
+        
+        const diasParaProximoCiclo = (cicloAtual * diasPorCiclo) - diasDesdeCriacao;
+        console.log(`   - Fallback: ${diasParaProximoCiclo} dias`);
+        
+        return Math.max(1, Math.min(30, diasParaProximoCiclo));
+      }
+      
+      // 3. FALLBACK FINAL: Estimativa baseada no progresso
+      console.log('   - Usando fallback final baseado em progresso');
+      const ciclosPrevistos = solicitacao.ciclos_previstos || 6;
+      const progresso = cicloAtual / ciclosPrevistos;
+      
+      if (progresso < 0.3) return 14; // Início do tratamento
+      if (progresso < 0.6) return 21; // Meio do tratamento
+      return 28; // Final do tratamento
+      
+    } catch (error) {
+      console.error('❌ Erro ao calcular dias restantes:', error);
+      return 21; // Fallback seguro
+    }
+  };
+
+  // ✅ FUNÇÃO MELHORADA: Parse do intervalo de dias com logs
+  const parseIntervaloDias = (intervaloTexto: string): number => {
+    if (!intervaloTexto) return 0;
+    
+    console.log(`🔍 Parseando intervalo: "${intervaloTexto}"`);
+    
+    try {
+      const texto = intervaloTexto.toLowerCase();
+      
+      // Padrão específico para "repetir a cada X dias"
+      let match = texto.match(/repetir\s+a\s+cada\s+(\d+)\s+dias?/);
+      if (match) {
+        console.log(`   ✅ Match "repetir a cada": ${match[1]} dias`);
+        return parseInt(match[1]);
+      }
+      
+      // Padrão "a cada X dias"
+      match = texto.match(/(?:a\s+cada\s+|cada\s+)(\d+)\s+dias?/);
+      if (match) {
+        console.log(`   ✅ Match "a cada": ${match[1]} dias`);
+        return parseInt(match[1]);
+      }
+      
+      // Padrão "X/X dias" (ex: "1/21 dias", "3/28 dias")
+      match = texto.match(/\d+\/(\d+)\s+dias?/);
+      if (match) {
+        console.log(`   ✅ Match "X/Y dias": ${match[1]} dias`);
+        return parseInt(match[1]);
+      }
+      
+      // Padrão "X em X" (ex: "1 em 21", "3 em 28")
+      match = texto.match(/\d+\s+em\s+(\d+)/);
+      if (match) {
+        console.log(`   ✅ Match "X em Y": ${match[1]} dias`);
+        return parseInt(match[1]);
+      }
+      
+      // Padrão só número + dias no final
+      match = texto.match(/(\d+)\s+dias?\s*$/);
+      if (match) {
+        console.log(`   ✅ Match "X dias": ${match[1]} dias`);
+        return parseInt(match[1]);
+      }
+      
+      // Procurar qualquer número que faça sentido para intervalos
+      const numeros = texto.match(/\d+/g);
+      if (numeros) {
+        for (const numero of numeros) {
+          const num = parseInt(numero);
+          // Filtrar números que fazem sentido para intervalos (7-42 dias)
+          if (num >= 7 && num <= 42) {
+            console.log(`   ✅ Match número válido: ${num} dias`);
+            return num;
+          }
+        }
+      }
+      
+      console.log(`   ❌ Nenhum padrão encontrado em: "${intervaloTexto}"`);
+      return 0;
+    } catch (error) {
+      console.error('❌ Erro ao fazer parse do intervalo:', error);
+      return 0;
+    }
+  };
+
+  // ✅ FUNÇÃO PARA DEBUG: Verificar dados específicos do João
+  const debugJoaoData = (solicitacoes: SolicitacaoFromAPI[]) => {
+    const joao = solicitacoes.find(s => s.cliente_nome.includes('João'));
+    if (joao) {
+      console.log('🔍 DEBUG - Dados do João da Silva:');
+      console.log('   - ID:', joao.id);
+      console.log('   - Ciclo atual:', joao.ciclo_atual);
+      console.log('   - Ciclos previstos:', joao.ciclos_previstos);
+      console.log('   - Status:', joao.status);
+      console.log('   - Finalidade:', joao.finalidade);
+      console.log('   - Intervalo:', joao.dias_aplicacao_intervalo);
+      console.log('   - Data solicitação:', joao.data_solicitacao);
+      console.log('   - Created at:', joao.created_at);
+      
+      // Testar cálculo de dias
+      const dias = calculateRealDaysRemaining(joao);
+      console.log('   - Dias calculados:', dias);
+      
+      // Testar parse do intervalo
+      if (joao.dias_aplicacao_intervalo) {
+        const intervalo = parseIntervaloDias(joao.dias_aplicacao_intervalo);
+        console.log('   - Intervalo parseado:', intervalo, 'dias');
+      }
+    }
+  };
+
+  // ✅ PROCESSA SOLICITAÇÕES POR MÊS COM DADOS REAIS
   const processSolicitacoesPorMes = (solicitacoes: SolicitacaoFromAPI[]) => {
     const mesesData: Record<string, any> = {};
     
     solicitacoes.forEach(solicitacao => {
-      if (!solicitacao.created_at) return;
+      if (!solicitacao.created_at && !solicitacao.data_solicitacao) return;
       
       try {
-        const date = new Date(solicitacao.created_at);
-        const mesAno = `${date.getMonth() + 1}/${date.getFullYear()}`;
+        const dateStr = solicitacao.created_at || solicitacao.data_solicitacao || '';
+        const date = new Date(dateStr);
+        
+        if (isNaN(date.getTime())) return;
+        
+        const mesAno = `${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}`;
         
         if (!mesesData[mesAno]) {
           mesesData[mesAno] = {
@@ -338,7 +575,8 @@ const Dashboard = () => {
             total: 0,
             aprovadas: 0,
             pendentes: 0,
-            rejeitadas: 0
+            rejeitadas: 0,
+            emAnalise: 0
           };
         }
         
@@ -350,6 +588,9 @@ const Dashboard = () => {
             break;
           case 'rejeitada':
             mesesData[mesAno].rejeitadas++;
+            break;
+          case 'em_analise':
+            mesesData[mesAno].emAnalise++;
             break;
           default:
             mesesData[mesAno].pendentes++;
@@ -368,6 +609,15 @@ const Dashboard = () => {
       .slice(-6); // Últimos 6 meses
 
     setSolicitacoesPorMes(data);
+  };
+
+  // ✅ FORMATAÇÃO DE DIAS MELHORADA
+  const formatDaysRemaining = (days: number): string => {
+    if (days === 0) return 'Hoje';
+    if (days === 1) return 'Amanhã';
+    if (days < 0) return `${Math.abs(days)} dias atraso`;
+    if (days === 1) return '1 dia';
+    return `${days} dias`;
   };
 
   const getStatusIcon = (status: string) => {
@@ -435,7 +685,7 @@ const Dashboard = () => {
           <div className="flex items-center justify-center py-12">
             <div className="text-center">
               <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-              <p className="text-muted-foreground">Carregando dados do dashboard...</p>
+              <p className="text-muted-foreground">Carregando dados reais do dashboard...</p>
             </div>
           </div>
         </div>
@@ -444,7 +694,7 @@ const Dashboard = () => {
 
     return (
       <div className="space-y-6">
-        {/* Cards de Métricas */}
+        {/* Cards de Métricas Reais */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <AnimatedSection delay={100}>
             <MouseTilt maxTilt={5} scale={1.02}>
@@ -503,11 +753,7 @@ const Dashboard = () => {
                   <CardDescription>Solicitações aprovadas</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-3xl font-bold">
-                    {metrics.totalSolicitacoes > 0 
-                      ? Math.round((metrics.solicitacoesAprovadas / metrics.totalSolicitacoes) * 100)
-                      : 0}%
-                  </div>
+                  <div className="text-3xl font-bold">{metrics.taxaAprovacao}%</div>
                   <p className="text-sm text-muted-foreground mt-2">
                     <span className="text-support-green">
                       {metrics.solicitacoesAprovadas} de {metrics.totalSolicitacoes} solicitações
@@ -519,7 +765,7 @@ const Dashboard = () => {
           </AnimatedSection>
         </div>
         
-        {/* Gráficos */}
+        {/* Gráficos com Dados Reais */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Status das Solicitações */}
           <AnimatedSection delay={400}>
@@ -531,57 +777,66 @@ const Dashboard = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="h-[300px] flex justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <defs>
-                      <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.2"/>
-                      </filter>
-                    </defs>
-                    <Pie
-                      data={solicitacaoStatusData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      paddingAngle={5}
-                      dataKey="value"
-                      animationDuration={1500}
-                      animationBegin={200}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      labelLine={false}
-                      filter="url(#shadow)"
-                    >
-                      {solicitacaoStatusData.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={CHART_COLORS[index % CHART_COLORS.length].fill}
-                          stroke={CHART_COLORS[index % CHART_COLORS.length].stroke}
-                          strokeWidth={2}
-                          style={{
-                            filter: `drop-shadow(${CHART_COLORS[index % CHART_COLORS.length].glow})`
-                          }}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ 
-                        borderRadius: '12px', 
-                        border: '1px solid var(--border)', 
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-                        background: 'var(--background)',
-                        color: 'hsl(var(--foreground))'
-                      }}
-                      itemStyle={{ color: 'hsl(var(--foreground))' }}
-                    />
-                    <Legend 
-                      wrapperStyle={{
-                        paddingTop: '20px',
-                        color: 'hsl(var(--foreground))'
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+                {solicitacaoStatusData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <defs>
+                        <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.2"/>
+                        </filter>
+                      </defs>
+                      <Pie
+                        data={solicitacaoStatusData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={5}
+                        dataKey="value"
+                        animationDuration={1500}
+                        animationBegin={200}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}
+                        filter="url(#shadow)"
+                      >
+                        {solicitacaoStatusData.map((entry, index) => (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={CHART_COLORS[index % CHART_COLORS.length].fill}
+                            stroke={CHART_COLORS[index % CHART_COLORS.length].stroke}
+                            strokeWidth={2}
+                            style={{
+                              filter: `drop-shadow(${CHART_COLORS[index % CHART_COLORS.length].glow})`
+                            }}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ 
+                          borderRadius: '12px', 
+                          border: '1px solid var(--border)', 
+                          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                          background: 'var(--background)',
+                          color: 'hsl(var(--foreground))'
+                        }}
+                        itemStyle={{ color: 'hsl(var(--foreground))' }}
+                      />
+                      <Legend 
+                        wrapperStyle={{
+                          paddingTop: '20px',
+                          color: 'hsl(var(--foreground))'
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <div className="text-center">
+                      <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Nenhuma solicitação encontrada</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </AnimatedSection>
@@ -597,68 +852,77 @@ const Dashboard = () => {
                 <CardDescription>Distribuição por status atual</CardDescription>
               </CardHeader>
               <CardContent className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={patientStatusData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                    <defs>
-                      <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#c6d651" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#c6d651" stopOpacity={0.3}/>
-                      </linearGradient>
-                      <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.2"/>
-                      </filter>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.1} stroke="var(--border)" />
-                    <XAxis 
-                      dataKey="name" 
-                      tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
-                      axisLine={{ stroke: 'var(--border)' }}
-                      tickLine={{ stroke: 'var(--border)' }}
-                    />
-                    <YAxis 
-                      tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
-                      axisLine={{ stroke: 'var(--border)' }}
-                      tickLine={{ stroke: 'var(--border)' }}
-                    />
-                    <Tooltip 
-                      cursor={{ fill: 'rgba(198, 214, 81, 0.1)' }}
-                      content={({ active, payload, label }) => {
-                        if (active && payload && payload.length) {
-                          return (
-                            <div className="bg-background border border-border rounded-lg shadow-lg p-3">
-                              <p className="font-medium text-foreground">{label}</p>
-                              <p className="text-sm text-muted-foreground">
-                                {payload[0].value} pacientes
-                              </p>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                    <Bar 
-                      dataKey="count" 
-                      name="Pacientes" 
-                      fill="url(#barGradient)"
-                      animationDuration={1500}
-                      animationBegin={300}
-                      radius={[8, 8, 0, 0]}
-                      stroke="var(--background)"
-                      strokeWidth={2}
-                      maxBarSize={50}
-                      filter="url(#barShadow)"
-                      className="transition-all duration-300 hover:brightness-110"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+                {patientStatusData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={patientStatusData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                      <defs>
+                        <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#c6d651" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="#c6d651" stopOpacity={0.3}/>
+                        </linearGradient>
+                        <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.2"/>
+                        </filter>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" opacity={0.1} stroke="var(--border)" />
+                      <XAxis 
+                        dataKey="name" 
+                        tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
+                        axisLine={{ stroke: 'var(--border)' }}
+                        tickLine={{ stroke: 'var(--border)' }}
+                      />
+                      <YAxis 
+                        tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }}
+                        axisLine={{ stroke: 'var(--border)' }}
+                        tickLine={{ stroke: 'var(--border)' }}
+                      />
+                      <Tooltip 
+                        cursor={{ fill: 'rgba(198, 214, 81, 0.1)' }}
+                        content={({ active, payload, label }) => {
+                          if (active && payload && payload.length) {
+                            return (
+                              <div className="bg-background border border-border rounded-lg shadow-lg p-3">
+                                <p className="font-medium text-foreground">{label}</p>
+                                <p className="text-sm text-muted-foreground">
+                                  {payload[0].value} pacientes
+                                </p>
+                              </div>
+                            );
+                          }
+                          return null;
+                        }}
+                      />
+                      <Bar 
+                        dataKey="count" 
+                        name="Pacientes" 
+                        fill="url(#barGradient)"
+                        animationDuration={1500}
+                        animationBegin={300}
+                        radius={[8, 8, 0, 0]}
+                        stroke="var(--background)"
+                        strokeWidth={2}
+                        maxBarSize={50}
+                        filter="url(#barShadow)"
+                        className="transition-all duration-300 hover:brightness-110"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <div className="text-center">
+                      <UsersIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Nenhum paciente encontrado</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </AnimatedSection>
         </div>
         
-        {/* Gráficos Adicionais */}
+        {/* Tratamentos a Vencer e Distribuição */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Tratamentos a Vencer */}
+          {/* Tratamentos a Vencer com Cálculo Real */}
           <AnimatedSection delay={600}>
             <Card className="lco-card h-[400px]">
               <CardHeader>
@@ -666,7 +930,7 @@ const Dashboard = () => {
                   <CalendarIcon className="mr-2 h-5 w-5 text-primary" />
                   Tratamentos a Vencer
                 </CardTitle>
-                <CardDescription>Próximos ciclos programados</CardDescription>
+                <CardDescription>Próximos ciclos calculados</CardDescription>
               </CardHeader>
               <CardContent className="h-[300px] overflow-y-auto">
                 <div className="space-y-4">
@@ -680,11 +944,12 @@ const Dashboard = () => {
                       <div 
                         key={treatment.id}
                         className={cn(
-                          "flex items-center justify-between p-3 rounded-lg transition-all duration-300",
-                          treatment.status === 'urgent' ? 'bg-highlight-red/10 hover:bg-highlight-red/20 shadow-[0_0_10px_rgba(242,107,107,0.3)]' :
-                          treatment.status === 'warning' ? 'bg-support-yellow/10 hover:bg-support-yellow/20 shadow-[0_0_10px_rgba(228,169,79,0.3)]' :
-                          'bg-support-green/10 hover:bg-support-green/20 shadow-[0_0_10px_rgba(140,179,105,0.3)]'
+                          "flex items-center justify-between p-3 rounded-lg transition-all duration-300 border",
+                          treatment.status === 'urgent' ? 'bg-highlight-red/10 hover:bg-highlight-red/20 border-highlight-red/20' :
+                          treatment.status === 'warning' ? 'bg-support-yellow/10 hover:bg-support-yellow/20 border-support-yellow/20' :
+                          'bg-support-green/10 hover:bg-support-green/20 border-support-green/20'
                         )}
+                        title={`Solicitação: ${formatDate(treatment.dataSolicitacao)}\nIntervalo: ${treatment.intervaloOriginal}`}
                       >
                         <div className="flex-1">
                           <div className="font-medium">{treatment.patientName}</div>
@@ -698,7 +963,7 @@ const Dashboard = () => {
                               treatment.status === 'warning' ? 'text-support-yellow' :
                               'text-support-green'
                             )}>
-                              {treatment.daysRemaining} dias
+                              {formatDaysRemaining(treatment.daysRemaining)}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               Ciclo {treatment.cycle}
@@ -706,9 +971,9 @@ const Dashboard = () => {
                           </div>
                           <div className={cn(
                             "w-2 h-2 rounded-full",
-                            treatment.status === 'urgent' ? 'bg-highlight-red animate-pulse shadow-[0_0_10px_rgba(242,107,107,0.5)]' :
-                            treatment.status === 'warning' ? 'bg-support-yellow shadow-[0_0_10px_rgba(228,169,79,0.5)]' :
-                            'bg-support-green shadow-[0_0_10px_rgba(140,179,105,0.5)]'
+                            treatment.status === 'urgent' ? 'bg-highlight-red animate-pulse' :
+                            treatment.status === 'warning' ? 'bg-support-yellow' :
+                            'bg-support-green'
                           )} />
                         </div>
                       </div>
@@ -730,59 +995,68 @@ const Dashboard = () => {
                 <CardDescription>Por finalidade terapêutica</CardDescription>
               </CardHeader>
               <CardContent className="h-[300px] flex justify-center">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <defs>
-                      <filter id="treatmentShadow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.2"/>
-                      </filter>
-                    </defs>
-                    <Pie
-                      data={treatmentDistribution}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      paddingAngle={5}
-                      dataKey="value"
-                      startAngle={100}
-                      endAngle={460}
-                      animationDuration={1500}
-                      animationBegin={200}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      labelLine={false}
-                      filter="url(#treatmentShadow)"
-                    >
-                      {treatmentDistribution.map((entry, index) => (
-                        <Cell 
-                          key={`cell-${index}`} 
-                          fill={TREATMENT_COLORS[index % TREATMENT_COLORS.length].fill}
-                          stroke={TREATMENT_COLORS[index % TREATMENT_COLORS.length].stroke}
-                          strokeWidth={2}
-                          style={{
-                            filter: `drop-shadow(${TREATMENT_COLORS[index % TREATMENT_COLORS.length].glow})`
-                          }}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ 
-                        borderRadius: '12px', 
-                        border: '1px solid var(--border)', 
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-                        background: 'var(--background)',
-                        color: 'hsl(var(--foreground))'
-                      }}
-                      itemStyle={{ color: 'hsl(var(--foreground))' }}
-                    />
-                    <Legend 
-                      wrapperStyle={{
-                        paddingTop: '20px',
-                        color: 'hsl(var(--foreground))'
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+                {treatmentDistribution.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <defs>
+                        <filter id="treatmentShadow" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.2"/>
+                        </filter>
+                      </defs>
+                      <Pie
+                        data={treatmentDistribution}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={5}
+                        dataKey="value"
+                        startAngle={100}
+                        endAngle={460}
+                        animationDuration={1500}
+                        animationBegin={200}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}
+                        filter="url(#treatmentShadow)"
+                      >
+                        {treatmentDistribution.map((entry, index) => (
+                          <Cell 
+                            key={`cell-${index}`} 
+                            fill={TREATMENT_COLORS[index % TREATMENT_COLORS.length].fill}
+                            stroke={TREATMENT_COLORS[index % TREATMENT_COLORS.length].stroke}
+                            strokeWidth={2}
+                            style={{
+                              filter: `drop-shadow(${TREATMENT_COLORS[index % TREATMENT_COLORS.length].glow})`
+                            }}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ 
+                          borderRadius: '12px', 
+                          border: '1px solid var(--border)', 
+                          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                          background: 'var(--background)',
+                          color: 'hsl(var(--foreground))'
+                        }}
+                        itemStyle={{ color: 'hsl(var(--foreground))' }}
+                      />
+                      <Legend 
+                        wrapperStyle={{
+                          paddingTop: '20px',
+                          color: 'hsl(var(--foreground))'
+                        }}
+                      />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <div className="text-center">
+                      <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Nenhum tratamento encontrado</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </AnimatedSection>
@@ -838,7 +1112,7 @@ const Dashboard = () => {
 
         {/* Solicitações por Mês (se tiver dados suficientes) */}
         {solicitacoesPorMes.length > 1 && (
-          <AnimatedSection delay={800}>
+          <AnimatedSection delay={900}>
             <Card className="lco-card">
               <CardHeader>
                 <CardTitle className="flex items-center">
