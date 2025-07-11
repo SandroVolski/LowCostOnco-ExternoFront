@@ -3,54 +3,82 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { SearchIcon, CheckCircle2, Clock, AlertCircle, MinusCircle } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { SearchIcon, CheckCircle2, Clock, AlertCircle, MinusCircle, FileText, Calendar, User, Copy, CheckIcon, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Confetti from 'react-confetti';
 
-// Interface básica para uma etapa do fluxo
+// Interface para uma etapa do fluxo
 interface FlowStep {
   id: number;
   name: string;
+  description?: string;
   status: 'pending' | 'completed' | 'active' | 'failed';
   date?: string;
+  estimatedDays?: number;
 }
 
-// Interface básica para um recurso de glosa
+// Interface para um recurso de glosa
 interface GlosaResource {
   code: string;
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
   currentStep: number;
   steps: FlowStep[];
+  patientName?: string;
+  createdDate?: string;
+  lastUpdate?: string;
+  priority?: 'high' | 'medium' | 'low';
 }
 
 // Função para obter o ícone da etapa
 const getStepIcon = (status: FlowStep['status']) => {
   switch (status) {
     case 'completed':
-      return <CheckCircle2 className="h-5 w-5 text-support-green" />;
+      return <CheckCircle2 className="h-5 w-5 text-green-600" />;
     case 'active':
-      return <Clock className="h-5 w-5 text-primary animate-pulse-slow" />;
+      return <Clock className="h-5 w-5 text-blue-600 animate-pulse" />;
     case 'failed':
-      return <AlertCircle className="h-5 w-5 text-destructive" />;
+      return <AlertCircle className="h-5 w-5 text-red-600" />;
     case 'pending':
     default:
       return <MinusCircle className="h-5 w-5 text-muted-foreground" />;
   }
 };
 
-// Função para obter a cor de fundo do círculo da etapa
-const getStepCircleColor = (status: FlowStep['status']) => {
+// Função para obter o status badge
+const getStatusBadge = (status: GlosaResource['status']) => {
   switch (status) {
     case 'completed':
-      return 'bg-support-green/20 border-support-green';
-    case 'active':
-      return 'bg-primary/20 border-primary';
+      return (
+        <Badge className="status-approved">
+          <CheckCircle2 className="h-3 w-3 mr-1" />
+          Concluído
+        </Badge>
+      );
+    case 'in_progress':
+      return (
+        <Badge className="status-pending">
+          <Clock className="h-3 w-3 mr-1" />
+          Em Andamento
+        </Badge>
+      );
     case 'failed':
-      return 'bg-destructive/20 border-destructive';
+      return (
+        <Badge className="status-rejected">
+          <AlertCircle className="h-3 w-3 mr-1" />
+          Falhado
+        </Badge>
+      );
     case 'pending':
     default:
-      return 'bg-muted/20 border-border';
+      return (
+        <Badge variant="secondary">
+          <MinusCircle className="h-3 w-3 mr-1" />
+          Pendente
+        </Badge>
+      );
   }
 };
 
@@ -60,6 +88,7 @@ const RecursosGlosas = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [windowSize, setWindowSize] = useState({
     width: window.innerWidth,
     height: window.innerHeight,
@@ -82,7 +111,6 @@ const RecursosGlosas = () => {
   useEffect(() => {
     if (glosaResource?.status === 'completed') {
       setShowConfetti(true);
-      // Parar os confetes após 5 segundos
       const timer = setTimeout(() => {
         setShowConfetti(false);
       }, 5000);
@@ -90,54 +118,166 @@ const RecursosGlosas = () => {
     }
   }, [glosaResource]);
 
+  const handleCopyCode = async () => {
+    if (glosaResource?.code) {
+      try {
+        await navigator.clipboard.writeText(glosaResource.code);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (error) {
+        console.error('Erro ao copiar código:', error);
+      }
+    }
+  };
+
   const handleTrack = () => {
     setLoading(true);
     setError(null);
     setGlosaResource(null);
     setShowConfetti(false);
 
-    // TODO: Implementar a lógica real de busca do recurso de glosa
-    // Por enquanto, vamos simular uma busca com dados mockados
+    // Simular busca com dados mockados
     setTimeout(() => {
       const mockResource: GlosaResource = {
         code: trackingCode,
         status: 'in_progress',
         currentStep: 2,
+        patientName: 'Maria Silva Santos',
+        createdDate: '01/06/2024',
+        lastUpdate: '05/06/2024',
+        priority: 'high',
         steps: [
-          { id: 1, name: 'Recurso Cadastrado', status: 'completed', date: '2024-06-01' },
-          { id: 2, name: 'Em Análise pela Operadora', status: 'active', date: '2024-06-05' },
-          { id: 3, name: 'Aguardando Documentação Adicional', status: 'pending' },
-          { id: 4, name: 'Análise Finalizada', status: 'pending' },
-          { id: 5, name: 'Resultado Disponível', status: 'pending' },
+          { 
+            id: 1, 
+            name: 'Recurso Cadastrado', 
+            description: 'Solicitação de recurso foi registrada no sistema',
+            status: 'completed', 
+            date: '01/06/2024',
+            estimatedDays: 1
+          },
+          { 
+            id: 2, 
+            name: 'Em Análise pela Operadora', 
+            description: 'Documentação sendo analisada pelo setor competente',
+            status: 'active', 
+            date: '05/06/2024',
+            estimatedDays: 7
+          },
+          { 
+            id: 3, 
+            name: 'Aguardando Documentação Adicional', 
+            description: 'Podem ser solicitados documentos complementares',
+            status: 'pending',
+            estimatedDays: 3
+          },
+          { 
+            id: 4, 
+            name: 'Análise Finalizada', 
+            description: 'Processo de análise concluído',
+            status: 'pending',
+            estimatedDays: 2
+          },
+          { 
+            id: 5, 
+            name: 'Resultado Disponível', 
+            description: 'Resultado do recurso disponível para consulta',
+            status: 'pending',
+            estimatedDays: 1
+          },
         ],
       };
 
-      if (trackingCode.toLowerCase() === 'glosa123') { // Exemplo de código válido, case-insensitive
+      if (trackingCode.toLowerCase() === 'glosa123') {
         setGlosaResource(mockResource);
-      } else if (trackingCode.toLowerCase() === 'glosa456') { // Exemplo de outro código
-         const anotherMockResource: GlosaResource = {
+      } else if (trackingCode.toLowerCase() === 'glosa456') {
+        const completedResource: GlosaResource = {
           code: trackingCode,
           status: 'completed',
           currentStep: 5,
+          patientName: 'João Pedro Oliveira',
+          createdDate: '10/05/2024',
+          lastUpdate: '20/05/2024',
+          priority: 'medium',
           steps: [
-            { id: 1, name: 'Recurso Cadastrado', status: 'completed', date: '2024-05-10' },
-            { id: 2, name: 'Em Análise pela Operadora', status: 'completed', date: '2024-05-12' },
-            { id: 3, name: 'Aguardando Documentação Adicional', status: 'completed', date: '2024-05-15'.split('-').reverse().join('/') },
-            { id: 4, name: 'Análise Finalizada', status: 'completed', date: '2024-05-18'.split('-').reverse().join('/') },
-            { id: 5, name: 'Resultado Disponível', status: 'completed', date: '2024-05-20'.split('-').reverse().join('/') },
+            { 
+              id: 1, 
+              name: 'Recurso Cadastrado', 
+              description: 'Solicitação de recurso foi registrada no sistema',
+              status: 'completed', 
+              date: '10/05/2024',
+              estimatedDays: 1
+            },
+            { 
+              id: 2, 
+              name: 'Em Análise pela Operadora', 
+              description: 'Documentação analisada pelo setor competente',
+              status: 'completed', 
+              date: '12/05/2024',
+              estimatedDays: 7
+            },
+            { 
+              id: 3, 
+              name: 'Aguardando Documentação Adicional', 
+              description: 'Documentos adicionais foram fornecidos',
+              status: 'completed', 
+              date: '15/05/2024',
+              estimatedDays: 3
+            },
+            { 
+              id: 4, 
+              name: 'Análise Finalizada', 
+              description: 'Processo de análise concluído com sucesso',
+              status: 'completed', 
+              date: '18/05/2024',
+              estimatedDays: 2
+            },
+            { 
+              id: 5, 
+              name: 'Resultado Disponível', 
+              description: 'Recurso APROVADO - Consulte o resultado',
+              status: 'completed', 
+              date: '20/05/2024',
+              estimatedDays: 1
+            },
           ],
         };
-         setGlosaResource(anotherMockResource);
+        setGlosaResource(completedResource);
       } else {
-        setError('Recurso de glosa não encontrado.');
+        setError('Código de recurso não encontrado. Tente "glosa123" ou "glosa456" para demonstração.');
       }
 
       setLoading(false);
-    }, 1000);
+    }, 1500);
+  };
+
+  const getPriorityLabel = (priority?: string) => {
+    switch (priority) {
+      case 'high':
+        return 'Alta Prioridade';
+      case 'medium':
+        return 'Prioridade Média';
+      case 'low':
+        return 'Baixa Prioridade';
+      default:
+        return 'Prioridade Normal';
+    }
+  };
+
+  const getPriorityColor = (priority?: string) => {
+    switch (priority) {
+      case 'high':
+        return 'text-red-600 bg-red-50';
+      case 'medium':
+        return 'text-yellow-600 bg-yellow-50';
+      case 'low':
+        return 'text-green-600 bg-green-50';
+      default:
+        return 'text-muted-foreground bg-muted';
+    }
   };
 
   return (
-    <div className="relative space-y-8 animate-fade-in container mx-auto py-4 px-4">
+    <div className="space-y-6 animate-entry">
       {showConfetti && (
         <Confetti
           width={windowSize.width}
@@ -146,101 +286,266 @@ const RecursosGlosas = () => {
           numberOfPieces={200}
           gravity={0.3}
           colors={['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6']}
+          className="z-50"
         />
       )}
-      
-      <h1 className="text-2xl font-semibold text-foreground absolute top-0 left-0 pl-4">Acompanhamento de Recursos de Glosas</h1>
-      
-      <div className="pt-12 flex gap-8">
-        {/* Card de Busca - Lado Esquerdo */}
-        <Card className="w-full max-w-4xl bg-card/50 backdrop-blur-sm border-border/50 shadow-lg hover:shadow-xl transition-all duration-300">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-2xl font-semibold text-foreground/90 flex items-center gap-2">
-              <SearchIcon className="h-6 w-6 text-primary" />
-              Buscar Recurso
-            </CardTitle>
-            <p className="text-muted-foreground/70 mt-1">Digite o código do recurso para acompanhar seu status</p>
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="flex space-x-4 items-end">
-              <div className="flex-1 space-y-2">
-                <Label htmlFor="trackingCode" className="text-foreground/80 text-base">Código do Recurso</Label>
-                <Input
-                  id="trackingCode"
-                  placeholder="Digite o código do recurso"
-                  value={trackingCode}
-                  onChange={(e) => setTrackingCode(e.target.value)}
-                  className="bg-background/50 border-border/50 focus:border-primary/50 focus:ring-primary/20 h-12 text-lg"
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      handleTrack();
-                    }
-                  }}
-                />
-              </div>
+
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-6">
+        <div className="p-2 bg-primary/10 rounded-lg">
+          <SearchIcon className="h-6 w-6 text-primary" />
+        </div>
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">Recursos de Glosas</h1>
+          <p className="text-muted-foreground">Acompanhe o status do seu recurso de glosa</p>
+        </div>
+      </div>
+
+      {/* Search Card */}
+      <Card className="hover-lift">
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <SearchIcon className="h-5 w-5" />
+            Buscar Recurso
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="trackingCode">Código do Recurso</Label>
+            <Input
+              id="trackingCode"
+              placeholder="Digite o código do recurso"
+              value={trackingCode}
+              onChange={(e) => setTrackingCode(e.target.value.toUpperCase())}
+              className="lco-input"
+              onKeyPress={(e) => {
+                if (e.key === 'Enter' && trackingCode.trim()) {
+                  handleTrack();
+                }
+              }}
+            />
+          </div>
+          
+          <Button 
+            onClick={handleTrack} 
+            disabled={loading || trackingCode.trim() === ''} 
+            className="w-full lco-btn-primary"
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
+                Buscando...
+              </>
+            ) : (
+              <>
+                <SearchIcon className="h-4 w-4 mr-2" />
+                Buscar Recurso
+              </>
+            )}
+          </Button>
+          
+          {error && (
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          
+          {/* Demo codes */}
+          <div className="bg-muted/50 rounded-lg p-4 border">
+            <p className="text-sm text-muted-foreground mb-2">Códigos para demonstração:</p>
+            <div className="flex flex-wrap gap-2">
               <Button 
-                onClick={handleTrack} 
-                disabled={loading || trackingCode.trim() === ''} 
-                className="bg-primary hover:bg-primary/90 text-primary-foreground shadow-md h-12 px-6 text-base"
+                variant="outline" 
+                size="sm"
+                onClick={() => setTrackingCode('GLOSA123')}
+                className="text-xs"
               >
-                {loading ? 'Buscando...' : <SearchIcon className="h-5 w-5" />}
+                GLOSA123 (Em andamento)
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setTrackingCode('GLOSA456')}
+                className="text-xs"
+              >
+                GLOSA456 (Concluído)
               </Button>
             </div>
-            {error && <p className="text-destructive text-sm mt-4 text-center">{error}</p>}
-          </CardContent>
-        </Card>
+          </div>
+        </CardContent>
+      </Card>
 
-        {/* Card de Status - Lado Direito */}
-        {glosaResource && (
-          <Card className="w-full max-w-6xl bg-card/50 backdrop-blur-sm border-border/50 shadow-lg animate-fade-in transition-all duration-300 hover:shadow-xl hover:scale-[1.01] hover:border-primary/30">
-            <CardHeader>
-              <CardTitle className="text-xl font-medium text-foreground/90">
-                Status do Recurso: <span className="text-primary font-semibold">{glosaResource.code}</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* Visualização do fluxo de etapas */}
-              <div className="relative pl-8">
+      {/* Results */}
+      {glosaResource && (
+        <Card className="animate-scale-in">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-primary/10 rounded-lg">
+                  <FileText className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    Recurso: {glosaResource.code}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCopyCode}
+                      className="h-8 w-8 p-0"
+                    >
+                      {copied ? (
+                        <CheckIcon className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </CardTitle>
+                  {glosaResource.patientName && (
+                    <p className="text-sm text-muted-foreground">
+                      Paciente: {glosaResource.patientName}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="text-right space-y-2">
+                {getStatusBadge(glosaResource.status)}
+                {glosaResource.priority && (
+                  <div className={cn(
+                    "px-2 py-1 rounded-md text-xs font-medium",
+                    getPriorityColor(glosaResource.priority)
+                  )}>
+                    {getPriorityLabel(glosaResource.priority)}
+                  </div>
+                )}
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-6">
+            {/* Info Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
+              <div className="flex items-center gap-2 text-sm">
+                <Calendar className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-muted-foreground">Criado em</p>
+                  <p className="font-medium">{glosaResource.createdDate}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <Clock className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-muted-foreground">Última atualização</p>
+                  <p className="font-medium">{glosaResource.lastUpdate}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <p className="text-muted-foreground">Etapa atual</p>
+                  <p className="font-medium">{glosaResource.currentStep} de {glosaResource.steps.length}</p>
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Timeline */}
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Progresso do Recurso
+              </h3>
+              
+              <div className="space-y-6">
                 {glosaResource.steps.map((step, index) => (
-                  <div key={step.id} className="flex items-center mb-8 last:mb-0">
-                    {/* Indicador da etapa */}
-                    <div className="absolute left-0 flex items-center justify-center">
+                  <div key={step.id} className="flex gap-4">
+                    {/* Step indicator */}
+                    <div className="flex flex-col items-center">
                       <div className={cn(
-                        "w-9 h-9 rounded-full border-2 flex items-center justify-center z-10 shadow-md",
-                        getStepCircleColor(step.status)
+                        "w-10 h-10 rounded-full border-2 flex items-center justify-center",
+                        step.status === 'completed' 
+                          ? 'bg-green-50 border-green-200' 
+                          : step.status === 'active' 
+                            ? 'bg-blue-50 border-blue-200' 
+                            : 'bg-muted border-border'
                       )}>
                         {getStepIcon(step.status)}
                       </div>
-                       {/* Linha conectora vertical */}
+                      {/* Connector line */}
                       {index < glosaResource.steps.length - 1 && (
-                         <div className={cn(
-                           "absolute top-10 bottom-[-2rem] left-1/2 w-0.5 transform -translate-x-1/2",
-                           step.status === 'completed' ? 'bg-support-green' : 'bg-border/50'
-                         )}></div>
-                       )}
-                    </div>
-                    {/* Conteúdo da etapa */}
-                    <div className="ml-8 flex-1">
-                      <p className={cn(
-                        "font-medium",
-                         step.status === 'completed' ? 'text-muted-foreground/70 line-through' : 
-                         step.status === 'active' ? 'text-foreground font-semibold' : 'text-muted-foreground/70'
-                      )}>
-                        {step.name}
-                      </p>
-                      {step.date && (
-                        <p className="text-sm text-muted-foreground/60 mt-1">
-                          {step.date}
-                        </p>
+                        <div className={cn(
+                          "w-0.5 h-12 mt-2",
+                          step.status === 'completed' 
+                            ? 'bg-green-200' 
+                            : 'bg-border'
+                        )}></div>
                       )}
+                    </div>
+                    
+                    {/* Step content */}
+                    <div className="flex-1 pb-6">
+                      <Card className="hover-lift">
+                        <CardContent className="p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className={cn(
+                                "font-medium mb-1",
+                                step.status === 'completed' 
+                                  ? 'text-green-700' 
+                                  : step.status === 'active' 
+                                    ? 'text-blue-700' 
+                                    : 'text-foreground'
+                              )}>
+                                {step.name}
+                              </h4>
+                              {step.description && (
+                                <p className="text-sm text-muted-foreground mb-2">
+                                  {step.description}
+                                </p>
+                              )}
+                              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                                {step.date && (
+                                  <div className="flex items-center gap-1">
+                                    <Calendar className="h-3 w-3" />
+                                    {step.date}
+                                  </div>
+                                )}
+                                {step.estimatedDays && step.status === 'pending' && (
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="h-3 w-3" />
+                                    ~{step.estimatedDays} dias
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            {step.status === 'active' && (
+                              <Badge variant="secondary" className="ml-4">
+                                Em Andamento
+                              </Badge>
+                            )}
+                          </div>
+                        </CardContent>
+                      </Card>
                     </div>
                   </div>
                 ))}
               </div>
-            </CardContent>
-          </Card>
-        )}
-      </div>
+            </div>
+            
+            {/* Next Steps */}
+            {glosaResource.status !== 'completed' && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  Sua solicitação está sendo processada. Você será notificado sobre qualquer atualização no status do recurso.
+                  Em caso de dúvidas, entre em contato com nossa equipe de suporte.
+                </AlertDescription>
+              </Alert>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

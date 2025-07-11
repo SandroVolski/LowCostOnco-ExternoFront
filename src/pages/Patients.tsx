@@ -47,6 +47,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { PacienteService, testarConexaoBackend, testarConexaoBanco } from '@/services/api';
 import { toast } from 'sonner';
 
+
+
 // Interface Authorization
 interface Authorization {
   id: string;
@@ -84,6 +86,7 @@ interface Patient {
   email: string;
   endereco: string;
   observacoes: string;
+  clinica_id?: number;
 }
 
 interface ModernAlertProps {
@@ -488,87 +491,47 @@ const Pagination = ({ currentPage, totalPages, onPageChange }: {
   );
 };
 
-// Mock patient data
-const initialPatients: Patient[] = [
-  {
-    id: '1',
-    name: 'Maria Silva',
-    age: 56,
-    gender: 'Feminino',
-    diagnosis: 'Câncer de Mama',
-    stage: 'II',
-    treatment: 'Quimioterapia',
-    startDate: '15/01/2024',
-    status: 'Em tratamento',
-    authorizations: [
-      {
-        id: 'auth1',
-        date: '10/05/2024',
-        status: 'approved',
-        protocol: 'Protocolo ABC',
-        description: 'Solicitação inicial de tratamento'
-      }
-    ],
-    Paciente_Nome: 'Maria Silva',
-    Codigo: 'PAC001',
-    cpf: '123.456.789-00',
-    rg: '12.345.678-9',
-    Data_Nascimento: '01/01/1968',
-    Sexo: 'Feminino',
-    Operadora: 'Unimed',
-    Prestador: 'Hospital ABC',
-    plano_saude: 'Unimed Nacional',
-    numero_carteirinha: '123456789',
-    Cid_Diagnostico: 'C50',
-    Data_Primeira_Solicitacao: '15/01/2024',
-    telefone: '(11) 99999-9999',
-    email: 'maria.silva@email.com',
-    endereco: 'Rua das Flores, 123 - São Paulo, SP',
-    observacoes: 'Paciente colaborativa, boa resposta ao tratamento inicial.',
-  }
-];
-
-// Empty patient
-const emptyPatient: Patient = {
-  id: '',
-  name: '',
-  age: 0,
-  gender: '',
-  diagnosis: '',
-  stage: '',
-  treatment: '',
-  startDate: '',
-  status: '',
-  authorizations: [],
-  Paciente_Nome: '',
-  Codigo: '',
-  cpf: '',
-  rg: '',
-  Data_Nascimento: '',
-  Sexo: '',
-  Operadora: '',
-  Prestador: '',
-  plano_saude: '',
-  numero_carteirinha: '',
-  Cid_Diagnostico: '',
-  Data_Primeira_Solicitacao: '',
-  telefone: '',
-  email: '',
-  endereco: '',
-  observacoes: '',
+// Funções de formatação
+const formatCPF = (value: string): string => {
+  // Remove tudo que não é número
+  const numbers = value.replace(/\D/g, '');
+  
+  // Limita a 11 dígitos
+  const limitedNumbers = numbers.slice(0, 11);
+  
+  // Aplica a máscara
+  if (limitedNumbers.length <= 3) return limitedNumbers;
+  if (limitedNumbers.length <= 6) return `${limitedNumbers.slice(0, 3)}.${limitedNumbers.slice(3)}`;
+  if (limitedNumbers.length <= 9) return `${limitedNumbers.slice(0, 3)}.${limitedNumbers.slice(3, 6)}.${limitedNumbers.slice(6)}`;
+  return `${limitedNumbers.slice(0, 3)}.${limitedNumbers.slice(3, 6)}.${limitedNumbers.slice(6, 9)}-${limitedNumbers.slice(9)}`;
 };
 
-// Helper functions
-const calculateAge = (birthDate: string): number => {
-  if (!birthDate) return 0;
-  const birth = new Date(birthDate);
-  const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const monthDiff = today.getMonth() - birth.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-    age--;
-  }
-  return age;
+const formatRG = (value: string): string => {
+  // Remove tudo que não é número
+  const numbers = value.replace(/\D/g, '');
+  
+  // Limita a 9 dígitos
+  const limitedNumbers = numbers.slice(0, 9);
+  
+  // Aplica a máscara XX.XXX.XXX-X
+  if (limitedNumbers.length <= 2) return limitedNumbers;
+  if (limitedNumbers.length <= 5) return `${limitedNumbers.slice(0, 2)}.${limitedNumbers.slice(2)}`;
+  if (limitedNumbers.length <= 8) return `${limitedNumbers.slice(0, 2)}.${limitedNumbers.slice(2, 5)}.${limitedNumbers.slice(5)}`;
+  return `${limitedNumbers.slice(0, 2)}.${limitedNumbers.slice(2, 5)}.${limitedNumbers.slice(5, 8)}-${limitedNumbers.slice(8)}`;
+};
+
+const formatTelefone = (value: string): string => {
+  // Remove tudo que não é número
+  const numbers = value.replace(/\D/g, '');
+  
+  // Limita a 11 dígitos
+  const limitedNumbers = numbers.slice(0, 11);
+  
+  // Aplica a máscara
+  if (limitedNumbers.length <= 2) return limitedNumbers;
+  if (limitedNumbers.length <= 7) return `(${limitedNumbers.slice(0, 2)}) ${limitedNumbers.slice(2)}`;
+  if (limitedNumbers.length <= 10) return `(${limitedNumbers.slice(0, 2)}) ${limitedNumbers.slice(2, 7)}-${limitedNumbers.slice(7)}`;
+  return `(${limitedNumbers.slice(0, 2)}) ${limitedNumbers.slice(2, 7)}-${limitedNumbers.slice(7)}`;
 };
 
 const formatDateInput = (value: string): string => {
@@ -576,6 +539,77 @@ const formatDateInput = (value: string): string => {
   if (numbers.length <= 2) return numbers;
   if (numbers.length <= 4) return `${numbers.slice(0, 2)}/${numbers.slice(2)}`;
   return `${numbers.slice(0, 2)}/${numbers.slice(2, 4)}/${numbers.slice(4, 8)}`;
+};
+
+const formatCarteirinha = (value: string): string => {
+  // Remove caracteres especiais, mantendo apenas números e letras
+  return value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+};
+
+// Funções de validação
+const validateCPF = (cpf: string): boolean => {
+  const numbers = cpf.replace(/\D/g, '');
+  
+  if (numbers.length !== 11) return false;
+  
+  // Verifica se todos os dígitos são iguais
+  if (/^(\d)\1+$/.test(numbers)) return false;
+  
+  // Validação do primeiro dígito
+  let sum = 0;
+  for (let i = 0; i < 9; i++) {
+    sum += parseInt(numbers[i]) * (10 - i);
+  }
+  let remainder = sum % 11;
+  let digit1 = remainder < 2 ? 0 : 11 - remainder;
+  
+  if (parseInt(numbers[9]) !== digit1) return false;
+  
+  // Validação do segundo dígito
+  sum = 0;
+  for (let i = 0; i < 10; i++) {
+    sum += parseInt(numbers[i]) * (11 - i);
+  }
+  remainder = sum % 11;
+  let digit2 = remainder < 2 ? 0 : 11 - remainder;
+  
+  return parseInt(numbers[10]) === digit2;
+};
+
+const validateEmail = (email: string): boolean => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+const validateTelefone = (telefone: string): boolean => {
+  const numbers = telefone.replace(/\D/g, '');
+  return numbers.length >= 10 && numbers.length <= 11;
+};
+
+const validateDate = (date: string): boolean => {
+  if (!date) return false;
+  
+  // Se for formato DD/MM/YYYY
+  if (date.includes('/')) {
+    const [day, month, year] = date.split('/');
+    if (!day || !month || !year || year.length !== 4) return false;
+    
+    const dayNum = parseInt(day);
+    const monthNum = parseInt(month);
+    const yearNum = parseInt(year);
+    
+    if (dayNum < 1 || dayNum > 31) return false;
+    if (monthNum < 1 || monthNum > 12) return false;
+    if (yearNum < 1900 || yearNum > new Date().getFullYear()) return false;
+    
+    // Verifica se a data existe
+    const testDate = new Date(yearNum, monthNum - 1, dayNum);
+    return testDate.getFullYear() === yearNum && 
+           testDate.getMonth() === monthNum - 1 && 
+           testDate.getDate() === dayNum;
+  }
+  
+  return false;
 };
 
 const convertToISODate = (dateStr: string): string => {
@@ -614,6 +648,102 @@ const convertFromISODate = (dateStr: string): string => {
   return dateStr;
 };
 
+// Helper functions
+const calculateAge = (birthDate: string): number => {
+  if (!birthDate) return 0;
+  
+  let birth: Date;
+  
+  // Se for formato brasileiro (DD/MM/AAAA), converter para ISO primeiro
+  if (birthDate.includes('/')) {
+    const [day, month, year] = birthDate.split('/');
+    birth = new Date(`${year}-${month}-${day}`);
+  } else {
+    // Formato ISO (AAAA-MM-DD)
+    birth = new Date(birthDate);
+  }
+  
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  return age;
+};
+
+// Mock patient data
+const initialPatients: Patient[] = [
+  {
+    id: '1',
+    name: 'Maria Silva',
+    age: 56,
+    gender: 'Feminino',
+    diagnosis: 'Câncer de Mama',
+    stage: 'II',
+    treatment: 'Quimioterapia',
+    startDate: '15/01/2024',
+    status: 'Em tratamento',
+    authorizations: [
+      {
+        id: 'auth1',
+        date: '10/05/2024',
+        status: 'approved',
+        protocol: 'Protocolo ABC',
+        description: 'Solicitação inicial de tratamento'
+      }
+    ],
+    Paciente_Nome: 'Maria Silva',
+    Codigo: 'PAC001',
+    cpf: '123.456.789-00',
+    rg: '12.345.678-9',
+    Data_Nascimento: '01/01/1968',
+    Sexo: 'Feminino',
+    Operadora: 'Unimed',
+    Prestador: 'Hospital ABC',
+    plano_saude: 'Unimed Nacional',
+    numero_carteirinha: '123456789',
+    Cid_Diagnostico: 'C50',
+    Data_Primeira_Solicitacao: '15/01/2024',
+    telefone: '(11) 99999-9999',
+    email: 'maria.silva@email.com',
+    endereco: 'Rua das Flores, 123 - São Paulo, SP',
+    observacoes: 'Paciente colaborativa, boa resposta ao tratamento inicial.',
+    clinica_id: 1
+  }
+];
+
+// Empty patient
+const emptyPatient: Patient = {
+  id: '',
+  name: '',
+  age: 0,
+  gender: '',
+  diagnosis: '',
+  stage: '',
+  treatment: '',
+  startDate: '',
+  status: '',
+  authorizations: [],
+  Paciente_Nome: '',
+  Codigo: '',
+  cpf: '',
+  rg: '',
+  Data_Nascimento: '',
+  Sexo: '',
+  Operadora: '',
+  Prestador: '',
+  plano_saude: '',
+  numero_carteirinha: '',
+  Cid_Diagnostico: '',
+  Data_Primeira_Solicitacao: '',
+  telefone: '',
+  email: '',
+  endereco: '',
+  observacoes: '',
+  clinica_id: 1
+};
+
 const Patients = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -630,6 +760,7 @@ const Patients = () => {
   const [deleteAlert, setDeleteAlert] = useState<{ isOpen: boolean; patient: Patient | null }>({ isOpen: false, patient: null });
   const [backendConnected, setBackendConnected] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const { navigateWithTransition } = usePageNavigation();
   
   const itemsPerPage = 50;
@@ -792,14 +923,22 @@ const Patients = () => {
   const handleAddNew = () => {
     setIsEditing(false);
     setCurrentPatient(emptyPatient);
+    setValidationErrors({});
     setIsDialogOpen(true);
   };
 
   const handleEdit = (id: string) => {
     const patientToEdit = patients.find(patient => patient.id === id);
     if (patientToEdit) {
-      setCurrentPatient(patientToEdit);
+      // Converter datas ISO para formato brasileiro para edição
+      const patientForEdit = {
+        ...patientToEdit,
+        Data_Nascimento: convertFromISODate(patientToEdit.Data_Nascimento),
+        startDate: convertFromISODate(patientToEdit.startDate)
+      };
+      setCurrentPatient(patientForEdit);
       setIsEditing(true);
+      setValidationErrors({});
       setIsDialogOpen(true);
     }
   };
@@ -841,12 +980,46 @@ const Patients = () => {
   };
 
   const handleSubmit = async () => {
-    if (!currentPatient.Paciente_Nome || !currentPatient.Codigo || !currentPatient.Data_Nascimento || 
-        !currentPatient.Cid_Diagnostico || !currentPatient.stage || !currentPatient.treatment || 
-        !currentPatient.startDate || !currentPatient.status || !currentPatient.Operadora || !currentPatient.Prestador) {
-      toast.error('Preencha todos os campos obrigatórios');
+    // Validação completa antes de enviar
+    const errors: {[key: string]: string} = {};
+    
+    // Campos obrigatórios
+    if (!currentPatient.Paciente_Nome?.trim()) errors.Paciente_Nome = 'Nome é obrigatório';
+    if (!currentPatient.Codigo?.trim()) errors.Codigo = 'Código é obrigatório';
+    if (!currentPatient.Data_Nascimento?.trim()) errors.Data_Nascimento = 'Data de nascimento é obrigatória';
+    if (!currentPatient.Cid_Diagnostico?.trim()) errors.Cid_Diagnostico = 'CID diagnóstico é obrigatório';
+    if (!currentPatient.stage?.trim()) errors.stage = 'Estágio é obrigatório';
+    if (!currentPatient.treatment?.trim()) errors.treatment = 'Tratamento é obrigatório';
+    if (!currentPatient.startDate?.trim()) errors.startDate = 'Data de início é obrigatória';
+    if (!currentPatient.status?.trim()) errors.status = 'Status é obrigatório';
+    if (!currentPatient.Operadora?.trim()) errors.Operadora = 'Operadora é obrigatória';
+    if (!currentPatient.Prestador?.trim()) errors.Prestador = 'Prestador é obrigatório';
+    
+    // Validações específicas
+    if (currentPatient.cpf && !validateCPF(currentPatient.cpf)) {
+      errors.cpf = 'CPF inválido';
+    }
+    if (currentPatient.Data_Nascimento && !validateDate(currentPatient.Data_Nascimento)) {
+      errors.Data_Nascimento = 'Data de nascimento inválida';
+    }
+    if (currentPatient.startDate && !validateDate(currentPatient.startDate)) {
+      errors.startDate = 'Data de início inválida';
+    }
+    if (currentPatient.telefone && !validateTelefone(currentPatient.telefone)) {
+      errors.telefone = 'Telefone inválido';
+    }
+    if (currentPatient.email && !validateEmail(currentPatient.email)) {
+      errors.email = 'E-mail inválido';
+    }
+    
+    if (Object.keys(errors).length > 0) {
+      setValidationErrors(errors);
+      toast.error('Corrija os erros no formulário antes de continuar');
       return;
     }
+    
+    // Limpar erros se chegou até aqui
+    setValidationErrors({});
     
     if (backendConnected) {
       setLoading(true);
@@ -886,9 +1059,12 @@ const Patients = () => {
       const updatedPatient = {
         ...currentPatient,
         name: currentPatient.Paciente_Nome,
-        age: calculateAge(currentPatient.Data_Nascimento),
+        age: calculateAge(convertToISODate(currentPatient.Data_Nascimento)),
         gender: currentPatient.Sexo,
         diagnosis: currentPatient.Cid_Diagnostico,
+        // Converter datas para formato interno
+        Data_Nascimento: convertToISODate(currentPatient.Data_Nascimento),
+        startDate: convertToISODate(currentPatient.startDate)
       };
       
       if (isEditing) {
@@ -911,9 +1087,105 @@ const Patients = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
+    let formattedValue = value;
+    let newErrors = { ...validationErrors };
+
+    // Aplicar formatação específica para cada campo
+    switch (name) {
+      case 'cpf':
+        formattedValue = formatCPF(value);
+        // Validar CPF se o campo estiver completo
+        if (formattedValue.length === 14) {
+          if (!validateCPF(formattedValue)) {
+            newErrors.cpf = 'CPF inválido';
+          } else {
+            delete newErrors.cpf;
+          }
+        } else {
+          delete newErrors.cpf;
+        }
+        break;
+      
+      case 'rg':
+        formattedValue = formatRG(value);
+        break;
+      
+      case 'telefone':
+        formattedValue = formatTelefone(value);
+        if (formattedValue.length >= 14) {
+          if (!validateTelefone(formattedValue)) {
+            newErrors.telefone = 'Telefone inválido';
+          } else {
+            delete newErrors.telefone;
+          }
+        } else {
+          delete newErrors.telefone;
+        }
+        break;
+      
+      case 'email':
+        formattedValue = value.toLowerCase();
+        if (formattedValue && !validateEmail(formattedValue)) {
+          newErrors.email = 'E-mail inválido';
+        } else {
+          delete newErrors.email;
+        }
+        break;
+      
+      case 'numero_carteirinha':
+        formattedValue = formatCarteirinha(value);
+        break;
+      
+      case 'Data_Nascimento':
+        formattedValue = formatDateInput(value);
+        if (formattedValue.length === 10) {
+          if (!validateDate(formattedValue)) {
+            newErrors.Data_Nascimento = 'Data inválida';
+          } else {
+            delete newErrors.Data_Nascimento;
+          }
+        } else {
+          delete newErrors.Data_Nascimento;
+        }
+        break;
+      
+      case 'startDate':
+        formattedValue = formatDateInput(value);
+        if (formattedValue.length === 10) {
+          if (!validateDate(formattedValue)) {
+            newErrors.startDate = 'Data inválida';
+          } else {
+            delete newErrors.startDate;
+          }
+        } else {
+          delete newErrors.startDate;
+        }
+        break;
+      
+      case 'Paciente_Nome':
+        // Capitalizar apenas a primeira letra, mantendo o resto como digitado
+        formattedValue = value.charAt(0).toUpperCase() + value.slice(1);
+        break;
+      
+      case 'Codigo':
+        // Remover espaços e converter para maiúsculas
+        formattedValue = value.replace(/\s+/g, '').toUpperCase();
+        break;
+      
+      case 'Cid_Diagnostico':
+        // Formato CID: letra maiúscula + números
+        formattedValue = value.toUpperCase().replace(/[^A-Z0-9.]/g, '');
+        break;
+      
+      default:
+        formattedValue = value;
+        break;
+    }
+
+    setValidationErrors(newErrors);
     setCurrentPatient({
       ...currentPatient,
-      [name]: value,
+      [name]: formattedValue,
     });
   };
 
@@ -1074,6 +1346,13 @@ const Patients = () => {
             </DialogTitle>
           </DialogHeader>
           
+          <div className="text-xs text-muted-foreground bg-muted/30 p-3 rounded-md border border-muted">
+            <div className="flex items-center gap-2">
+              <Info className="h-3 w-3 opacity-60" />
+              <span>Campos com formatação automática - digite normalmente</span>
+            </div>
+          </div>
+          
           <div className="space-y-4">
             <Tabs defaultValue="dados-pessoais" className="w-full">
               <TabsList className="grid w-full grid-cols-3">
@@ -1084,39 +1363,58 @@ const Patients = () => {
 
               <TabsContent value="dados-pessoais" className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
+                  <div className="space-y-2">
                     <Label htmlFor="Paciente_Nome">Nome do Paciente *</Label>
-                <Input
+                    <Input
                       id="Paciente_Nome"
                       name="Paciente_Nome"
                       value={currentPatient.Paciente_Nome}
-                  onChange={handleInputChange}
-                  required
-                  className="transition-all duration-300 focus:border-primary"
-                />
-              </div>
-              
-                <div className="space-y-2">
+                      onChange={handleInputChange}
+                      placeholder="Digite o nome completo"
+                      required
+                      className={`transition-all duration-300 focus:border-primary ${
+                        validationErrors.Paciente_Nome ? 'border-red-500' : ''
+                      }`}
+                    />
+                    {validationErrors.Paciente_Nome && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.Paciente_Nome}</p>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
                     <Label htmlFor="Codigo">Código do Paciente *</Label>
-                  <Input
+                    <Input
                       id="Codigo"
                       name="Codigo"
                       value={currentPatient.Codigo}
-                    onChange={handleInputChange}
-                    required
-                    className="transition-all duration-300 focus:border-primary"
-                  />
-                </div>
-                
-                <div className="space-y-2">
+                      onChange={handleInputChange}
+                      placeholder="Ex: PAC001"
+                      required
+                      className={`transition-all duration-300 focus:border-primary ${
+                        validationErrors.Codigo ? 'border-red-500' : ''
+                      }`}
+                    />
+                    {validationErrors.Codigo && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.Codigo}</p>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
                     <Label htmlFor="cpf">CPF</Label>
                     <Input
                       id="cpf"
                       name="cpf"
                       value={currentPatient.cpf}
                       onChange={handleInputChange}
-                      className="transition-all duration-300 focus:border-primary"
+                      placeholder="000.000.000-00"
+                      maxLength={14}
+                      className={`transition-all duration-300 focus:border-primary ${
+                        validationErrors.cpf ? 'border-red-500' : ''
+                      }`}
                     />
+                    {validationErrors.cpf && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.cpf}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -1126,8 +1424,15 @@ const Patients = () => {
                       name="rg"
                       value={currentPatient.rg}
                       onChange={handleInputChange}
-                      className="transition-all duration-300 focus:border-primary"
+                      placeholder="00.000.000-0"
+                      maxLength={12}
+                      className={`transition-all duration-300 focus:border-primary ${
+                        validationErrors.rg ? 'border-red-500' : ''
+                      }`}
                     />
+                    {validationErrors.rg && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.rg}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -1135,20 +1440,18 @@ const Patients = () => {
                     <Input
                       id="Data_Nascimento"
                       name="Data_Nascimento"
-                      value={convertFromISODate(currentPatient.Data_Nascimento)}
-                      onChange={(e) => {
-                        const formatted = formatDateInput(e.target.value);
-                        const isoDate = convertToISODate(formatted);
-                        setCurrentPatient({
-                          ...currentPatient,
-                          Data_Nascimento: isoDate // Armazenar sempre no formato ISO
-                        });
-                      }}
+                      value={currentPatient.Data_Nascimento}
+                      onChange={handleInputChange}
                       placeholder="DD/MM/AAAA"
                       required
                       maxLength={10}
-                      className="transition-all duration-300 focus:border-primary"
+                      className={`transition-all duration-300 focus:border-primary ${
+                        validationErrors.Data_Nascimento ? 'border-red-500' : ''
+                      }`}
                     />
+                    {validationErrors.Data_Nascimento && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.Data_Nascimento}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
@@ -1178,7 +1481,9 @@ const Patients = () => {
                       value={currentPatient.Operadora}
                       onValueChange={(value) => handleSelectChange('Operadora', value)}
                     >
-                      <SelectTrigger className="transition-all duration-300 focus:border-primary">
+                      <SelectTrigger className={`transition-all duration-300 focus:border-primary ${
+                        validationErrors.Operadora ? 'border-red-500' : ''
+                      }`}>
                         <SelectValue placeholder="Selecione uma operadora" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1190,20 +1495,28 @@ const Patients = () => {
                         <SelectItem value="Outro">Outro</SelectItem>
                       </SelectContent>
                     </Select>
+                    {validationErrors.Operadora && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.Operadora}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="Prestador">Prestador *</Label>
-                  <Input
+                    <Input
                       id="Prestador"
                       name="Prestador"
                       value={currentPatient.Prestador}
-                    onChange={handleInputChange}
+                      onChange={handleInputChange}
                       placeholder="Digite o nome do prestador..."
-                    required
-                    className="transition-all duration-300 focus:border-primary"
-                  />
-                </div>
+                      required
+                      className={`transition-all duration-300 focus:border-primary ${
+                        validationErrors.Prestador ? 'border-red-500' : ''
+                      }`}
+                    />
+                    {validationErrors.Prestador && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.Prestador}</p>
+                    )}
+                  </div>
 
                   <div className="space-y-2">
                     <Label htmlFor="plano_saude">Plano de Saúde</Label>
@@ -1212,6 +1525,7 @@ const Patients = () => {
                       name="plano_saude"
                       value={currentPatient.plano_saude}
                       onChange={handleInputChange}
+                      placeholder="Ex: Unimed Nacional"
                       className="transition-all duration-300 focus:border-primary"
                     />
                   </div>
@@ -1223,66 +1537,83 @@ const Patients = () => {
                       name="numero_carteirinha"
                       value={currentPatient.numero_carteirinha}
                       onChange={handleInputChange}
+                      placeholder="Ex: 123456789"
                       className="transition-all duration-300 focus:border-primary"
                     />
-              </div>
-              
-              <div className="space-y-2">
+                  </div>
+                  
+                  <div className="space-y-2">
                     <Label htmlFor="Cid_Diagnostico">CID Diagnóstico *</Label>
-                <Input
+                    <Input
                       id="Cid_Diagnostico"
                       name="Cid_Diagnostico"
                       value={currentPatient.Cid_Diagnostico}
-                  onChange={handleInputChange}
-                  required
-                  className="transition-all duration-300 focus:border-primary"
-                />
-              </div>
-              
-                <div className="space-y-2">
+                      onChange={handleInputChange}
+                      placeholder="Ex: C50 (Câncer de Mama)"
+                      required
+                      className={`transition-all duration-300 focus:border-primary ${
+                        validationErrors.Cid_Diagnostico ? 'border-red-500' : ''
+                      }`}
+                    />
+                    {validationErrors.Cid_Diagnostico && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.Cid_Diagnostico}</p>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
                     <Label htmlFor="stage">Estágio *</Label>
-                  <Input
-                    id="stage"
-                    name="stage"
-                    value={currentPatient.stage}
-                    onChange={handleInputChange}
-                    required
-                    className="transition-all duration-300 focus:border-primary"
-                  />
-                </div>
-                
-                <div className="space-y-2">
+                    <Input
+                      id="stage"
+                      name="stage"
+                      value={currentPatient.stage}
+                      onChange={handleInputChange}
+                      placeholder="Ex: II, III, IV"
+                      required
+                      className={`transition-all duration-300 focus:border-primary ${
+                        validationErrors.stage ? 'border-red-500' : ''
+                      }`}
+                    />
+                    {validationErrors.stage && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.stage}</p>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
                     <Label htmlFor="treatment">Tratamento *</Label>
-                  <Input
-                    id="treatment"
-                    name="treatment"
-                    value={currentPatient.treatment}
-                    onChange={handleInputChange}
-                    required
-                    className="transition-all duration-300 focus:border-primary"
-                  />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="startDate">Data de Início do Tratamento *</Label>
-                <Input
-                  id="startDate"
-                  name="startDate"
-                  value={convertFromISODate(currentPatient.startDate)}
-                  onChange={(e) => {
-                    const formatted = formatDateInput(e.target.value);
-                    const isoDate = convertToISODate(formatted);
-                    setCurrentPatient({
-                      ...currentPatient,
-                      startDate: isoDate // Armazenar sempre no formato ISO
-                    });
-                  }}
-                  placeholder="DD/MM/AAAA"
-                  required
-                  maxLength={10}
-                  className="transition-all duration-300 focus:border-primary"
-                />
-              </div>
+                    <Input
+                      id="treatment"
+                      name="treatment"
+                      value={currentPatient.treatment}
+                      onChange={handleInputChange}
+                      placeholder="Ex: Quimioterapia, Radioterapia"
+                      required
+                      className={`transition-all duration-300 focus:border-primary ${
+                        validationErrors.treatment ? 'border-red-500' : ''
+                      }`}
+                    />
+                    {validationErrors.treatment && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.treatment}</p>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="startDate">Data de Início do Tratamento *</Label>
+                    <Input
+                      id="startDate"
+                      name="startDate"
+                      value={currentPatient.startDate}
+                      onChange={handleInputChange}
+                      placeholder="DD/MM/AAAA"
+                      required
+                      maxLength={10}
+                      className={`transition-all duration-300 focus:border-primary ${
+                        validationErrors.startDate ? 'border-red-500' : ''
+                      }`}
+                    />
+                    {validationErrors.startDate && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.startDate}</p>
+                    )}
+                  </div>
 
                   <div className="space-y-2 md:col-span-2">
                     <Label htmlFor="status">Status *</Label>
@@ -1290,7 +1621,9 @@ const Patients = () => {
                       value={currentPatient.status}
                       onValueChange={(value) => handleSelectChange('status', value)}
                     >
-                      <SelectTrigger className="transition-all duration-300 focus:border-primary">
+                      <SelectTrigger className={`transition-all duration-300 focus:border-primary ${
+                        validationErrors.status ? 'border-red-500' : ''
+                      }`}>
                         <SelectValue placeholder="Selecione o status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -1300,6 +1633,9 @@ const Patients = () => {
                         <SelectItem value="Óbito">Óbito</SelectItem>
                       </SelectContent>
                     </Select>
+                    {validationErrors.status && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.status}</p>
+                    )}
                   </div>
                 </div>
               </TabsContent>
@@ -1312,21 +1648,34 @@ const Patients = () => {
                       id="telefone"
                       name="telefone"
                       value={currentPatient.telefone}
-                  onChange={handleInputChange}
-                  className="transition-all duration-300 focus:border-primary"
-                />
-              </div>
-              
-              <div className="space-y-2">
+                      onChange={handleInputChange}
+                      placeholder="(00) 00000-0000"
+                      maxLength={15}
+                      className={`transition-all duration-300 focus:border-primary ${
+                        validationErrors.telefone ? 'border-red-500' : ''
+                      }`}
+                    />
+                    {validationErrors.telefone && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.telefone}</p>
+                    )}
+                  </div>
+                  
+                  <div className="space-y-2">
                     <Label htmlFor="email">E-mail</Label>
-                <Input
+                    <Input
                       id="email"
                       name="email"
                       type="email"
                       value={currentPatient.email}
                       onChange={handleInputChange}
-                      className="transition-all duration-300 focus:border-primary"
+                      placeholder="exemplo@email.com"
+                      className={`transition-all duration-300 focus:border-primary ${
+                        validationErrors.email ? 'border-red-500' : ''
+                      }`}
                     />
+                    {validationErrors.email && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.email}</p>
+                    )}
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
@@ -1336,7 +1685,9 @@ const Patients = () => {
                       name="endereco"
                       value={currentPatient.endereco}
                       onChange={handleInputChange}
+                      placeholder="Rua, número, complemento, bairro, cidade, estado, CEP"
                       className="transition-all duration-300 focus:border-primary"
+                      rows={3}
                     />
                   </div>
 
@@ -1346,11 +1697,13 @@ const Patients = () => {
                       id="observacoes"
                       name="observacoes"
                       value={currentPatient.observacoes}
-                  onChange={handleInputChange}
-                  className="transition-all duration-300 focus:border-primary"
-                />
-              </div>
-            </div>
+                      onChange={handleInputChange}
+                      placeholder="Informações adicionais sobre o paciente, histórico médico, etc."
+                      className="transition-all duration-300 focus:border-primary"
+                      rows={4}
+                    />
+                  </div>
+                </div>
               </TabsContent>
             </Tabs>
             

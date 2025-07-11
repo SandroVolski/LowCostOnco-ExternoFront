@@ -643,6 +643,43 @@ const Dashboard = () => {
     }
   };
 
+  // ✅ FUNÇÃO: Visualizar PDF da solicitação
+  const handleViewPDF = async (solicitacaoId?: number, event?: React.MouseEvent) => {
+    // Prevenir propagação se necessário
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+
+    if (!solicitacaoId) {
+      toast.error('ID da solicitação não encontrado');
+      return;
+    }
+
+    try {
+      console.log('🔧 Abrindo PDF da solicitação:', solicitacaoId);
+      
+      // Toast de loading
+      const loadingToast = toast.loading('Gerando PDF...', {
+        description: 'Aguarde enquanto o PDF está sendo preparado'
+      });
+
+      await SolicitacaoService.viewPDF(solicitacaoId);
+      
+      // Remover loading e mostrar sucesso
+      toast.dismiss(loadingToast);
+      toast.success('PDF aberto com sucesso!', {
+        description: 'O PDF foi aberto em uma nova aba'
+      });
+      
+    } catch (error) {
+      console.error('❌ Erro ao abrir PDF:', error);
+      toast.error('Erro ao abrir PDF', {
+        description: error instanceof Error ? error.message : 'Verifique se a solicitação possui PDF disponível'
+      });
+    }
+  };
+
   // Diferentes dashboards baseados no papel do usuário
   const renderDashboardContent = () => {
     if (user?.role === 'clinic') {
@@ -930,7 +967,7 @@ const Dashboard = () => {
                   <CalendarIcon className="mr-2 h-5 w-5 text-primary" />
                   Tratamentos a Vencer
                 </CardTitle>
-                <CardDescription>Próximos ciclos calculados</CardDescription>
+                                 <CardDescription>Próximos ciclos calculados • Clique para visualizar PDF</CardDescription>
               </CardHeader>
               <CardContent className="h-[300px] overflow-y-auto">
                 <div className="space-y-4">
@@ -949,38 +986,52 @@ const Dashboard = () => {
                           treatment.status === 'warning' ? 'bg-support-yellow/10 hover:bg-support-yellow/20 border-support-yellow/20' :
                           'bg-support-green/10 hover:bg-support-green/20 border-support-green/20'
                         )}
-                        title={`Solicitação: ${formatDate(treatment.dataSolicitacao)}\nIntervalo: ${treatment.intervaloOriginal}`}
+                        title={`Clique para visualizar PDF • Solicitação: ${formatDate(treatment.dataSolicitacao)}\nIntervalo: ${treatment.intervaloOriginal}`}
+                        onClick={(e) => handleViewPDF(treatment.solicitacaoId, e)}
+                        style={{ cursor: 'pointer' }}
                       >
                         <div className="flex-1">
                           <div className="font-medium">{treatment.patientName}</div>
                           <div className="text-sm text-muted-foreground">{treatment.treatmentType}</div>
                         </div>
                         <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <div className={cn(
-                              "text-sm font-medium",
-                              treatment.status === 'urgent' ? 'text-highlight-red' :
-                              treatment.status === 'warning' ? 'text-support-yellow' :
-                              'text-support-green'
-                            )}>
-                              {formatDaysRemaining(treatment.daysRemaining)}
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Ciclo {treatment.cycle}
-                            </div>
-                          </div>
-                          <div className={cn(
-                            "w-2 h-2 rounded-full",
-                            treatment.status === 'urgent' ? 'bg-highlight-red animate-pulse' :
-                            treatment.status === 'warning' ? 'bg-support-yellow' :
-                            'bg-support-green'
-                          )} />
+                                                     <div className="text-right">
+                             <div className={cn(
+                               "text-sm font-medium",
+                               treatment.status === 'urgent' ? 'text-highlight-red' :
+                               treatment.status === 'warning' ? 'text-support-yellow' :
+                               'text-support-green'
+                             )}>
+                               {formatDaysRemaining(treatment.daysRemaining)}
+                             </div>
+                             <div className="text-xs text-muted-foreground">
+                               Ciclo {treatment.cycle}
+                             </div>
+                           </div>
+                           <div className="flex flex-col items-center gap-1">
+                             <div className={cn(
+                               "w-2 h-2 rounded-full",
+                               treatment.status === 'urgent' ? 'bg-highlight-red animate-pulse' :
+                               treatment.status === 'warning' ? 'bg-support-yellow' :
+                               'bg-support-green'
+                             )} />
+                             <FileText className="h-3 w-3 text-muted-foreground opacity-60" />
+                           </div>
                         </div>
                       </div>
                     ))
-                  )}
-                </div>
-              </CardContent>
+                                       )}
+                   </div>
+                   
+                   {upcomingTreatments.length > 0 && (
+                     <div className="mt-4 pt-3 border-t">
+                       <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                         <FileText className="h-3 w-3" />
+                         <span>Clique em qualquer tratamento para visualizar o PDF</span>
+                       </div>
+                     </div>
+                   )}
+                 </CardContent>
             </Card>
           </AnimatedSection>
 
@@ -1071,7 +1122,7 @@ const Dashboard = () => {
                   <Clock className="mr-2 h-5 w-5 text-primary" />
                   Solicitações Recentes
                 </CardTitle>
-                <CardDescription>Últimas solicitações de autorização</CardDescription>
+                <CardDescription>Últimas solicitações de autorização • Clique para visualizar PDF</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -1085,26 +1136,40 @@ const Dashboard = () => {
                       <div 
                         key={solicitacao.id}
                         className={cn(
-                          "flex items-center justify-between p-3 rounded-lg transition-all duration-300 border",
+                          "flex items-center justify-between p-3 rounded-lg transition-all duration-300 border cursor-pointer hover:shadow-md",
                           solicitacao.status === 'aprovada' ? 'bg-support-green/10 hover:bg-support-green/20 border-support-green/20' :
                           solicitacao.status === 'rejeitada' ? 'bg-highlight-red/10 hover:bg-highlight-red/20 border-highlight-red/20' :
                           'bg-support-yellow/10 hover:bg-support-yellow/20 border-support-yellow/20'
                         )}
+                        onClick={() => handleViewPDF(solicitacao.id)}
+                        title={`Clique para visualizar o PDF da solicitação #${solicitacao.id}`}
                       >
                         <div className="flex-1">
                           <div className="font-medium text-sm">{solicitacao.cliente_nome}</div>
                           <div className="text-xs text-muted-foreground">
                             {formatDate(solicitacao.created_at || '')}
                           </div>
+                          <div className="text-xs text-muted-foreground opacity-75">
+                            {solicitacao.finalidade || 'Não especificado'}
+                          </div>
                         </div>
                         <div className="flex items-center gap-2">
                           {getStatusIcon(solicitacao.status || 'pendente')}
-                          <span className="text-xs">#{solicitacao.id}</span>
+                          <span className="text-xs font-medium">#{solicitacao.id}</span>
                         </div>
                       </div>
                     ))
                   )}
                 </div>
+                
+                {recentSolicitacoes.length > 0 && (
+                  <div className="mt-4 pt-3 border-t">
+                    <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                      <FileText className="h-3 w-3" />
+                      <span>Clique em qualquer solicitação para visualizar o PDF</span>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </AnimatedSection>
