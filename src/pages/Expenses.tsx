@@ -41,7 +41,7 @@ const medicationCostData = [
 ];
 
 // Custom colors that match our brand
-const COLORS = ['#c6d651', '#8cb369', '#e4a94f', '#35524a', '#f26b6b', '#575654'];
+const COLORS = ['#79d153', '#8cb369', '#e4a94f', '#35524a', '#f26b6b', '#575654'];
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -118,7 +118,7 @@ const Expenses = () => {
                   <Pie
                     data={expensesByCategoryData}
                     cx="50%"
-                    cy="50%"
+                    cy="60%"
                     labelLine={true}
                     outerRadius={120}
                     fill="#8884d8"
@@ -162,7 +162,7 @@ const Expenses = () => {
                   <Line
                     type="monotone"
                     dataKey="value"
-                    stroke="#c6d651"
+                    stroke="#79d153"
                     activeDot={{ r: 8 }}
                     name="Gastos Mensais"
                   />

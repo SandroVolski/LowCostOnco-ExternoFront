@@ -26,7 +26,7 @@ export default {
       },
       colors: {
         // Primary colors
-        "primary-green": "#c6d651",
+        "primary-green": "#79d153",
         "primary-gray": "#575654",
         
         // Support colors

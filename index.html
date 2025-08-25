@@ -4,7 +4,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Low Cost Onco</title>
+    <title>Onkhos App</title>
     <meta name="description" content="Sistema de Gerenciamento de Tratamentos Oncológicos" />
     <meta name="author" content="Low Cost Onco" />
 
@@ -16,9 +16,30 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@lovable_dev" />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+
+    <!-- Favicon / App Icons -->
+    <link rel="icon" type="image/png" href="/images/LogoSomenteSemFundo.png" />
+    <link rel="shortcut icon" href="/images/LogoSomenteSemFundo.png" />
+    <link rel="apple-touch-icon" href="/images/LogoSomenteSemFundo.png" />
+    <meta name="theme-color" content="#111827" />
   </head>
 
   <body>
+    <script>
+      // Prevenir flash de tema claro: aplica 'dark' antes de React montar
+      (function() {
+        try {
+          var saved = localStorage.getItem('lco-theme');
+          if (!saved) {
+            document.documentElement.classList.add('dark');
+          } else if (saved === 'dark') {
+            document.documentElement.classList.add('dark');
+          }
+        } catch (e) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
     <div id="root"></div>
     <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
     <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>

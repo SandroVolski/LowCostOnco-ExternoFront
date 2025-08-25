@@ -36,7 +36,7 @@ const costReductionData = [
 ];
 
 // Custom colors that match our brand
-const COLORS = ['#c6d651', '#8cb369', '#e4a94f', '#f26b6b', '#f7c59f', '#575654'];
+const COLORS = ['#79d153', '#8cb369', '#e4a94f', '#f26b6b', '#f7c59f', '#575654'];
 
 const Analysis = () => {
   return (
@@ -54,7 +54,7 @@ const Analysis = () => {
                 <Pie
                   data={medicationData}
                   cx="50%"
-                  cy="50%"
+                  cy="60%"
                   labelLine={false}
                   outerRadius={80}
                   fill="#8884d8"
@@ -92,7 +92,7 @@ const Analysis = () => {
                 <YAxis />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="cases" fill="#c6d651" name="Número de Casos" />
+                <Bar dataKey="cases" fill="#79d153" name="Número de Casos" />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -115,11 +115,11 @@ const Analysis = () => {
               >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="name" />
-                <YAxis yAxisId="left" orientation="left" stroke="#c6d651" />
+                <YAxis yAxisId="left" orientation="left" stroke="#79d153" />
                 <YAxis yAxisId="right" orientation="right" stroke="#8cb369" />
                 <Tooltip />
                 <Legend />
-                <Line yAxisId="left" type="monotone" dataKey="cost" stroke="#c6d651" name="Custos (R$)" />
+                <Line yAxisId="left" type="monotone" dataKey="cost" stroke="#79d153" name="Custos (R$)" />
                 <Line yAxisId="right" type="monotone" dataKey="patients" stroke="#8cb369" name="Pacientes" />
               </LineChart>
             </ResponsiveContainer>

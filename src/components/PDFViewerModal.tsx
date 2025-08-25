@@ -1,6 +1,6 @@
 // src/components/PDFViewerModal.tsx - VERSÃO HÍBRIDA FINAL
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -29,6 +29,11 @@ interface PDFViewerModalProps {
 type ViewMethod = 'object' | 'blob' | 'external';
 
 const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solicitacao }) => {
+  // Verificação de segurança
+  if (!solicitacao) {
+    return null;
+  }
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -38,27 +43,15 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
   const [retryCount, setRetryCount] = useState(0);
   const objectRef = useRef<HTMLObjectElement>(null);
 
-  // Reset states when modal opens/closes
+  // Resetar estado quando modal abrir/fechar ou solicitação mudar
   useEffect(() => {
-    if (isOpen) {
-      setLoading(true);
-      setError(null);
-      setZoom(100);
-      setIsFullscreen(false);
+    if (isOpen && solicitacao) {
       setViewMethod('object');
       setPdfBlob(null);
-      setRetryCount(0);
-      
-      // Tentar carregar PDF
-      loadPDF();
-    } else {
-      // Cleanup blob URL when modal closes
-      if (pdfBlob) {
-        URL.revokeObjectURL(pdfBlob);
-        setPdfBlob(null);
-      }
+      setLoading(false);
+      setError(null);
     }
-  }, [isOpen, solicitacao.id]);
+  }, [isOpen, solicitacao?.id]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -69,89 +62,61 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
     };
   }, [pdfBlob]);
 
-  const loadPDF = async () => {
+  // Função para carregar PDF
+  const loadPDF = useCallback(async () => {
+    if (!solicitacao) return;
+    
     try {
       setLoading(true);
       setError(null);
       
-      console.log('🔧 Tentando carregar PDF, método:', viewMethod, 'tentativa:', retryCount + 1);
+      console.log('🔧 Carregando PDF para solicitação:', solicitacao?.id);
       
-      if (viewMethod === 'object') {
-        // Tentar com object tag primeiro (mais rápido)
-        await loadWithObjectTag();
-      } else if (viewMethod === 'blob') {
-        // Fallback para blob
-        await loadWithBlob();
+      let pdfUrl: string;
+      
+      if (viewMethod === 'blob') {
+        console.log('🔧 Carregando PDF como blob para solicitação:', solicitacao?.id);
+        const blob = await SolicitacaoService.gerarPDF(solicitacao?.id!);
+        const blobUrl = URL.createObjectURL(blob);
+        setPdfBlob(blobUrl);
+        pdfUrl = blobUrl;
+      } else if (viewMethod === 'external') {
+        pdfUrl = SolicitacaoService.getPDFViewUrl(solicitacao?.id!);
+      } else {
+        pdfUrl = SolicitacaoService.getPDFViewUrl(solicitacao?.id!);
       }
+      
+      // setPdfUrl(pdfUrl); // This line was not in the original file, so it's removed.
+      setLoading(false);
     } catch (error) {
       console.error('❌ Erro ao carregar PDF:', error);
-      handleLoadError(error);
+      setError('Erro ao carregar PDF. Tente novamente.');
+      setLoading(false);
     }
-  };
+  }, [solicitacao, viewMethod]);
 
   const loadWithObjectTag = async (): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      const pdfUrl = SolicitacaoService.getPDFViewUrl(solicitacao.id!);
-      
-      console.log('🔧 Carregando com object tag, URL:', pdfUrl);
-      
-      // Simular carregamento com timeout
-      const timeoutId = setTimeout(() => {
-        reject(new Error('Timeout ao carregar PDF com object tag'));
-      }, 10000); // 10 segundos de timeout
-      
-      // Tentar carregar e verificar se funcionou
-      const img = new Image();
-      img.onload = () => {
-        clearTimeout(timeoutId);
-        setLoading(false);
-        resolve();
-      };
-      img.onerror = () => {
-        clearTimeout(timeoutId);
-        reject(new Error('Falha ao carregar PDF com object tag'));
-      };
-      
-      // Usar uma técnica para verificar se a URL responde
-      fetch(pdfUrl, { method: 'HEAD' })
-        .then(response => {
-          clearTimeout(timeoutId);
-          if (response.ok) {
-            setLoading(false);
-            resolve();
-          } else {
-            reject(new Error(`Servidor retornou: ${response.status}`));
-          }
-        })
-        .catch(error => {
-          clearTimeout(timeoutId);
-          reject(error);
-        });
-    });
+    try {
+      const pdfUrl = SolicitacaoService.getPDFViewUrl(solicitacao?.id!);
+      setLoading(false);
+    } catch (error) {
+      console.error('❌ Erro ao carregar PDF com object tag:', error);
+      throw error;
+    }
   };
 
   const loadWithBlob = async (): Promise<void> => {
     try {
-      console.log('🔧 Carregando PDF como blob para solicitação:', solicitacao.id);
+      console.log('🔧 Carregando PDF como blob para solicitação:', solicitacao?.id);
       
-      const blob = await SolicitacaoService.gerarPDF(solicitacao.id!);
+      const blob = await SolicitacaoService.gerarPDF(solicitacao?.id!);
+      const blobUrl = URL.createObjectURL(blob);
+      setPdfBlob(blobUrl);
+      setLoading(false);
       
-      if (blob && blob.size > 0) {
-        // Cleanup previous blob
-        if (pdfBlob) {
-          URL.revokeObjectURL(pdfBlob);
-        }
-        
-        // Create new blob URL
-        const blobUrl = URL.createObjectURL(blob);
-        setPdfBlob(blobUrl);
-        setLoading(false);
-        
-        console.log('✅ PDF blob carregado com sucesso, tamanho:', (blob.size / 1024).toFixed(2), 'KB');
-      } else {
-        throw new Error('PDF vazio ou inválido recebido');
-      }
+      console.log('✅ PDF blob carregado com sucesso, tamanho:', (blob.size / 1024).toFixed(2), 'KB');
     } catch (error) {
+      console.error('❌ Erro ao carregar PDF como blob:', error);
       throw error;
     }
   };
@@ -187,8 +152,8 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
   const handleDownload = async () => {
     try {
       await SolicitacaoService.downloadPDF(
-        solicitacao.id!, 
-        `solicitacao_autorizacao_${solicitacao.id}_${solicitacao.cliente_nome?.replace(/\s+/g, '_')}.pdf`
+        solicitacao?.id!, 
+        `solicitacao_autorizacao_${solicitacao?.id}_${solicitacao?.cliente_nome?.replace(/\s+/g, '_')}.pdf`
       );
       toast.success('Download iniciado com sucesso!');
     } catch (error) {
@@ -199,7 +164,7 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
 
   const handleOpenExternal = async () => {
     try {
-      await SolicitacaoService.viewPDF(solicitacao.id!);
+              await SolicitacaoService.viewPDF(solicitacao?.id!);
       toast.success('PDF aberto em nova aba');
     } catch (error) {
       console.error('Erro ao abrir PDF externamente:', error);
@@ -305,7 +270,7 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
     }
 
     // Renderizar PDF baseado no método que funcionou
-    const pdfUrl = viewMethod === 'blob' && pdfBlob ? pdfBlob : SolicitacaoService.getPDFViewUrl(solicitacao.id!);
+            const pdfUrl = viewMethod === 'blob' && pdfBlob ? pdfBlob : SolicitacaoService.getPDFViewUrl(solicitacao?.id!);
 
     return (
       <object
@@ -345,20 +310,20 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
               <FileText className="h-5 w-5 text-primary" />
               <div>
                 <DialogTitle className="text-lg font-semibold">
-                  Visualização da Solicitação #{solicitacao.id}
+                  Visualização da Solicitação #{solicitacao?.id}
                 </DialogTitle>
                 <DialogDescription className="sr-only">
-                  Documento PDF da solicitação de autorização para {solicitacao.cliente_nome}
+                  Documento PDF da solicitação de autorização para {solicitacao?.cliente_nome}
                 </DialogDescription>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="text-sm text-muted-foreground">
-                    {solicitacao.cliente_nome}
+                    {solicitacao?.cliente_nome}
                   </span>
                   <Badge variant="outline" className={getStatusColor(solicitacao.status || 'pendente')}>
-                    {solicitacao.status?.toUpperCase() || 'PENDENTE'}
+                    {solicitacao?.status?.toUpperCase() || 'PENDENTE'}
                   </Badge>
                   <span className="text-xs text-muted-foreground">
-                    {formatDate(solicitacao.created_at || '')}
+                    {formatDate(solicitacao?.created_at || '')}
                   </span>
                 </div>
               </div>

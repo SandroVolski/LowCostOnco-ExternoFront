@@ -24,6 +24,7 @@ interface Patient {
   stage: string;
   treatment: string;
   startDate: string;
+  status: string;
   authorizations: Array<{
     id: string;
     date: string;
@@ -44,6 +45,7 @@ const Clinics = () => {
       stage: 'II',
       treatment: 'Quimioterapia',
       startDate: '01/03/2024',
+      status: 'ativo',
       authorizations: [
         {
           id: '1',
@@ -198,7 +200,7 @@ const Clinics = () => {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="medications">Medicamentos antineoplásticos</Label>
+                      <Label htmlFor="medications">Princípios ativos antineoplásticos</Label>
                       <Textarea
                         id="medications"
                         name="medications"

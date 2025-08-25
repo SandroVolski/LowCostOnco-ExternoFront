@@ -55,7 +55,7 @@ const CHART_COLORS = [
   { fill: '#8cb369', stroke: '#a8c97d', glow: '0 0 10px rgba(140, 179, 105, 0.5)' },
   { fill: '#e4a94f', stroke: '#f2c94c', glow: '0 0 10px rgba(228, 169, 79, 0.5)' },
   { fill: '#f26b6b', stroke: '#ff8f8f', glow: '0 0 10px rgba(242, 107, 107, 0.5)' },
-  { fill: '#c6d651', stroke: '#d4e37b', glow: '0 0 10px rgba(198, 214, 81, 0.5)' },
+  { fill: '#79d153', stroke: '#a5e882', glow: '0 0 10px rgba(121, 209, 83, 0.5)' },
   { fill: '#74b9ff', stroke: '#81ecec', glow: '0 0 10px rgba(116, 185, 255, 0.5)' },
 ];
 

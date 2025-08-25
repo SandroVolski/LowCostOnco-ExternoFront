@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,7 @@ import {
   SelectTrigger, 
   SelectValue 
 } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -32,13 +32,24 @@ import {
   Search,
   Edit,
   Users,
-  Stethoscope
+  Stethoscope,
+  Plus,
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { SolicitacaoService, SolicitacaoFromAPI, testarConexaoBackend, PacienteService } from '@/services/api';
+import { SolicitacaoService, SolicitacaoFromAPI, testarConexaoBackend, PacienteService, ProtocoloService, ProtocoloFromAPI } from '@/services/api';
 import { ClinicService } from '@/services/clinicService';
 import { usePageNavigation } from '@/components/transitions/PageTransitionContext';
 import PDFViewerModal from '@/components/PDFViewerModal';
+import DoctorAuthModal from '@/components/DoctorAuthModal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { CatalogService, type CatalogCidItem } from '@/services/api';
+import type { CatalogPrincipioAtivoItem } from '@/services/api';
+import CIDSelection from '@/components/CIDSelection';
+import ActivePrincipleSelection from '@/components/ActivePrincipleSelection';
 
 interface PatientOption {
   id: string;
@@ -53,7 +64,9 @@ interface PatientOption {
 
 const Reports = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { navigateWithTransition } = usePageNavigation();
+  const authRefs = useRef<{ [key: number]: HTMLDivElement | null }>({});
   
   // Estados para o formulário
   const [formData, setFormData] = useState({
@@ -94,39 +107,98 @@ const Reports = () => {
     numero_autorizacao: '',
   });
 
+  const [cidOptions, setCidOptions] = useState<CatalogCidItem[]>([]);
+  const [cidSearch, setCidSearch] = useState('');
+  const [cidTotal, setCidTotal] = useState(0);
+  const [cidLimit] = useState(100);
+  const [cidOffset, setCidOffset] = useState(0);
+  const [cidLoading, setCidLoading] = useState(false);
+  const [principiosOptions, setPrincipiosOptions] = useState<CatalogPrincipioAtivoItem[]>([]);
+  const [principiosSearch, setPrincipiosSearch] = useState('');
+  const [principiosSelected, setPrincipiosSelected] = useState<string[]>([]);
+  const [principiosTotal, setPrincipiosTotal] = useState(0);
+  const [principiosLimit] = useState(100);
+  const [principiosOffset, setPrincipiosOffset] = useState(0);
+  const [principiosLoading, setPrincipiosLoading] = useState(false);
+
   // Estados para pacientes e clínica
   const [patients, setPatients] = useState<PatientOption[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string>('');
   const [clinicProfile, setClinicProfile] = useState<any>(null);
-  const [loadingPatients, setLoadingPatients] = useState(false);
-  const [loadingClinic, setLoadingClinic] = useState(false);
-  const [useCustomCRM, setUseCustomCRM] = useState(false);
-
-  // Estados para o histórico
   const [solicitacoes, setSolicitacoes] = useState<SolicitacaoFromAPI[]>([]);
+
+  const [backendConnected, setBackendConnected] = useState(false);
+  const [loadingClinic, setLoadingClinic] = useState(false);
+  const [loadingPatients, setLoadingPatients] = useState(false);
+  const [loadingSolicitacoes, setLoadingSolicitacoes] = useState(false);
+  const [isPDFModalOpen, setIsPDFModalOpen] = useState(false);
+  const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoFromAPI | null>(null);
+
+  // Estados para protocolos
+  const [protocolos, setProtocolos] = useState<ProtocoloFromAPI[]>([]);
+  const [selectedProtocolo, setSelectedProtocolo] = useState<ProtocoloFromAPI | null>(null);
+  const [showProtocoloModal, setShowProtocoloModal] = useState(false);
+  const [medicamentosFields, setMedicamentosFields] = useState<Array<{
+    id: string;
+    nome: string;
+    dose: string;
+    unidade_medida: string;
+    via_adm: string;
+    dias_adm: string;
+    frequencia: string;
+    observacoes: string;
+  }>>([{ id: '1', nome: '', dose: '', unidade_medida: '', via_adm: '', dias_adm: '', frequencia: '', observacoes: '' }]);
+  const [activeMedicamentoIndex, setActiveMedicamentoIndex] = useState(0);
+
+  // Estados adicionais necessários
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [backendConnected, setBackendConnected] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-
-  // Estados para visualização de PDF
-  const [selectedSolicitacao, setSelectedSolicitacao] = useState<SolicitacaoFromAPI | null>(null);
+  const [useCustomCRM, setUseCustomCRM] = useState(false);
   const [isPDFViewerOpen, setIsPDFViewerOpen] = useState(false);
+  
+  // Estados para autenticação médica
+  const [isDoctorAuthModalOpen, setIsDoctorAuthModalOpen] = useState(false);
+  const [doctorAuthData, setDoctorAuthData] = useState<any>(null);
+  const [pendingSolicitacaoData, setPendingSolicitacaoData] = useState<any>(null);
 
   // Verificar conexão com backend ao carregar
   useEffect(() => {
     checkBackendConnection();
-    loadClinicProfile();
   }, []);
 
-  // Carregar solicitações quando conectar
+  // Carregar dados quando backend estiver conectado
   useEffect(() => {
     if (backendConnected) {
-      loadSolicitacoes();
+      loadClinicProfile();
       loadPatients();
+      loadSolicitacoes();
+      loadProtocolos(); // Adicionar carregamento de protocolos
     }
-  }, [backendConnected, currentPage]);
+  }, [backendConnected]);
+
+  // Scroll automático para autorização específica
+  useEffect(() => {
+    const state = location.state as { scrollToAuth?: string; authId?: number } | null;
+    if (state?.scrollToAuth && state?.authId) {
+      // Aguardar um pouco para garantir que as solicitações foram carregadas
+      setTimeout(() => {
+        const element = authRefs.current[state.authId];
+        if (element) {
+          element.scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+          });
+          // Adicionar highlight temporário
+          element.classList.add('ring-2', 'ring-primary', 'ring-opacity-50', 'bg-primary/5');
+          setTimeout(() => {
+            element.classList.remove('ring-2', 'ring-primary', 'ring-opacity-50', 'bg-primary/5');
+          }, 3000);
+        }
+      }, 500);
+    }
+  }, [location.state, solicitacoes]);
 
   // Definir data atual como padrão
   useEffect(() => {
@@ -380,6 +452,71 @@ const Reports = () => {
     setFormData({ ...formData, [name]: value });
   };
 
+  // Função para validar campos obrigatórios e identificar qual está faltando
+  const validateRequiredFields = () => {
+    const missingFields: { field: string; label: string; elementId: string }[] = [];
+    
+    // Verificar cada campo obrigatório
+    if (!formData.hospital_nome?.trim()) {
+      missingFields.push({ 
+        field: 'hospital_nome', 
+        label: 'Hospital', 
+        elementId: 'hospital_nome' 
+      });
+    }
+    
+    if (!formData.cliente_nome?.trim()) {
+      missingFields.push({ 
+        field: 'cliente_nome', 
+        label: 'Cliente', 
+        elementId: 'cliente_nome' 
+      });
+    }
+    
+    if (!formData.diagnostico_cid?.trim()) {
+      missingFields.push({ 
+        field: 'diagnostico_cid', 
+        label: 'CID', 
+        elementId: 'diagnostico_cid' 
+      });
+    }
+    
+    // Verificar medicamentos - precisa ter pelo menos um medicamento com nome preenchido
+    const medicamentosValidos = medicamentosFields.filter(med => med.nome.trim() !== '');
+    if (medicamentosValidos.length === 0) {
+      missingFields.push({ 
+        field: 'medicamentos', 
+        label: 'Medicamentos', 
+        elementId: 'medicamento-nome-0' 
+      });
+    }
+    
+    return missingFields;
+  };
+
+  // Função para fazer scroll até o campo com erro
+  const scrollToField = (elementId: string) => {
+    const element = document.getElementById(elementId);
+    if (element) {
+      // Adicionar destaque visual temporário
+      element.classList.add('border-red-500', 'ring-2', 'ring-red-500/20');
+      
+      // Scroll suave até o elemento
+      element.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'center' 
+      });
+      
+      // Focar no campo
+      element.focus();
+      
+      // Remover destaque após 3 segundos
+      setTimeout(() => {
+        element.classList.remove('border-red-500', 'ring-2', 'ring-red-500/20');
+      }, 3000);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -391,19 +528,45 @@ const Reports = () => {
     }
 
     // Validações básicas
-    if (!formData.hospital_nome || !formData.cliente_nome || 
-        !formData.diagnostico_cid || !formData.medicamentos_antineoplasticos) {
-      toast.error('Campos obrigatórios não preenchidos', {
-        description: 'Preencha pelo menos: Hospital, Cliente, CID e Medicamentos'
+    if (!selectedPatientId) {
+      toast.error('Paciente não selecionado', {
+        description: 'Selecione um paciente cadastrado antes de criar a solicitação'
       });
+      return;
+    }
+    
+    // Validar campos obrigatórios e identificar quais estão faltando
+    const missingFields = validateRequiredFields();
+    
+    // Debug: mostrar quais campos estão faltando
+    console.log('🔍 Campos faltando:', missingFields);
+    console.log('🔍 Estado do formData:', {
+      hospital_nome: formData.hospital_nome,
+      cliente_nome: formData.cliente_nome,
+      diagnostico_cid: formData.diagnostico_cid,
+      medicamentos: medicamentosFields.filter(med => med.nome.trim() !== '')
+    });
+    
+    if (missingFields.length > 0) {
+      const fieldLabels = missingFields.map(f => f.label).join(', ');
+      toast.error('Campos obrigatórios não preenchidos', {
+        description: `Preencha: ${fieldLabels}`
+      });
+      
+      // Scroll para o primeiro campo faltando
+      if (missingFields.length > 0) {
+        scrollToField(missingFields[0].elementId);
+      }
+      
       return;
     }
 
     setSubmitting(true);
     try {
       // Converter dados do formulário para o formato da API
-      const solicitacaoData: Partial<SolicitacaoFromAPI> = {
-        clinica_id: 1, // Valor fixo para testes
+      const solicitacaoData = {
+        clinica_id: 1,
+        paciente_id: selectedPatientId ? parseInt(selectedPatientId) : null,
         hospital_nome: formData.hospital_nome,
         hospital_codigo: formData.hospital_codigo,
         cliente_nome: formData.cliente_nome,
@@ -423,15 +586,15 @@ const Reports = () => {
         tratamento_quimio_adjuvante: formData.tratamento_quimio_adjuvante,
         tratamento_quimio_primeira_linha: formData.tratamento_quimio_primeira_linha,
         tratamento_quimio_segunda_linha: formData.tratamento_quimio_segunda_linha,
-        finalidade: formData.finalidade as any,
+        finalidade: (formData.finalidade as 'neoadjuvante' | 'adjuvante' | 'curativo' | 'controle' | 'radioterapia' | 'paliativo') || 'curativo',
         performance_status: formData.performance_status,
         siglas: formData.siglas,
         ciclos_previstos: parseInt(formData.ciclos_previstos) || 0,
         ciclo_atual: parseInt(formData.ciclo_atual) || 0,
         superficie_corporal: parseFloat(formData.superficie_corporal) || 0,
         peso: parseFloat(formData.peso) || 0,
-        altura: parseInt(formData.altura) || 0,
-        medicamentos_antineoplasticos: formData.medicamentos_antineoplasticos,
+        altura: parseFloat(formData.altura) || 0,
+        medicamentos_antineoplasticos: getMedicamentosString(), // Usar função para converter medicamentos
         dose_por_m2: formData.dose_por_m2,
         dose_total: formData.dose_total,
         via_administracao: formData.via_administracao,
@@ -441,16 +604,30 @@ const Reports = () => {
         numero_autorizacao: formData.numero_autorizacao,
       };
 
-      // Criar solicitação
-      const novaSolicitacao = await SolicitacaoService.criarSolicitacao(solicitacaoData);
-      
-      toast.success('Solicitação criada com sucesso!', {
-        description: `ID: ${novaSolicitacao.id}. Clique em "Baixar PDF" para obter o documento.`,
-        action: {
-          label: 'Baixar PDF',
-          onClick: () => handleDownloadPDF(novaSolicitacao.id!),
-        },
+      // Log para debug
+      console.log('🔧 Dados da solicitação sendo enviados:', {
+        paciente_id: solicitacaoData.paciente_id,
+        selectedPatientId,
+        paciente_nome: solicitacaoData.cliente_nome
       });
+      
+      // Log completo dos dados para debug
+      console.log('🔧 Dados completos da solicitação:', JSON.stringify(solicitacaoData, null, 2));
+
+      // Verificar se o médico foi selecionado
+      if (!formData.medico_assinatura_crm) {
+        toast.error('Médico não selecionado', {
+          description: 'Selecione um médico responsável antes de criar a solicitação'
+        });
+        return;
+      }
+
+      // Armazenar dados pendentes e abrir modal de autenticação
+      setPendingSolicitacaoData(solicitacaoData);
+      setIsDoctorAuthModalOpen(true);
+      
+      // A criação da solicitação será feita após a autenticação
+      return;
 
       // Limpar formulário (mantendo dados da clínica)
       setFormData({
@@ -542,6 +719,105 @@ const Reports = () => {
     // O PDF será carregado dentro do modal já aberto
   };
 
+  // Função para lidar com sucesso na autenticação médica
+  const handleDoctorAuthenticationSuccess = async (authData: any) => {
+    try {
+      setDoctorAuthData(authData);
+      
+      // Criar solicitação com dados de autenticação
+      const solicitacaoDataWithAuth = {
+        ...pendingSolicitacaoData,
+        medico_assinatura_crm: authData.doctorCRM,
+        medico_assinatura_nome: authData.doctorName,
+        medico_assinatura_metodo: authData.method,
+        medico_assinatura_timestamp: authData.timestamp,
+        medico_assinatura_hash: authData.signatureHash,
+        medico_assinatura_otp: authData.otpCode,
+        medico_assinatura_aprovacao: authData.approvalCode,
+        medico_assinatura_ip: authData.ipAddress,
+        medico_assinatura_useragent: authData.userAgent,
+      };
+
+      console.log('🔧 Criando solicitação com autenticação médica:', solicitacaoDataWithAuth);
+
+      const novaSolicitacao = await SolicitacaoService.criarSolicitacao(solicitacaoDataWithAuth);
+      
+      toast.success('Solicitação criada e autenticada com sucesso!', {
+        description: `ID: ${novaSolicitacao.id}. Documento assinado pelo médico responsável.`,
+        action: {
+          label: 'Baixar PDF',
+          onClick: () => handleDownloadPDF(novaSolicitacao.id!),
+        },
+      });
+
+      // Limpar formulário (mantendo dados da clínica)
+      setFormData({
+        hospital_nome: clinicProfile?.clinica?.nome || '',
+        hospital_codigo: clinicProfile?.clinica?.codigo || '',
+        cliente_nome: '',
+        cliente_codigo: '',
+        sexo: '',
+        data_nascimento: '',
+        idade: '',
+        data_solicitacao: new Date().toISOString().split('T')[0],
+        diagnostico_cid: '',
+        diagnostico_descricao: '',
+        local_metastases: '',
+        estagio_t: '',
+        estagio_n: '',
+        estagio_m: '',
+        estagio_clinico: '',
+        tratamento_cirurgia_radio: '',
+        tratamento_quimio_adjuvante: '',
+        tratamento_quimio_primeira_linha: '',
+        tratamento_quimio_segunda_linha: '',
+        finalidade: '',
+        performance_status: '',
+        siglas: '',
+        ciclos_previstos: '',
+        ciclo_atual: '',
+        superficie_corporal: '',
+        peso: '',
+        altura: '',
+        medicamentos_antineoplasticos: '',
+        dose_por_m2: '',
+        dose_total: '',
+        via_administracao: '',
+        dias_aplicacao_intervalo: '',
+        medicacoes_associadas: '',
+        medico_assinatura_crm: clinicProfile?.responsaveis_tecnicos?.[0]?.crm || '',
+        numero_autorizacao: '',
+      });
+
+      // Limpar seleção de paciente
+      setSelectedPatientId('');
+
+      // Recarregar lista
+      await loadSolicitacoes();
+      
+      // Fechar modal de autenticação
+      setIsDoctorAuthModalOpen(false);
+      setPendingSolicitacaoData(null);
+      setDoctorAuthData(null);
+      
+    } catch (error) {
+      console.error('Erro ao criar solicitação autenticada:', error);
+      toast.error('Erro ao criar solicitação autenticada', {
+        description: error instanceof Error ? error.message : 'Erro desconhecido'
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  // Função para cancelar autenticação médica
+  const handleDoctorAuthenticationCancel = () => {
+    setIsDoctorAuthModalOpen(false);
+    setPendingSolicitacaoData(null);
+    setDoctorAuthData(null);
+    setSubmitting(false);
+  };
+
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'aprovada':
@@ -581,43 +857,242 @@ const Reports = () => {
     }
   };
 
+  // Carregar protocolos
+  const loadProtocolos = async () => {
+    try {
+      console.log('🔧 Carregando protocolos...');
+      const result = await ProtocoloService.listarProtocolos({
+        page: 1,
+        limit: 1000,
+        clinica_id: 1
+      });
+      
+      console.log('📋 Protocolos carregados:', result.data);
+      
+      // Verificar se os medicamentos têm unidade_medida
+      result.data.forEach((protocolo, index) => {
+        console.log(`🔍 Protocolo ${index + 1}:`, {
+          nome: protocolo.nome,
+          medicamentos: protocolo.medicamentos?.map(med => ({
+            nome: med.nome,
+            dose: med.dose,
+            unidade_medida: med.unidade_medida,
+            via_adm: med.via_adm,
+            dias_adm: med.dias_adm,
+            frequencia: med.frequencia
+          }))
+        });
+      });
+      
+      setProtocolos(result.data);
+    } catch (error) {
+      console.error('Erro ao carregar protocolos:', error);
+      toast.error('Erro ao carregar protocolos');
+    }
+  };
+
+  // Selecionar protocolo
+  // Função para normalizar unidade de medida
+  const normalizeUnidadeMedida = (unidade: string): string => {
+    if (!unidade) return '';
+    
+    // Normalizar variações comuns
+    const normalizations: Record<string, string> = {
+      'mg/m²': 'mg/m2',
+      'mg/m2': 'mg/m2'
+    };
+    
+    return normalizations[unidade] || unidade;
+  };
+
+  const handleProtocoloSelect = (protocolo: ProtocoloFromAPI) => {
+    console.log('🔍 Protocolo selecionado:', protocolo);
+    console.log('📋 Medicamentos do protocolo:', protocolo.medicamentos);
+    
+    setSelectedProtocolo(protocolo);
+    
+    // Preencher campos automaticamente
+    setFormData(prev => ({
+      ...prev,
+      siglas: protocolo.nome,
+      ciclos_previstos: protocolo.ciclos_previstos?.toString() || '',
+      diagnostico_cid: protocolo.cid || '',
+      diagnostico_descricao: protocolo.descricao || ''
+    }));
+
+    // Preencher medicamentos
+    if (protocolo.medicamentos && protocolo.medicamentos.length > 0) {
+      const medicamentosConvertidos = protocolo.medicamentos.map((med, index) => {
+        console.log(`💊 Medicamento ${index + 1}:`, {
+          nome: med.nome,
+          dose: med.dose,
+          unidade_medida: med.unidade_medida,
+          via_adm: med.via_adm,
+          dias_adm: med.dias_adm,
+          frequencia: med.frequencia,
+          observacoes: med.observacoes
+        });
+        
+        const unidadeNormalizada = normalizeUnidadeMedida(med.unidade_medida || '');
+        console.log(`🔄 Normalizando unidade: "${med.unidade_medida}" -> "${unidadeNormalizada}"`);
+        
+        return {
+          id: (index + 1).toString(),
+          nome: med.nome || '',
+          dose: med.dose || '',
+          unidade_medida: unidadeNormalizada,
+          via_adm: med.via_adm || '',
+          dias_adm: med.dias_adm || '',
+          frequencia: med.frequencia || '',
+          observacoes: med.observacoes || ''
+        };
+      });
+      
+      console.log('✅ Medicamentos convertidos:', medicamentosConvertidos);
+      setMedicamentosFields(medicamentosConvertidos);
+      
+      // Debug adicional: verificar se as unidades estão sendo preenchidas
+      medicamentosConvertidos.forEach((med, index) => {
+        if (!med.unidade_medida) {
+          console.warn(`⚠️ Medicamento ${index + 1} (${med.nome}) não tem unidade_medida preenchida`);
+        } else {
+          console.log(`✅ Medicamento ${index + 1} (${med.nome}) tem unidade_medida: ${med.unidade_medida}`);
+        }
+      });
+    } else {
+      console.log('⚠️ Nenhum medicamento encontrado no protocolo');
+    }
+
+    setShowProtocoloModal(false);
+    toast.success(`Protocolo "${protocolo.nome}" selecionado!`);
+  };
+
+  // Adicionar campo de medicamento
+  const addMedicamentoField = () => {
+    const newId = (medicamentosFields.length + 1).toString();
+    setMedicamentosFields(prev => [...prev, {
+      id: newId,
+      nome: '',
+      dose: '',
+      unidade_medida: '',
+      via_adm: '',
+      dias_adm: '',
+      frequencia: '',
+      observacoes: ''
+    }]);
+  };
+
+  // Remover campo de medicamento
+  const removeMedicamentoField = (index: number) => {
+    if (medicamentosFields.length > 1) {
+      setMedicamentosFields(prev => prev.filter((_, i) => i !== index));
+    }
+  };
+
+  // Atualizar campo de medicamento
+  const updateMedicamentoField = (index: number, field: string, value: string) => {
+    setMedicamentosFields(prev => prev.map((med, i) => 
+      i === index ? { ...med, [field]: value } : med
+    ));
+  };
+
+  // Converter medicamentos para string
+  const getMedicamentosString = () => {
+    const principios = principiosSelected.join(', ');
+    const detalhes = medicamentosFields
+      .filter(med => med.nome.trim() !== '' || med.dose || med.unidade_medida || med.via_adm || med.dias_adm || med.frequencia)
+      .map(med => [med.nome, `${med.dose}${med.unidade_medida}`.trim(), med.via_adm, med.dias_adm, med.frequencia].filter(Boolean).join(' '))
+      .filter(Boolean)
+      .join('; ');
+    if (principios && detalhes) return `${principios}; ${detalhes}`;
+    if (principios) return principios;
+    return detalhes;
+  };
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      setCidLoading(true);
+      const { items, total } = await CatalogService.searchCid10Paged({ search: cidSearch, limit: cidLimit, offset: 0 });
+      if (!active) return;
+      setCidOptions(items);
+      setCidTotal(total);
+      setCidOffset(items.length);
+      setCidLoading(false);
+    })();
+    return () => { active = false; };
+  }, [cidSearch, cidLimit]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      setPrincipiosLoading(true);
+      const { items, total } = await CatalogService.searchPrincipiosAtivosPaged({ search: principiosSearch, limit: principiosLimit, offset: 0 });
+      if (!active) return;
+      setPrincipiosOptions(items);
+      setPrincipiosTotal(total);
+      setPrincipiosOffset(items.length);
+      setPrincipiosLoading(false);
+    })();
+    return () => { active = false; };
+  }, [principiosSearch, principiosLimit]);
+
+  const handleLoadMoreCid = async () => {
+    if (cidLoading || cidOptions.length >= cidTotal) return;
+    setCidLoading(true);
+    const { items } = await CatalogService.searchCid10Paged({ search: cidSearch, limit: cidLimit, offset: cidOffset });
+    setCidOptions(prev => [...prev, ...items]);
+    setCidOffset(prev => prev + items.length);
+    setCidLoading(false);
+  };
+
+  const handleLoadMorePrincipios = async () => {
+    if (principiosLoading || principiosOptions.length >= principiosTotal) return;
+    setPrincipiosLoading(true);
+    const { items } = await CatalogService.searchPrincipiosAtivosPaged({ search: principiosSearch, limit: principiosLimit, offset: principiosOffset });
+    setPrincipiosOptions(prev => [...prev, ...items]);
+    setPrincipiosOffset(prev => prev + items.length);
+    setPrincipiosLoading(false);
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Solicitação de Autorização</h1>
-        <div className="flex items-center gap-3">
-          {!backendConnected && (
-            <Badge variant="destructive" className="animate-pulse">
-              Backend Desconectado
-            </Badge>
-          )}
-          {!clinicProfile && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigateWithTransition('/profile')}
-              className="text-orange-600 border-orange-600 hover:bg-orange-50"
-            >
-              <Building2 className="h-4 w-4 mr-2" />
-              Configurar Clínica
-            </Button>
-          )}
+      {/* Header */}
+      <div className="relative overflow-hidden rounded-lg bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/10 p-8">
+        <div className="absolute inset-0 bg-grid-white/10" />
+        <div className="relative">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold tracking-tighter bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                Solicitação de Autorização
+              </h1>
+              <p className="text-muted-foreground text-sm md:text-base max-w-2xl">
+                Gerencie solicitações de autorização e acompanhe o status dos tratamentos
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              {!backendConnected && (
+                <Badge variant="destructive" className="animate-pulse">
+                  Backend Desconectado
+                </Badge>
+              )}
+              {!clinicProfile && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigateWithTransition('/profile')}
+                  className="text-orange-600 border-orange-600 hover:bg-orange-50"
+                >
+                  <Building2 className="h-4 w-4 mr-2" />
+                  Configurar Clínica
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
-      <Tabs defaultValue="new" className="w-full">
-        <TabsList className="grid grid-cols-2 w-[400px]">
-          <TabsTrigger value="new">
-            <FilePlus className="h-4 w-4 mr-2" />
-            Nova Solicitação
-          </TabsTrigger>
-          <TabsTrigger value="history">
-            <File className="h-4 w-4 mr-2" />
-            Histórico de Solicitações
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="new">
+      <div className="w-full">
           <Card className="shadow-sm hover:shadow-md transition-shadow duration-300">
             <CardHeader>
               <CardTitle className="flex items-center">
@@ -650,20 +1125,49 @@ const Reports = () => {
                       <CardHeader className="pb-4">
                         <CardTitle className="text-lg flex items-center text-primary">
                           <Building2 className="h-5 w-5 mr-3" />
-                          Configuração Necessária
+                          Informações da Clínica
                         </CardTitle>
                       </CardHeader>
                       
-                      <CardContent>
-                        <div className="bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/30 rounded-lg p-6 text-center">
-                          <Building2 className="h-12 w-12 text-primary mx-auto mb-3" />
-                          <p className="text-primary font-medium mb-3">
+                      <CardContent className="space-y-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="hospital_nome" className="flex items-center gap-2">
+                              <span>Nome do Hospital *</span>
+                              <span className="text-red-500">*</span>
+                            </Label>
+                            <Input
+                              id="hospital_nome"
+                              name="hospital_nome"
+                              value={formData.hospital_nome}
+                              onChange={handleChange}
+                              className="lco-input"
+                              required
+                              placeholder="Digite o nome do hospital"
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="hospital_codigo">Código do Hospital</Label>
+                            <Input
+                              id="hospital_codigo"
+                              name="hospital_codigo"
+                              value={formData.hospital_codigo}
+                              onChange={handleChange}
+                              className="lco-input"
+                              placeholder="Código do hospital"
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/30 rounded-lg p-4 text-center">
+                          <Building2 className="h-8 w-8 text-primary mx-auto mb-2" />
+                          <p className="text-primary text-sm mb-3">
                             Configure as informações da clínica para preenchimento automático
                           </p>
                           <Button
                             type="button"
                             onClick={() => navigateWithTransition('/profile')}
-                            className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                            className="bg-primary hover:bg-primary/90 text-primary-foreground text-sm"
                           >
                             <Building2 className="h-4 w-4 mr-2" />
                             Configurar Clínica
@@ -794,6 +1298,24 @@ const Reports = () => {
                           <p className="text-xs text-muted-foreground mt-2">
                             Não encontrou o paciente? Clique no botão + para cadastrar um novo
                           </p>
+                          
+                          {/* Indicador de paciente selecionado */}
+                          {selectedPatientId && (
+                            <div className="mt-3 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
+                              <div className="flex items-center gap-2">
+                                <CheckCircle className="h-4 w-4 text-green-600" />
+                                <span className="text-sm font-medium text-green-800 dark:text-green-300">
+                                  Paciente selecionado:
+                                </span>
+                              </div>
+                              <div className="mt-1 text-sm text-green-700 dark:text-green-400">
+                                <strong>{patients.find(p => p.id === selectedPatientId)?.name}</strong>
+                                <span className="ml-2">
+                                  (ID: {selectedPatientId})
+                                </span>
+                              </div>
+                            </div>
+                          )}
                         </div>
 
                         {/* Campos do Paciente */}
@@ -894,20 +1416,22 @@ const Reports = () => {
                   </div>
                 </div>
 
-                {/* Resto do formulário permanece igual... */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium border-b pb-2">Diagnóstico e Estadiamento</h3>
+                {/* ===== SEÇÃO: DIAGNÓSTICO E ESTADIAMENTO ===== */}
+                <Card className="shadow-sm hover:shadow-md transition-shadow duration-300">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-lg flex items-center text-foreground">
+                      <Stethoscope className="h-5 w-5 mr-3 text-primary" />
+                      Diagnóstico e Estadiamento
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="diagnostico_cid">CID-10 *</Label>
-                      <Input
-                        id="diagnostico_cid"
-                        name="diagnostico_cid"
-                        value={formData.diagnostico_cid}
-                        onChange={handleChange}
-                        className="lco-input"
-                        required
-                        placeholder={selectedPatientId ? "Preenchido automaticamente" : "Digite o CID"}
+                      <CIDSelection
+                        value={formData.diagnostico_cid || ''}
+                        onChange={(arr) => setFormData(prev => ({ ...prev, diagnostico_cid: arr?.[0]?.codigo || '' }))}
+                        multiple={false}
                       />
                     </div>
                     <div className="space-y-2">
@@ -973,12 +1497,18 @@ const Reports = () => {
                       />
                     </div>
                   </div>
-                </div>
+                  </CardContent>
+                </Card>
 
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium border-b pb-2">
+                {/* ===== SEÇÃO: TRATAMENTOS REALIZADOS ANTERIORMENTE ===== */}
+                <Card className="shadow-sm hover:shadow-md transition-shadow duration-300">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-lg flex items-center text-foreground">
+                      <Clock className="h-5 w-5 mr-3 text-primary" />
                     Tratamentos Realizados Anteriormente
-                  </h3>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="tratamento_cirurgia_radio">Cirurgia ou Radioterapia</Label>
@@ -1021,11 +1551,18 @@ const Reports = () => {
                       />
                     </div>
                   </div>
-                </div>
+                  </CardContent>
+                </Card>
 
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium border-b pb-2">Esquema Terapêutico</h3>
-                  
+                {/* ===== SEÇÃO: ESQUEMA TERAPÊUTICO ===== */}
+                <Card className="shadow-sm hover:shadow-md transition-shadow duration-300">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-lg flex items-center text-foreground">
+                      <BookOpen className="h-5 w-5 mr-3 text-primary" />
+                      Esquema Terapêutico
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="finalidade">Finalidade *</Label>
@@ -1062,13 +1599,32 @@ const Reports = () => {
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="siglas">Siglas</Label>
+                        <div className="flex gap-2">
                       <Input
                         id="siglas"
                         name="siglas"
                         value={formData.siglas}
                         onChange={handleChange}
-                        className="lco-input"
-                      />
+                            className="lco-input flex-1"
+                            placeholder="Digite as siglas ou selecione um protocolo"
+                          />
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowProtocoloModal(true)}
+                            className="flex items-center gap-1"
+                          >
+                            <BookOpen className="h-4 w-4" />
+                            Protocolos
+                          </Button>
+                        </div>
+                        {selectedProtocolo && (
+                          <div className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                            <CheckCircle className="h-3 w-3" />
+                            Protocolo selecionado: {selectedProtocolo.nome}
+                          </div>
+                        )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="ciclos_previstos">Números de Ciclos Previstos *</Label>
@@ -1137,19 +1693,269 @@ const Reports = () => {
                     </div>
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="medicamentos_antineoplasticos">Medicamentos antineoplásticos *</Label>
-                    <Textarea
-                      id="medicamentos_antineoplasticos"
-                      name="medicamentos_antineoplasticos"
-                      value={formData.medicamentos_antineoplasticos}
-                      onChange={handleChange}
-                      className="lco-input"
-                      required
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <Label>Medicamentos Antineoplásticos *</Label>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={addMedicamentoField}
+                          className="flex items-center gap-1"
+                        >
+                          <Plus className="h-4 w-4" />
+                          Adicionar Medicamento
+                        </Button>
+                      </div>
+                      
+                      {medicamentosFields.length > 0 && (
+                        <div className="space-y-4">
+                          {/* Navegação dos Medicamentos */}
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-muted-foreground">
+                                Medicamento {activeMedicamentoIndex + 1} de {medicamentosFields.length}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const prevIndex = activeMedicamentoIndex > 0 ? activeMedicamentoIndex - 1 : medicamentosFields.length - 1;
+                                  setActiveMedicamentoIndex(prevIndex);
+                                }}
+                                disabled={medicamentosFields.length <= 1}
+                                className="h-8 w-8 p-0"
+                              >
+                                <ChevronLeft className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  const nextIndex = activeMedicamentoIndex < medicamentosFields.length - 1 ? activeMedicamentoIndex + 1 : 0;
+                                  setActiveMedicamentoIndex(nextIndex);
+                                }}
+                                disabled={medicamentosFields.length <= 1}
+                                className="h-8 w-8 p-0"
+                              >
+                                <ChevronRight className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+
+                          {/* Tabs dos Medicamentos */}
+                          <div className="border rounded-lg">
+                            <div className="flex items-center border-b bg-muted/30">
+                              {medicamentosFields.map((med, index) => (
+                                <button
+                                  key={med.id}
+                                  type="button"
+                                  onClick={() => setActiveMedicamentoIndex(index)}
+                                  className={`flex-1 px-3 py-2 text-sm font-medium border-r last:border-r-0 transition-colors ${
+                                    activeMedicamentoIndex === index 
+                                      ? 'bg-primary text-primary-foreground' 
+                                      : 'hover:bg-muted/50'
+                                  }`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <span>Med {index + 1}</span>
+                                    {medicamentosFields.length > 1 && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          removeMedicamentoField(index);
+                                          if (activeMedicamentoIndex >= medicamentosFields.length - 1) {
+                                            setActiveMedicamentoIndex(Math.max(0, medicamentosFields.length - 2));
+                                          }
+                                        }}
+                                        className="h-5 w-5 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                                      >
+                                        <X className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </button>
+                              ))}
+                            </div>
+                            
+                            <div className="p-4">
+                              {medicamentosFields.map((medicamento, index) => (
+                                <div 
+                                  key={medicamento.id} 
+                                  className={`space-y-4 ${activeMedicamentoIndex === index ? 'block' : 'hidden'}`}
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <h4 className="font-medium text-lg">Medicamento {index + 1}</h4>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-sm text-muted-foreground">
+                                        {index + 1} de {medicamentosFields.length}
+                                      </span>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    <div>
+                                      <Label>Nome do Medicamento *</Label>
+                                      <Input
+                                        id={`medicamento-nome-${index}`}
+                                        value={medicamento.nome}
+                                        onChange={(e) => updateMedicamentoField(index, 'nome', e.target.value)}
+                                        placeholder="Ex: Oxaliplatina"
+                                        className="mt-1"
                     />
                   </div>
                   
-                  <div className="grid grid-cols-3 gap-4">
+                                    <div className="grid grid-cols-2 gap-2">
+                                      <div>
+                                        <Label>Dose</Label>
+                                        <Input
+                                          value={medicamento.dose}
+                                          onChange={(e) => updateMedicamentoField(index, 'dose', e.target.value)}
+                                          placeholder="Ex: 85"
+                                          className="mt-1"
+                                        />
+                                      </div>
+                                      <div>
+                                        <Label>Unidade</Label>
+                                        <Select 
+                                          value={medicamento.unidade_medida} 
+                                          onValueChange={(value) => updateMedicamentoField(index, 'unidade_medida', value)}
+                                        >
+                                          <SelectTrigger className="mt-1">
+                                            <SelectValue placeholder="Unidade" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="mg">mg</SelectItem>
+                                            <SelectItem value="mg/m²">mg/m²</SelectItem>
+                                            <SelectItem value="mg/m2">mg/m²</SelectItem>
+                                            <SelectItem value="mg/kg">mg/kg</SelectItem>
+                                            <SelectItem value="AUC">AUC</SelectItem>
+                                            <SelectItem value="UI">UI</SelectItem>
+                                            <SelectItem value="mcg">mcg</SelectItem>
+                                            <SelectItem value="ml">ml</SelectItem>
+                                            <SelectItem value="g">g</SelectItem>
+                                          </SelectContent>
+                                        </Select>
+                                      </div>
+                                    </div>
+                                    
+                                    <div>
+                                      <Label>Via de Administração</Label>
+                                      <Select 
+                                        value={medicamento.via_adm} 
+                                        onValueChange={(value) => updateMedicamentoField(index, 'via_adm', value)}
+                                      >
+                                        <SelectTrigger className="mt-1">
+                                          <SelectValue placeholder="Via" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="EV">Endovenosa</SelectItem>
+                                          <SelectItem value="VO">Via Oral</SelectItem>
+                                          <SelectItem value="SC">Subcutânea</SelectItem>
+                                          <SelectItem value="IM">Intramuscular</SelectItem>
+                                          <SelectItem value="IT">Intratecal</SelectItem>
+                                          <SelectItem value="IP">Intraperitoneal</SelectItem>
+                                          <SelectItem value="TOP">Tópica</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    
+                                    <div>
+                                      <Label>Dias de Administração</Label>
+                                      <Input
+                                        value={medicamento.dias_adm}
+                                        onChange={(e) => updateMedicamentoField(index, 'dias_adm', e.target.value)}
+                                        placeholder="Ex: 1,2"
+                                        className="mt-1"
+                                      />
+                                    </div>
+                                    
+                                    <div>
+                                      <Label>Frequência</Label>
+                                      <Select 
+                                        value={medicamento.frequencia} 
+                                        onValueChange={(value) => updateMedicamentoField(index, 'frequencia', value)}
+                                      >
+                                        <SelectTrigger className="mt-1">
+                                          <SelectValue placeholder="Frequência" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="1x">1x ao dia</SelectItem>
+                                          <SelectItem value="2x">2x ao dia</SelectItem>
+                                          <SelectItem value="3x">3x ao dia</SelectItem>
+                                          <SelectItem value="4x">4x ao dia</SelectItem>
+                                          <SelectItem value="5x">5x ao dia</SelectItem>
+                                          <SelectItem value="SOS">Se necessário</SelectItem>
+                                          <SelectItem value="único">Dose única</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                    
+                                    <div className="md:col-span-2 lg:col-span-1">
+                                      <Label>Observações</Label>
+                                      <Input
+                                        value={medicamento.observacoes}
+                                        onChange={(e) => updateMedicamentoField(index, 'observacoes', e.target.value)}
+                                        placeholder="Observações adicionais..."
+                                        className="mt-1"
+                                      />
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Navegação entre medicamentos */}
+                                  {medicamentosFields.length > 1 && (
+                                    <div className="flex items-center justify-between pt-4 border-t">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          const prevIndex = index > 0 ? index - 1 : medicamentosFields.length - 1;
+                                          setActiveMedicamentoIndex(prevIndex);
+                                        }}
+                                        className="flex items-center gap-1"
+                                      >
+                                        <ChevronLeft className="h-4 w-4" />
+                                        Anterior
+                                      </Button>
+                                      
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm text-muted-foreground">
+                                          {index + 1} de {medicamentosFields.length}
+                                        </span>
+                                      </div>
+                                      
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                          const nextIndex = index < medicamentosFields.length - 1 ? index + 1 : 0;
+                                          setActiveMedicamentoIndex(nextIndex);
+                                        }}
+                                        className="flex items-center gap-1"
+                                      >
+                                        Próximo
+                                        <ChevronRight className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="dose_por_m2">Dose por m² *</Label>
                       <Input
@@ -1196,10 +2002,18 @@ const Reports = () => {
                       required
                     />
                   </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <h3 className="text-lg font-medium border-b pb-2">Medicações Associadas</h3>
+                  </CardContent>
+                </Card>
+
+                {/* ===== SEÇÃO: MEDICAÇÕES ASSOCIADAS ===== */}
+                <Card className="shadow-sm hover:shadow-md transition-shadow duration-300">
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-lg flex items-center text-foreground">
+                      <Stethoscope className="h-5 w-5 mr-3 text-primary" />
+                      Medicações Associadas
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
                   <div className="space-y-2">
                     <Textarea
                       id="medicacoes_associadas"
@@ -1210,7 +2024,8 @@ const Reports = () => {
                       placeholder="Descreva as medicações associadas..."
                     />
                   </div>
-                </div>
+                  </CardContent>
+                </Card>
                 
                 {/* ===== SEÇÃO MELHORADA: MÉDICO SOLICITANTE ===== */}
                 <Card className="shadow-sm hover:shadow-md transition-shadow duration-300">
@@ -1417,146 +2232,137 @@ const Reports = () => {
               </form>
             </CardContent>
           </Card>
-        </TabsContent>
+        </div>
 
-        <TabsContent value="history">
-          <Card className="shadow-sm hover:shadow-md transition-shadow duration-300">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>Histórico de Solicitações</span>
-                {backendConnected && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={loadSolicitacoes}
-                    disabled={loading}
+      {/* Modal de Seleção de Protocolos */}
+      <Dialog open={showProtocoloModal} onOpenChange={setShowProtocoloModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5" />
+              Selecionar Protocolo
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="text-sm text-muted-foreground">
+              Selecione um protocolo para preencher automaticamente os campos da solicitação.
+            </div>
+            
+            {protocolos.length === 0 ? (
+              <div className="text-center py-8">
+                <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                <p className="text-muted-foreground">Nenhum protocolo encontrado.</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Crie protocolos na seção de Protocolos para usá-los aqui.
+                </p>
+              </div>
+            ) : (
+              <div className="grid gap-4">
+                {protocolos.map((protocolo) => (
+                  <Card 
+                    key={protocolo.id} 
+                    className="cursor-pointer hover:shadow-md transition-shadow"
+                    onClick={() => handleProtocoloSelect(protocolo)}
                   >
-                    {loading ? 'Carregando...' : 'Atualizar'}
-                  </Button>
-                )}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {!backendConnected ? (
-                <div className="text-center py-8">
-                  <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Backend não conectado</h3>
-                  <p className="text-muted-foreground">
-                    Para visualizar o histórico, certifique-se de que o servidor backend está rodando.
-                  </p>
-                </div>
-              ) : loading ? (
-                <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : solicitacoes.length === 0 ? (
-                <div className="text-center py-8">
-                  <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-medium mb-2">Nenhuma solicitação encontrada</h3>
-                  <p className="text-muted-foreground">
-                    Crie sua primeira solicitação na aba "Nova Solicitação".
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {solicitacoes.map((solicitacao) => (
-                    <div 
-                      key={solicitacao.id}
-                      className="flex items-center justify-between border-b pb-4 last:border-0 hover:bg-muted/50 p-4 rounded-lg transition-colors"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h4 className="font-medium">
-                            Solicitação #{solicitacao.id}
-                          </h4>
-                          <Badge 
-                            variant="outline" 
-                            className={getStatusColor(solicitacao.status || 'pendente')}
-                          >
-                            <div className="flex items-center gap-1">
-                              {getStatusIcon(solicitacao.status || 'pendente')}
-                              {solicitacao.status?.toUpperCase() || 'PENDENTE'}
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <h4 className="font-semibold text-lg">{protocolo.nome}</h4>
+                            <Badge variant={protocolo.status === 'ativo' ? 'default' : 'secondary'}>
+                              {protocolo.status}
+                            </Badge>
+                          </div>
+                          
+                          {protocolo.descricao && (
+                            <p className="text-sm text-muted-foreground mb-2">
+                              {protocolo.descricao}
+                            </p>
+                          )}
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            {protocolo.cid && (
+                              <div>
+                                <span className="font-medium">CID:</span> {protocolo.cid}
+                              </div>
+                            )}
+                            {protocolo.ciclos_previstos && (
+                              <div>
+                                <span className="font-medium">Ciclos:</span> {protocolo.ciclos_previstos}
+                              </div>
+                            )}
+                            {protocolo.intervalo_ciclos && (
+                              <div>
+                                <span className="font-medium">Intervalo:</span> {protocolo.intervalo_ciclos} dias
+                              </div>
+                            )}
+                            {protocolo.linha && (
+                              <div>
+                                <span className="font-medium">Linha:</span> {protocolo.linha}ª
+                              </div>
+                            )}
+                          </div>
+                          
+                          {protocolo.medicamentos && protocolo.medicamentos.length > 0 && (
+                            <div className="mt-3">
+                              <p className="text-sm font-medium mb-1">Medicamentos ({protocolo.medicamentos.length}):</p>
+                              <div className="flex flex-wrap gap-1">
+                                {protocolo.medicamentos.slice(0, 3).map((med, index) => (
+                                  <Badge key={index} variant="outline" className="text-xs">
+                                    {med.nome}
+                                  </Badge>
+                                ))}
+                                {protocolo.medicamentos.length > 3 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{protocolo.medicamentos.length - 3} mais
+                                  </Badge>
+                                )}
+                              </div>
                             </div>
-                          </Badge>
+                          )}
                         </div>
-                        <p className="text-sm text-muted-foreground mb-1">
-                          <strong>Paciente:</strong> {solicitacao.cliente_nome}
-                        </p>
-                        <p className="text-sm text-muted-foreground mb-1">
-                          <strong>Hospital:</strong> {solicitacao.hospital_nome}
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          <strong>Criado em:</strong> {formatDate(solicitacao.created_at || '')}
-                        </p>
-                        {solicitacao.numero_autorizacao && (
-                          <p className="text-sm text-muted-foreground mt-1">
-                            <strong>Autorização:</strong> {solicitacao.numero_autorizacao}
-                          </p>
-                        )}
+                        
+                        <div className="text-right text-xs text-muted-foreground">
+                          <div>ID: {protocolo.id}</div>
+                          {protocolo.created_at && (
+                            <div>Criado em: {new Date(protocolo.created_at).toLocaleDateString()}</div>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2 ml-4">
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          className="flex items-center"
-                          onClick={() => handleDownloadPDF(solicitacao.id!)}
-                        >
-                          <Download className="mr-2 h-4 w-4" />
-                          PDF
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          className="flex items-center"
-                          onClick={() => handleViewPDF(solicitacao)}
-                          title="Visualizar documento PDF"
-                        >
-                          <Eye className="mr-2 h-4 w-4" />
-                          Ver
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {totalPages > 1 && (
-                    <div className="flex justify-center gap-2 mt-6">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                        disabled={currentPage === 1}
-                      >
-                        Anterior
-                      </Button>
-                      <span className="flex items-center px-3 text-sm">
-                        Página {currentPage} de {totalPages}
-                      </span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                        disabled={currentPage === totalPages}
-                      >
-                        Próxima
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowProtocoloModal(false)}>
+              Cancelar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {/* 🆕 MODAL DE VISUALIZAÇÃO PDF */}
+      {/* Modal de Visualização de PDF */}
       {selectedSolicitacao && (
         <PDFViewerModal
-          isOpen={isPDFViewerOpen}
-          onClose={() => {
-            setIsPDFViewerOpen(false);
-            setSelectedSolicitacao(null);
-          }}
+          isOpen={isPDFModalOpen}
+          onClose={() => setIsPDFModalOpen(false)}
           solicitacao={selectedSolicitacao}
+        />
+      )}
+
+      {/* Modal de Autenticação Médica */}
+      {pendingSolicitacaoData && (
+        <DoctorAuthModal
+          isOpen={isDoctorAuthModalOpen}
+          onClose={handleDoctorAuthenticationCancel}
+          doctorCRM={formData.medico_assinatura_crm}
+          doctorName={clinicProfile?.responsaveis_tecnicos?.find(r => r.crm === formData.medico_assinatura_crm)?.nome || 'Médico'}
+          onAuthenticationSuccess={handleDoctorAuthenticationSuccess}
+          solicitacaoData={pendingSolicitacaoData}
         />
       )}
     </div>

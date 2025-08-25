@@ -8,6 +8,8 @@ import AnimatedText from '@/components/AnimatedText';
 import LoginTransition from '@/components/LoginTransition';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Sun, Moon } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
+import { AuthService } from '@/services/api';
 
 const Login = () => {
   const [username, setUsername] = useState('');
@@ -16,6 +18,12 @@ const Login = () => {
   const [showTransition, setShowTransition] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const { login, navigateToDashboard } = useAuth();
+
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
+  const [forgotMessage, setForgotMessage] = useState<string | null>(null);
+  const [forgotError, setForgotError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +44,21 @@ const Login = () => {
     setShowTransition(false);
     // Navegar para o dashboard após a transição
     navigateToDashboard();
+  };
+
+  const handleForgotPassword = async () => {
+    setForgotLoading(true);
+    setForgotMessage(null);
+    setForgotError(null);
+    try {
+      await AuthService.recuperarSenha(forgotEmail.trim());
+      setForgotMessage('Se o e-mail existir na base, enviaremos instruções de recuperação.');
+      setForgotEmail('');
+    } catch (err: any) {
+      setForgotError(err?.message || 'Não foi possível enviar a recuperação agora.');
+    } finally {
+      setForgotLoading(false);
+    }
   };
 
   // Generate random particles for the background
@@ -142,6 +165,46 @@ const Login = () => {
                   required
                   className="lco-input"
                 />
+              </div>
+
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">&nbsp;</span>
+                <Dialog open={forgotOpen} onOpenChange={setForgotOpen}>
+                  <DialogTrigger asChild>
+                    <button type="button" className="text-primary hover:underline">
+                      Esqueceu a senha?
+                    </button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>Recuperar senha</DialogTitle>
+                      <DialogDescription>
+                        Informe seu e-mail cadastrado para enviarmos as instruções de redefinição.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-3">
+                      <Input
+                        type="email"
+                        placeholder="seuemail@exemplo.com"
+                        value={forgotEmail}
+                        onChange={(e) => setForgotEmail(e.target.value)}
+                        className="lco-input"
+                      />
+                      {forgotMessage && (
+                        <p className="text-sm text-muted-foreground">{forgotMessage}</p>
+                      )}
+                      {forgotError && (
+                        <p className="text-sm text-highlight-red">{forgotError}</p>
+                      )}
+                      <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={() => setForgotOpen(false)}>Fechar</Button>
+                        <Button onClick={handleForgotPassword} disabled={forgotLoading || !forgotEmail} className="lco-btn-primary">
+                          {forgotLoading ? 'Enviando...' : 'Enviar'}
+                        </Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
               
               <Button

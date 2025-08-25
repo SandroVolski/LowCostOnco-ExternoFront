@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 interface Authorization {
   id: string;
@@ -89,9 +90,14 @@ const getStatusIcon = (status: string) => {
 const PatientCard = ({ patient, onEdit, onDelete }: PatientCardProps) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const [showDeleteAlert, setShowDeleteAlert] = useState(false);
+  const navigate = useNavigate();
 
   const handleCardClick = () => {
     setIsFlipped(!isFlipped);
+  };
+
+  const handleSolicitacaoClick = (id: string) => {
+    navigate(`/reports?solicitacaoId=${id}`);
   };
 
   return (
@@ -170,12 +176,15 @@ const PatientCard = ({ patient, onEdit, onDelete }: PatientCardProps) => {
                 <div className="space-y-3 max-h-[150px] overflow-y-auto">
                   {patient.authorizations && Array.isArray(patient.authorizations) && patient.authorizations.length > 0 ? (
                     patient.authorizations.map((auth) => (
-                      <div 
+                      <button
                         key={auth.id}
+                        type="button"
+                        onClick={e => { e.stopPropagation(); handleSolicitacaoClick(auth.id); }}
                         className={cn(
-                          "p-3 rounded-lg border",
+                          "w-full text-left p-3 rounded-lg border transition-all duration-200 hover:bg-primary/10 cursor-pointer",
                           getStatusColor(auth.status)
                         )}
+                        style={{ outline: 'none' }}
                       >
                         <div className="flex items-center justify-between mb-2">
                           <div className="flex items-center gap-2">
@@ -189,7 +198,7 @@ const PatientCard = ({ patient, onEdit, onDelete }: PatientCardProps) => {
                         </div>
                         <div className="text-sm font-medium mb-1">{auth.protocol}</div>
                         <div className="text-sm text-muted-foreground line-clamp-2">{auth.description}</div>
-                      </div>
+                      </button>
                     ))
                   ) :
                     <div className="text-center text-muted-foreground italic">

@@ -1,7 +1,10 @@
 // src/services/api.ts - VERSÃO ATUALIZADA
 
+// Importar configuração de ambiente
+import config from '@/config/environment';
+
 // API Service para integração com backend Node.js
-const API_BASE_URL = 'http://localhost:3001/api';
+const API_BASE_URL = config.API_BASE_URL;
 
 // Interfaces para comunicação com a API
 interface ApiResponse<T = any> {
@@ -223,6 +226,11 @@ const convertFrontendToAPI = (frontendPatient: any): Partial<PatientFromAPI> => 
       frontendPatient.startDate ||
       new Date().toISOString().split('T')[0] // Data atual como fallback
     ), // ✅ CORRIGIDO
+    // Enviar também Data_Inicio_Tratamento para compatibilidade
+    Data_Inicio_Tratamento: convertDateToISO(
+      frontendPatient.startDate || frontendPatient.Data_Primeira_Solicitacao
+    ),
+    // Campos pessoais/contato
     cpf: frontendPatient.cpf,
     rg: frontendPatient.rg,
     telefone: frontendPatient.telefone,
@@ -230,10 +238,37 @@ const convertFrontendToAPI = (frontendPatient: any): Partial<PatientFromAPI> => 
     email: frontendPatient.email,
     nome_responsavel: frontendPatient.nome_responsavel,
     telefone_responsavel: frontendPatient.telefone_responsavel,
-    plano_saude: frontendPatient.plano_saude,
-    numero_carteirinha: frontendPatient.numero_carteirinha,
-    status: frontendPatient.status || 'ativo',
     observacoes: frontendPatient.observacoes,
+    status: frontendPatient.status || 'ativo',
+    
+    // Autorização
+    plano_saude: frontendPatient.plano_saude,
+    abrangencia: frontendPatient.abrangencia,
+    numero_carteirinha: frontendPatient.numero_carteirinha,
+
+    // Saúde
+    stage: frontendPatient.stage,
+    treatment: frontendPatient.treatment,
+
+    // Contato do prestador
+    setor_prestador: frontendPatient.setor_prestador,
+
+    // Contato de emergência
+    contato_emergencia_nome: frontendPatient.contato_emergencia_nome,
+    contato_emergencia_telefone: frontendPatient.contato_emergencia_telefone,
+
+    // Endereço desmembrado
+    endereco_rua: frontendPatient.endereco_rua,
+    endereco_numero: frontendPatient.endereco_numero,
+    endereco_complemento: frontendPatient.endereco_complemento,
+    endereco_bairro: frontendPatient.endereco_bairro,
+    endereco_cidade: frontendPatient.endereco_cidade,
+    endereco_estado: frontendPatient.endereco_estado,
+    endereco_cep: frontendPatient.endereco_cep,
+
+    // Medidas (normalizar para número)
+    peso: frontendPatient.peso ? parseFloat(String(frontendPatient.peso).replace(',', '.')) : undefined,
+    altura: frontendPatient.altura ? parseFloat(String(frontendPatient.altura).replace(',', '.')) : undefined,
   };
   
   console.log('🔧 Dados convertidos para API:', converted);
@@ -247,6 +282,11 @@ export class PacienteService {
     page?: number;
     limit?: number;
     search?: string;
+    sortBy?: string;
+    statusFilter?: string;
+    cidFilter?: string;
+    protocoloFilter?: string;
+    operadoraFilter?: string;
   }): Promise<{ data: any[]; pagination: any }> {
     try {
       const queryParams = new URLSearchParams();
@@ -254,6 +294,11 @@ export class PacienteService {
       if (params?.page) queryParams.append('page', params.page.toString());
       if (params?.limit) queryParams.append('limit', params.limit.toString()); 
       if (params?.search) queryParams.append('search', params.search);
+      if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
+      if (params?.statusFilter) queryParams.append('statusFilter', params.statusFilter);
+      if (params?.cidFilter) queryParams.append('cidFilter', params.cidFilter);
+      if (params?.protocoloFilter) queryParams.append('protocoloFilter', params.protocoloFilter);
+      if (params?.operadoraFilter) queryParams.append('operadoraFilter', params.operadoraFilter);
       
       const url = `${API_BASE_URL}/pacientes?${queryParams.toString()}`;
       console.log('🔧 Fazendo requisição para:', url);
@@ -318,6 +363,12 @@ export class PacienteService {
         body: JSON.stringify(apiPatient),
       });
       
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        console.error('❌ Resposta não OK ao criar paciente:', response.status, response.statusText, errorText);
+        throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
       const result: ApiResponse<PatientFromAPI> = await response.json();
       
       if (!result.success) {
@@ -344,6 +395,12 @@ export class PacienteService {
         body: JSON.stringify(apiPatient),
       });
       
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        console.error('❌ Resposta não OK ao atualizar paciente:', response.status, response.statusText, errorText);
+        throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
       const result: ApiResponse<PatientFromAPI> = await response.json();
       
       if (!result.success) {
@@ -393,9 +450,20 @@ export class SolicitacaoService {
         body: JSON.stringify(solicitacao),
       });
       
+      console.log('🔧 Response status:', response.status);
+      console.log('🔧 Response headers:', response.headers);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Erro HTTP:', response.status, response.statusText);
+        console.error('❌ Response body:', errorText);
+        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+      }
+      
       const result: ApiResponse<SolicitacaoFromAPI> = await response.json();
       
       if (!result.success) {
+        console.error('❌ Erro na resposta da API:', result);
         throw new Error(result.message || 'Erro ao criar solicitação');
       }
       
@@ -613,11 +681,260 @@ export class SolicitacaoService {
   }
 }
 
+// ============= SERVIÇO DE PROTOCOLOS =============
+
+// Interfaces para Protocolos
+export interface ProtocoloFromAPI {
+  id: number;
+  clinica_id: number;
+  nome: string;
+  descricao?: string;
+  cid?: string;
+  intervalo_ciclos?: number;
+  ciclos_previstos?: number;
+  linha?: number;
+  status: 'ativo' | 'inativo';
+  medicamentos: MedicamentoFromAPI[];
+  created_at?: string;
+  updated_at?: string;
+  clinica_nome?: string;
+}
+
+export interface MedicamentoFromAPI {
+  id: number;
+  protocolo_id: number;
+  nome: string;
+  dose?: string;
+  unidade_medida?: string;
+  via_adm?: string;
+  dias_adm?: string;
+  frequencia?: string;
+  observacoes?: string;
+  ordem?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ProtocoloCreateInput {
+  clinica_id: number;
+  nome: string;
+  descricao?: string;
+  cid?: string;
+  intervalo_ciclos?: number;
+  ciclos_previstos?: number;
+  linha?: number;
+  status?: 'ativo' | 'inativo';
+  medicamentos?: Omit<MedicamentoFromAPI, 'id' | 'protocolo_id' | 'created_at' | 'updated_at'>[];
+}
+
+export interface ProtocoloUpdateInput {
+  nome?: string;
+  descricao?: string;
+  cid?: string;
+  intervalo_ciclos?: number;
+  ciclos_previstos?: number;
+  linha?: number;
+  status?: 'ativo' | 'inativo';
+  medicamentos?: Omit<MedicamentoFromAPI, 'id' | 'protocolo_id' | 'created_at' | 'updated_at'>[];
+}
+
+export class ProtocoloService {
+  
+  // Listar protocolos
+  static async listarProtocolos(params?: {
+    page?: number;
+    limit?: number;
+    clinica_id?: number;
+  }): Promise<{ data: ProtocoloFromAPI[]; pagination: any }> {
+    try {
+      const queryParams = new URLSearchParams();
+      
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.limit) queryParams.append('limit', params.limit.toString());
+      if (params?.clinica_id) queryParams.append('clinica_id', params.clinica_id.toString());
+      
+      const url = `${API_BASE_URL}/protocolos?${queryParams.toString()}`;
+      console.log('🔧 Listando protocolos:', url);
+      
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const result: ApiResponse<PaginatedResponse<ProtocoloFromAPI>> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Erro ao listar protocolos');
+      }
+      
+      return {
+        data: result.data!.data,
+        pagination: result.data!.pagination
+      };
+    } catch (error) {
+      console.error('❌ Erro ao listar protocolos:', error);
+      throw error;
+    }
+  }
+  
+  // Buscar protocolo por ID
+  static async buscarProtocoloPorId(id: number): Promise<ProtocoloFromAPI> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/protocolos/${id}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const result: ApiResponse<ProtocoloFromAPI> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Erro ao buscar protocolo');
+      }
+      
+      return result.data!;
+    } catch (error) {
+      console.error('❌ Erro ao buscar protocolo:', error);
+      throw error;
+    }
+  }
+  
+  // Criar protocolo
+  static async criarProtocolo(protocolo: ProtocoloCreateInput): Promise<ProtocoloFromAPI> {
+    try {
+      console.log('🔧 Criando protocolo:', protocolo);
+      
+      const response = await fetch(`${API_BASE_URL}/protocolos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(protocolo),
+      });
+      
+      const result: ApiResponse<ProtocoloFromAPI> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Erro ao criar protocolo');
+      }
+      
+      console.log('✅ Protocolo criado:', result.data);
+      return result.data!;
+    } catch (error) {
+      console.error('❌ Erro ao criar protocolo:', error);
+      throw error;
+    }
+  }
+  
+  // Atualizar protocolo
+  static async atualizarProtocolo(id: number, protocolo: ProtocoloUpdateInput): Promise<ProtocoloFromAPI> {
+    try {
+      console.log('🔧 Atualizando protocolo:', id, protocolo);
+      
+      const response = await fetch(`${API_BASE_URL}/protocolos/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(protocolo),
+      });
+      
+      const result: ApiResponse<ProtocoloFromAPI> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Erro ao atualizar protocolo');
+      }
+      
+      console.log('✅ Protocolo atualizado:', result.data);
+      return result.data!;
+    } catch (error) {
+      console.error('❌ Erro ao atualizar protocolo:', error);
+      throw error;
+    }
+  }
+  
+  // Deletar protocolo
+  static async deletarProtocolo(id: number): Promise<void> {
+    try {
+      console.log('🔧 Deletando protocolo:', id);
+      
+      const response = await fetch(`${API_BASE_URL}/protocolos/${id}`, {
+        method: 'DELETE',
+      });
+      
+      const result: ApiResponse = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Erro ao deletar protocolo');
+      }
+      
+      console.log('✅ Protocolo deletado com sucesso');
+    } catch (error) {
+      console.error('❌ Erro ao deletar protocolo:', error);
+      throw error;
+    }
+  }
+  
+  // Buscar protocolos por status
+  static async buscarPorStatus(status: 'ativo' | 'inativo'): Promise<ProtocoloFromAPI[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/protocolos/status/${status}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const result: ApiResponse<ProtocoloFromAPI[]> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Erro ao buscar protocolos por status');
+      }
+      
+      return result.data!;
+    } catch (error) {
+      console.error('❌ Erro ao buscar protocolos por status:', error);
+      throw error;
+    }
+  }
+  
+  // Buscar protocolos por CID
+  static async buscarPorCID(cid: string): Promise<ProtocoloFromAPI[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/protocolos/cid/${encodeURIComponent(cid)}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const result: ApiResponse<ProtocoloFromAPI[]> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Erro ao buscar protocolos por CID');
+      }
+      
+      return result.data!;
+    } catch (error) {
+      console.error('❌ Erro ao buscar protocolos por CID:', error);
+      throw error;
+    }
+  }
+}
+
 // Função para testar se o backend está funcionando
 export const testarConexaoBackend = async (): Promise<boolean> => {
   try {
     console.log('🔧 Testando conexão com backend...');
-    const response = await fetch('http://localhost:3001/health');
+    
+    // Se estiver em desenvolvimento e configurado para usar dados locais, retorna false
+    if (config.IS_DEVELOPMENT && config.USE_LOCAL_DATA_IN_DEV) {
+      console.log('ℹ️ Modo desenvolvimento: usando dados locais (backend não testado)');
+      return false;
+    }
+    
+    console.log('📍 URL de teste:', config.BACKEND_HEALTH_URL);
+    
+    const response = await fetch(config.BACKEND_HEALTH_URL);
     
     if (!response.ok) {
       console.error('❌ Resposta não OK:', response.status, response.statusText);
@@ -638,7 +955,9 @@ export const testarConexaoBackend = async (): Promise<boolean> => {
 export const testarConexaoBanco = async (): Promise<boolean> => {
   try {
     console.log('🔧 Testando conexão com banco via API...');
-    const response = await fetch('http://localhost:3001/api/test-db');
+    console.log('📍 URL de teste:', `${config.API_BASE_URL}/test-db`);
+    
+    const response = await fetch(`${config.API_BASE_URL}/test-db`);
     
     if (!response.ok) {
       console.error('❌ Resposta não OK:', response.status, response.statusText);
@@ -651,5 +970,179 @@ export const testarConexaoBanco = async (): Promise<boolean> => {
   } catch (error) {
     console.error('❌ Erro ao testar banco:', error);
     return false;
+  }
+};
+
+export class AuthService {
+  static async recuperarSenha(email: string): Promise<boolean> {
+    try {
+      if (!email || !email.includes('@')) {
+        throw new Error('E-mail inválido');
+      }
+      const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
+      }
+      const result: ApiResponse = await response.json();
+      if (!result.success) {
+        throw new Error(result.message || 'Não foi possível enviar o e-mail de recuperação');
+      }
+      return true;
+    } catch (error) {
+      console.error('❌ Erro ao recuperar senha:', error);
+      throw error;
+    }
+  }
+}
+
+export interface NotificationItem {
+  id: number;
+  clinica_id: number;
+  tipo: 'auth_created' | 'auth_status' | 'patient_created' | 'message' | 'system';
+  titulo: string;
+  mensagem: string;
+  lida: boolean;
+  created_at: string;
+  // Metadados para navegação contextual
+  paciente_id?: number;
+  solicitacao_id?: number;
+}
+
+export class NotificationService {
+  static async listar(params?: { clinica_id?: number; limit?: number }): Promise<NotificationItem[]> {
+    try {
+      const query = new URLSearchParams();
+      if (params?.clinica_id) query.append('clinica_id', String(params.clinica_id));
+      if (params?.limit) query.append('limit', String(params.limit));
+      const response = await fetch(`${API_BASE_URL}/notificacoes?${query.toString()}`);
+      if (response.status === 404) {
+        // Backend remoto ainda não publicou notificações: retornar vazio
+        return [];
+      }
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new Error(text || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      const result: ApiResponse<NotificationItem[]> = await response.json();
+      if (!result.success) throw new Error(result.message || 'Erro ao listar notificações');
+      return result.data || [];
+    } catch (err) {
+      console.warn('⚠️ Falha ao listar notificações:', err);
+      return [];
+    }
+  }
+
+  static async marcarComoLida(id: number): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/notificacoes/${id}/lida`, { method: 'POST' });
+      if (!response.ok) return false;
+      const result: ApiResponse = await response.json();
+      return !!result.success;
+    } catch {
+      return false;
+    }
+  }
+
+  static async marcarTodasComoLidas(params?: { clinica_id?: number }): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/notificacoes/lidas`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params || {}),
+      });
+      if (!response.ok) return false;
+      const result: ApiResponse = await response.json();
+      return !!result.success;
+    } catch {
+      return false;
+    }
+  }
+}
+
+export interface CatalogCidItem {
+  codigo: string;
+  descricao: string;
+}
+
+export interface CatalogPrincipioAtivoItem {
+  nome: string;
+}
+
+export const CatalogService = {
+  async searchCid10(search: string, limit: number = 50): Promise<CatalogCidItem[]> {
+    try {
+      const url = new URL(`${API_BASE_URL}/catalog/cid10`, window.location.origin);
+      if (search) url.searchParams.set('search', search);
+      url.searchParams.set('limit', String(limit));
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const result: ApiResponse<CatalogCidItem[]> = await res.json();
+      return result.data || [];
+    } catch (e) {
+      console.warn('⚠️ Falha ao buscar CID-10:', e);
+      return [];
+    }
+  },
+  async searchPrincipiosAtivos(search: string, limit: number = 50): Promise<CatalogPrincipioAtivoItem[]> {
+    try {
+      const url = new URL(`${API_BASE_URL}/catalog/principios-ativos`, window.location.origin);
+      if (search) url.searchParams.set('search', search);
+      url.searchParams.set('limit', String(limit));
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const result: ApiResponse<any> = await res.json();
+      // Backend retorna array de strings, converter para objetos com propriedade 'nome'
+      const data = result.data || [];
+      if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'string') {
+        return data.map((nome: string) => ({ nome }));
+      }
+      return data;
+    } catch (e) {
+      console.warn('⚠️ Falha ao buscar Princípios Ativos:', e);
+      return [];
+    }
+  },
+  async searchCid10Paged(params: { search: string; limit: number; offset: number }): Promise<{ items: CatalogCidItem[]; total: number; }> {
+    try {
+      const url = new URL(`${API_BASE_URL}/catalog/cid10`, window.location.origin);
+      if (params.search) url.searchParams.set('search', params.search);
+      url.searchParams.set('limit', String(params.limit));
+      url.searchParams.set('offset', String(params.offset));
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const result: any = await res.json();
+      return { items: result.data || [], total: result.total || 0 };
+    } catch (e) {
+      console.warn('⚠️ Falha ao buscar CID-10 (paged):', e);
+      return { items: [], total: 0 };
+    }
+  },
+  async searchPrincipiosAtivosPaged(params: { search: string; limit: number; offset: number }): Promise<{ items: CatalogPrincipioAtivoItem[]; total: number; }> {
+    try {
+      const url = new URL(`${API_BASE_URL}/catalog/principios-ativos`, window.location.origin);
+      if (params.search) url.searchParams.set('search', params.search);
+      url.searchParams.set('limit', String(params.limit));
+      url.searchParams.set('offset', String(params.offset));
+      const res = await fetch(url.toString());
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const result: any = await res.json();
+      // Backend retorna array de strings, converter para objetos com propriedade 'nome'
+      const data = result.data || [];
+      let items: CatalogPrincipioAtivoItem[] = [];
+      if (Array.isArray(data) && data.length > 0 && typeof data[0] === 'string') {
+        items = data.map((nome: string) => ({ nome }));
+      } else {
+        items = data;
+      }
+      return { items, total: result.total || data.length };
+    } catch (e) {
+      console.warn('⚠️ Falha ao buscar Princípios Ativos (paged):', e);
+      return { items: [], total: 0 };
+    }
   }
 };

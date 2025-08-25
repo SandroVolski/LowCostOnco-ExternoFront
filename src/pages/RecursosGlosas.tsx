@@ -291,13 +291,26 @@ const RecursosGlosas = () => {
       )}
 
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-2 bg-primary/10 rounded-lg">
-          <SearchIcon className="h-6 w-6 text-primary" />
-        </div>
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Recursos de Glosas</h1>
-          <p className="text-muted-foreground">Acompanhe o status do seu recurso de glosa</p>
+      <div className="relative overflow-hidden rounded-lg bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/10 p-8">
+        <div className="absolute inset-0 bg-grid-white/10" />
+        <div className="relative">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <h1 className="text-3xl font-bold tracking-tighter bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                Recursos de Glosas
+              </h1>
+              <p className="text-muted-foreground text-sm md:text-base max-w-2xl">
+                Acompanhe o status do seu recurso de glosa e gerencie solicitações
+              </p>
+            </div>
+            <Button 
+              size="lg"
+              className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all invisible"
+            >
+              <SearchIcon className="h-5 w-5" />
+              Buscar Recurso
+            </Button>
+          </div>
         </div>
       </div>
 

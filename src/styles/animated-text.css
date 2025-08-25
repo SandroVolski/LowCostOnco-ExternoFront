@@ -73,7 +73,7 @@
   text-align: left;
   list-style: none;
   animation: change 15s infinite;
-  height: 160px;
+  height: 96px;
   position: relative;
   flex-grow: 1;
   flex-shrink: 0;
@@ -86,15 +86,15 @@
 }
 
 @keyframes change {
-  0% { transform: translate3d(0, 0px, 0); } /* operadoras */
-  18% { transform: translate3d(0, 0px, 0); } /* operadoras (mantém) */
-  22% { transform: translate3d(0, -32px, 0); } /* clínicas */
-  40% { transform: translate3d(0, -32px, 0); } /* clínicas (mantém) */
-  44% { transform: translate3d(0, -64px, 0); } /* planos de saúde */
-  62% { transform: translate3d(0, -64px, 0); } /* planos de saúde (mantém) */
-  66% { transform: translate3d(0, -96px, 0); } /* pacientes */
-  84% { transform: translate3d(0, -96px, 0); } /* pacientes (mantém) */
-  88% { transform: translate3d(0, -128px, 0); } /* todos */
-  96% { transform: translate3d(0, -128px, 0); } /* todos (mantém) */
-  100% { transform: translate3d(0, 0px, 0); } /* Volta para operadoras para ciclo */
+  0% { transform: translate3d(0, 0px, 0); } /* cuidados */
+  18% { transform: translate3d(0, 0px, 0); } /* cuidados (mantém) */
+  22% { transform: translate3d(0, -32px, 0); } /* gestão */
+  40% { transform: translate3d(0, -32px, 0); } /* gestão (mantém) */
+  44% { transform: translate3d(0, -64px, 0); } /* processos */
+  62% { transform: translate3d(0, -64px, 0); } /* processos (mantém) */
+  66% { transform: translate3d(0, 0px, 0); } /* cuidados */
+  84% { transform: translate3d(0, 0px, 0); } /* cuidados (mantém) */
+  88% { transform: translate3d(0, -32px, 0); } /* gestão */
+  96% { transform: translate3d(0, -32px, 0); } /* gestão (mantém) */
+  100% { transform: translate3d(0, 0px, 0); } /* Volta para cuidados para ciclo */
 } 

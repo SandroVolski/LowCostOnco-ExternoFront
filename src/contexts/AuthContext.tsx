@@ -1,13 +1,11 @@
-import React, { createContext, useState, useContext, ReactNode } from 'react';
+import React, { createContext, useEffect, useState, useContext, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { AuthService, TokenStore, UserStore, type AuthUser } from '@/services/authService';
 
-export type UserRole = 'clinic' | 'operator' | 'healthPlan' | null;
+export type UserRole = 'clinic' | 'operator' | 'healthPlan' | 'admin' | null;
 
-interface User {
-  username: string;
-  role: UserRole;
-}
+type User = AuthUser;
 
 interface AuthContextType {
   user: User | null;
@@ -20,44 +18,19 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(() => {
-    const storedUser = localStorage.getItem('lcoUser');
-    return storedUser ? JSON.parse(storedUser) : null;
-  });
+  const [user, setUser] = useState<User | null>(() => UserStore.get());
   
   const navigate = useNavigate();
   
-  // Hardcoded credentials as specified in the requirements
-  const validCredentials = [
-    { username: 'LCOClínica', password: 'LowCostC2025', role: 'clinic' as UserRole },
-    { username: 'LCOOperadora', password: 'LowCostO2025', role: 'operator' as UserRole },
-    { username: 'LCOPlanoSaude', password: 'LowCostPS2025', role: 'healthPlan' as UserRole },
-  ];
-
   const login = async (username: string, password: string, skipNavigation = false): Promise<boolean> => {
-    const matchedUser = validCredentials.find(
-      (cred) => cred.username === username && cred.password === password
-    );
-
-    if (matchedUser) {
-      const userData = {
-        username: matchedUser.username,
-        role: matchedUser.role,
-      };
-      
-      setUser(userData);
-      localStorage.setItem('lcoUser', JSON.stringify(userData));
-      
+    try {
+      const loggedUser = await AuthService.login(username, password);
+      setUser(loggedUser);
       toast.success('Login realizado com sucesso!');
-      
-      // Só navega se não foi solicitado para pular a navegação
-      if (!skipNavigation) {
-        navigate('/dashboard');
-      }
-      
+      if (!skipNavigation) navigate('/dashboard');
       return true;
-    } else {
-      toast.error('Credenciais inválidas. Por favor tente novamente.');
+    } catch (err: any) {
+      toast.error(err?.message || 'Falha no login');
       return false;
     }
   };
@@ -66,12 +39,28 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     navigate('/dashboard');
   };
 
-  const logout = () => {
+  const logout = async () => {
+    await AuthService.logout();
     setUser(null);
-    localStorage.removeItem('lcoUser');
     navigate('/');
     toast.success('Logout realizado com sucesso!');
   };
+
+  // Ao iniciar, se tiver refresh/access token, tenta validar perfil
+  useEffect(() => {
+    const init = async () => {
+      if (TokenStore.getAccess() || TokenStore.getRefresh()) {
+        try {
+          const me = await AuthService.me();
+          setUser(me);
+        } catch {
+          await AuthService.logout();
+          setUser(null);
+        }
+      }
+    };
+    init();
+  }, []);
 
   return (
     <AuthContext.Provider

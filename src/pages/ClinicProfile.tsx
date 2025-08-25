@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Building2, Upload, Save, Camera, MapPin, Phone, Mail, FileText, Globe, Plus, Edit, Trash2, UserPlus } from 'lucide-react';
+import { Building2, Upload, Save, Camera, MapPin, Phone, Mail, FileText, Globe, Plus, Edit, Trash2, UserPlus, Users, FolderOpen } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { usePageNavigation } from '@/components/transitions/PageTransitionContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -8,7 +10,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { ClinicService, ClinicProfile, ResponsavelTecnico, UpdateProfileRequest } from '@/services/clinicService';
+import { ClinicService, ClinicProfile, UpdateProfileRequest } from '@/services/clinicService';
+import type { OperadoraCredenciada, Especialidade } from '@/services/clinicService';
+import ProtocolsSection from '@/components/ProtocolsSection';
 
 const emptyProfile: ClinicProfile = {
   nome: '',
@@ -18,20 +22,14 @@ const emptyProfile: ClinicProfile = {
   cidade: '',
   estado: '',
   cep: '',
-  telefone: '',
-  email: '',
+  telefones: [''],
+  emails: [''],
   website: '',
   logo_url: '',
   observacoes: '',
 };
 
-const emptyResponsavel: ResponsavelTecnico = {
-  nome: '',
-  crm: '',
-  especialidade: '',
-  telefone: '',
-  email: '',
-};
+
 
 // Mover AnimatedSection para fora do componente para evitar re-criação
 const AnimatedSection = ({ children, delay = 0, className = "" }: {
@@ -48,19 +46,37 @@ const AnimatedSection = ({ children, delay = 0, className = "" }: {
 );
 
 const ClinicProfileComponent = () => {
+  const navigate = useNavigate();
+  const { navigateWithTransition } = usePageNavigation();
   const [profile, setProfile] = useState<ClinicProfile>(emptyProfile);
-  const [responsaveis, setResponsaveis] = useState<ResponsavelTecnico[]>([]);
   const [loading, setLoading] = useState(false);
   const [logoPreview, setLogoPreview] = useState<string>('');
-  const [isResponsavelDialogOpen, setIsResponsavelDialogOpen] = useState(false);
-  const [currentResponsavel, setCurrentResponsavel] = useState<ResponsavelTecnico>(emptyResponsavel);
-  const [isEditingResponsavel, setIsEditingResponsavel] = useState(false);
   const [apiConnected, setApiConnected] = useState(false);
+  // Listas de consulta (placeholder para futura integração com API)
+  const [operadorasCredenciadas, setOperadorasCredenciadas] = useState<OperadoraCredenciada[]>([]);
+  const [especialidades, setEspecialidades] = useState<Especialidade[]>([]);
 
   // Carregar dados do perfil ao montar o componente
   useEffect(() => {
     loadProfile();
   }, []);
+  
+  useEffect(() => {
+    const carregarListas = async () => {
+      try {
+        if (!apiConnected) return;
+        const [ops, esps] = await Promise.all([
+          ClinicService.listarOperadorasCredenciadas({ clinica_id: 1 }),
+          ClinicService.listarEspecialidades({ clinica_id: 1 })
+        ]);
+        setOperadorasCredenciadas(ops);
+        setEspecialidades(esps);
+      } catch (e) {
+        console.warn('Falha ao carregar listas de consulta:', e);
+      }
+    };
+    carregarListas();
+  }, [apiConnected]);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -69,9 +85,93 @@ const ClinicProfileComponent = () => {
       // Tentar carregar da API primeiro
       try {
         const profileData = await ClinicService.getProfile();
-        setProfile(profileData.clinica);
-        setResponsaveis(profileData.responsaveis_tecnicos || []);
-        setLogoPreview(profileData.clinica.logo_url || '');
+        const clinica = profileData.clinica;
+        
+        console.log('🔍 Dados recebidos do backend:', clinica);
+        
+        // Processar dados de telefones e emails
+        let telefones = [''];
+        let emails = [''];
+
+        // Processar telefones - verificar se é string JSON ou array
+        if (clinica.telefones) {
+          console.log('📞 Tipo de telefones:', typeof clinica.telefones, 'Valor:', clinica.telefones);
+          
+          if (typeof clinica.telefones === 'string') {
+            try {
+              const telefonesArray = JSON.parse(clinica.telefones);
+              console.log('📞 Telefones parseados:', telefonesArray);
+              telefones = Array.isArray(telefonesArray) ? telefonesArray.filter(tel => tel && tel.trim() !== '').map(tel => String(tel)) : [''];
+            } catch (error) {
+              console.warn('Erro ao processar telefones JSON:', error);
+              telefones = [String(clinica.telefones)];
+            }
+          } else if (Array.isArray(clinica.telefones)) {
+            console.log('📞 Telefones já é array:', clinica.telefones);
+            telefones = clinica.telefones.filter(tel => tel && tel.trim() !== '').map(tel => String(tel));
+          }
+        }
+        
+        // Fallback para campo antigo se não há telefones no novo formato
+        if (telefones.length === 0 && clinica.telefone && clinica.telefone.trim() !== '') {
+          telefones = [String(clinica.telefone)];
+        }
+        
+        if (telefones.length === 0) {
+          telefones = [''];
+        }
+        
+        // Garantir que todos os telefones são strings válidas
+        telefones = telefones.map(tel => tel || '');
+
+        // Processar emails - verificar se é string JSON ou array
+        if (clinica.emails) {
+          console.log('📧 Tipo de emails:', typeof clinica.emails, 'Valor:', clinica.emails);
+          
+          if (typeof clinica.emails === 'string') {
+            try {
+              const emailsArray = JSON.parse(clinica.emails);
+              console.log('📧 Emails parseados:', emailsArray);
+              emails = Array.isArray(emailsArray) ? emailsArray.filter(email => email && email.trim() !== '').map(email => String(email)) : [''];
+            } catch (error) {
+              console.warn('Erro ao processar emails JSON:', error);
+              emails = [String(clinica.emails)];
+            }
+          } else if (Array.isArray(clinica.emails)) {
+            console.log('📧 Emails já é array:', clinica.emails);
+            emails = Array.isArray(clinica.emails) ? clinica.emails.filter(email => email && email.trim() !== '').map(email => String(email)) : [''];
+          }
+        }
+        
+        // Fallback para campo antigo se não há emails no novo formato
+        if (emails.length === 0 && clinica.email && clinica.email.trim() !== '') {
+          emails = [String(clinica.email)];
+        }
+        
+        if (emails.length === 0) {
+          emails = [''];
+        }
+        
+        // Garantir que todos os emails são strings válidas
+        emails = emails.map(email => email || '');
+
+        const migratedProfile = {
+          ...clinica,
+          telefones,
+          emails,
+        };
+        
+        console.log('📋 Dados carregados da API:', {
+          telefonesOriginais: clinica.telefones,
+          emailsOriginais: clinica.emails,
+          telefonesProcessados: telefones,
+          emailsProcessados: emails,
+          totalTelefones: telefones.length,
+          totalEmails: emails.length
+        });
+        
+        setProfile(migratedProfile);
+        setLogoPreview(migratedProfile.logo_url || '');
         setApiConnected(true);
         console.log('✅ Perfil carregado da API');
       } catch (apiError) {
@@ -83,14 +183,72 @@ const ClinicProfileComponent = () => {
         if (savedProfile) {
           const profileData = JSON.parse(savedProfile);
           
-          // Garantir que responsaveis_tecnicos existe
-          if (!profileData.responsaveis_tecnicos) {
-            profileData.responsaveis_tecnicos = [];
+          // Processar dados de telefones e emails do localStorage
+          let telefones = [''];
+          let emails = [''];
+
+          // Processar telefones - verificar se é string JSON ou array
+          if (profileData.telefones) {
+            if (typeof profileData.telefones === 'string') {
+              try {
+                const telefonesArray = JSON.parse(profileData.telefones);
+                telefones = Array.isArray(telefonesArray) ? telefonesArray.filter(tel => tel && tel.trim() !== '').map(tel => String(tel)) : [''];
+              } catch (error) {
+                console.warn('Erro ao processar telefones JSON do localStorage:', error);
+                telefones = [String(profileData.telefones)];
+              }
+            } else if (Array.isArray(profileData.telefones)) {
+              telefones = profileData.telefones.filter(tel => tel && tel.trim() !== '').map(tel => String(tel));
+            }
           }
           
-          setProfile(profileData);
-          setResponsaveis(profileData.responsaveis_tecnicos);
-          setLogoPreview(profileData.logo_url || '');
+          // Fallback para campo antigo se não há telefones no novo formato
+          if (telefones.length === 0 && profileData.telefone && profileData.telefone.trim() !== '') {
+            telefones = [String(profileData.telefone)];
+          }
+          
+          if (telefones.length === 0) {
+            telefones = [''];
+          }
+          
+          // Garantir que todos os telefones são strings válidas
+          telefones = telefones.map(tel => tel || '');
+
+          // Processar emails - verificar se é string JSON ou array
+          if (profileData.emails) {
+            if (typeof profileData.emails === 'string') {
+              try {
+                const emailsArray = JSON.parse(profileData.emails);
+                emails = Array.isArray(emailsArray) ? emailsArray.filter(email => email && email.trim() !== '').map(email => String(email)) : [''];
+              } catch (error) {
+                console.warn('Erro ao processar emails JSON do localStorage:', error);
+                emails = [String(profileData.emails)];
+              }
+            } else if (Array.isArray(profileData.emails)) {
+              emails = profileData.emails.filter(email => email && email.trim() !== '').map(email => String(email));
+            }
+          }
+          
+          // Fallback para campo antigo se não há emails no novo formato
+          if (emails.length === 0 && profileData.email && profileData.email.trim() !== '') {
+            emails = [String(profileData.email)];
+          }
+          
+          if (emails.length === 0) {
+            emails = [''];
+          }
+          
+          // Garantir que todos os emails são strings válidas
+          emails = emails.map(email => email || '');
+
+          const migratedProfile = {
+            ...profileData,
+            telefones,
+            emails,
+          };
+          
+          setProfile(migratedProfile);
+          setLogoPreview(migratedProfile.logo_url || '');
         }
       }
     } catch (error) {
@@ -146,11 +304,26 @@ const ClinicProfileComponent = () => {
 
     setLoading(true);
     try {
+      // Limpar campos vazios de telefones e emails
+      const cleanTelefones = profile.telefones?.filter(tel => tel && tel.trim() !== '') || [''];
+      const cleanEmails = profile.emails?.filter(email => email && email.trim() !== '') || [''];
+      
+      console.log('📋 Dados para salvar:', {
+        telefones: cleanTelefones,
+        emails: cleanEmails,
+        totalTelefones: cleanTelefones.length,
+        totalEmails: cleanEmails.length
+      });
+      
       if (apiConnected) {
         // ✅ CORREÇÃO: Filtrar apenas campos que devem ser atualizados
         const fieldsToExclude = ['id', 'created_at', 'updated_at'];
         const cleanProfile = Object.fromEntries(
-          Object.entries(profile).filter(([key]) => !fieldsToExclude.includes(key))
+          Object.entries({
+            ...profile,
+            telefones: cleanTelefones,
+            emails: cleanEmails,
+          }).filter(([key]) => !fieldsToExclude.includes(key))
         );
         
         console.log('🔧 Enviando dados limpos para API:', cleanProfile);
@@ -161,14 +334,14 @@ const ClinicProfileComponent = () => {
         
         const updatedProfile = await ClinicService.updateProfile(updateRequest);
         setProfile(updatedProfile.clinica);
-        setResponsaveis(updatedProfile.responsaveis_tecnicos || []);
         
         toast.success('Perfil salvo com sucesso na API!');
       } else {
         // Fallback para localStorage
         const profileData = {
           ...profile,
-          responsaveis_tecnicos: responsaveis
+          telefones: cleanTelefones,
+          emails: cleanEmails,
         };
         localStorage.setItem('clinic_profile', JSON.stringify(profileData));
         
@@ -184,7 +357,7 @@ const ClinicProfileComponent = () => {
     } finally {
       setLoading(false);
     }
-  }, [profile, responsaveis, apiConnected]);
+  }, [profile, apiConnected]);
 
   // Funções de formatação otimizadas
   const formatCEP = useCallback((value: string) => {
@@ -227,128 +400,51 @@ const ClinicProfileComponent = () => {
     }));
   }, [formatCNPJ]);
 
-  const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const formatted = formatPhone(e.target.value);
+  // Funções para gerenciar múltiplos telefones e emails
+  const addTelefone = useCallback(() => {
     setProfile(prevProfile => ({
       ...prevProfile,
-      telefone: formatted,
+      telefones: [...(prevProfile.telefones || ['']), ''],
+    }));
+  }, []);
+
+  const removeTelefone = useCallback((index: number) => {
+    setProfile(prevProfile => ({
+      ...prevProfile,
+      telefones: prevProfile.telefones?.filter((_, i) => i !== index) || [''],
+    }));
+  }, []);
+
+  const updateTelefone = useCallback((index: number, value: string) => {
+    const formatted = formatPhone(value || '');
+    setProfile(prevProfile => ({
+      ...prevProfile,
+      telefones: prevProfile.telefones?.map((tel, i) => i === index ? formatted : (tel || '')) || [''],
     }));
   }, [formatPhone]);
 
-  // Funções para responsáveis técnicos otimizadas
-  const handleAddResponsavel = useCallback(() => {
-    setCurrentResponsavel({...emptyResponsavel});
-    setIsEditingResponsavel(false);
-    setIsResponsavelDialogOpen(true);
-  }, []);
-
-  const handleEditResponsavel = useCallback((responsavel: ResponsavelTecnico) => {
-    setCurrentResponsavel(responsavel);
-    setIsEditingResponsavel(true);
-    setIsResponsavelDialogOpen(true);
-  }, []);
-
-  const handleDeleteResponsavel = useCallback(async (responsavel: ResponsavelTecnico) => {
-    try {
-      if (apiConnected && responsavel.id) {
-        // Usar API
-        await ClinicService.removeResponsavel(responsavel.id);
-        setResponsaveis(prev => prev.filter(r => r.id !== responsavel.id));
-        toast.success('Responsável removido com sucesso!');
-      } else {
-        // Fallback para localStorage
-        const updatedResponsaveis = responsaveis.filter(r => r !== responsavel);
-        setResponsaveis(updatedResponsaveis);
-        
-        // Salvar no localStorage
-        const profileData = {
-          ...profile,
-          responsaveis_tecnicos: updatedResponsaveis
-        };
-        localStorage.setItem('clinic_profile', JSON.stringify(profileData));
-        
-        toast.success('Responsável removido com sucesso!');
-      }
-    } catch (error) {
-      console.error('Erro ao remover responsável:', error);
-      toast.error('Erro ao remover responsável', {
-        description: error instanceof Error ? error.message : 'Erro desconhecido'
-      });
-    }
-  }, [apiConnected, responsaveis, profile]);
-
-  const handleSaveResponsavel = useCallback(async () => {
-    if (!currentResponsavel.nome || !currentResponsavel.crm || !currentResponsavel.especialidade) {
-      toast.error('Nome, CRM e especialidade são obrigatórios');
-      return;
-    }
-
-    try {
-      if (apiConnected) {
-        // ✅ CORREÇÃO: Filtrar campos para responsáveis também
-        const fieldsToExclude = ['id', 'clinica_id', 'created_at', 'updated_at'];
-        const cleanResponsavel = Object.fromEntries(
-          Object.entries(currentResponsavel).filter(([key]) => !fieldsToExclude.includes(key))
-        );
-        
-        if (isEditingResponsavel && currentResponsavel.id) {
-          const updatedResponsavel = await ClinicService.updateResponsavel(
-            currentResponsavel.id, 
-            cleanResponsavel
-          );
-          setResponsaveis(prev => prev.map(r => 
-            r.id === currentResponsavel.id ? updatedResponsavel : r
-          ));
-          toast.success('Responsável atualizado com sucesso!');
-        } else {
-          const newResponsavel = await ClinicService.addResponsavel(cleanResponsavel);
-          setResponsaveis(prev => [...prev, newResponsavel]);
-          toast.success('Responsável adicionado com sucesso!');
-        }
-      } else {
-        // Fallback para localStorage
-        let updatedResponsaveis;
-        
-        if (isEditingResponsavel) {
-          updatedResponsaveis = responsaveis.map(r => 
-            r === currentResponsavel ? currentResponsavel : r
-          );
-          toast.success('Responsável atualizado com sucesso!');
-        } else {
-          const responsavelWithId = {
-            ...currentResponsavel,
-            id: Date.now() // ID temporário
-          };
-          updatedResponsaveis = [...responsaveis, responsavelWithId];
-          toast.success('Responsável adicionado com sucesso!');
-        }
-        
-        setResponsaveis(updatedResponsaveis);
-        
-        // Salvar no localStorage
-        const profileData = {
-          ...profile,
-          responsaveis_tecnicos: updatedResponsaveis
-        };
-        localStorage.setItem('clinic_profile', JSON.stringify(profileData));
-      }
-      
-      setIsResponsavelDialogOpen(false);
-    } catch (error) {
-      console.error('Erro ao salvar responsável:', error);
-      toast.error('Erro ao salvar responsável', {
-        description: error instanceof Error ? error.message : 'Erro desconhecido'
-      });
-    }
-  }, [currentResponsavel, isEditingResponsavel, apiConnected, responsaveis, profile]);
-
-  const handleResponsavelInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setCurrentResponsavel(prevResponsavel => ({
-      ...prevResponsavel,
-      [name]: value,
+  const addEmail = useCallback(() => {
+    setProfile(prevProfile => ({
+      ...prevProfile,
+      emails: [...(prevProfile.emails || ['']), ''],
     }));
   }, []);
+
+  const removeEmail = useCallback((index: number) => {
+    setProfile(prevProfile => ({
+      ...prevProfile,
+      emails: prevProfile.emails?.filter((_, i) => i !== index) || [''],
+    }));
+  }, []);
+
+  const updateEmail = useCallback((index: number, value: string) => {
+    setProfile(prevProfile => ({
+      ...prevProfile,
+      emails: prevProfile.emails?.map((email, i) => i === index ? (value || '') : (email || '')) || [''],
+    }));
+  }, []);
+
+
 
   // Memoizar elementos que não mudam frequentemente
   const logoUploadButton = useMemo(() => (
@@ -389,23 +485,41 @@ const ClinicProfileComponent = () => {
               </p>
             )}
           </div>
-          <Button 
-            onClick={handleSave}
-            disabled={loading}
-            className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 hover:shadow-lg"
-          >
-            {loading ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                Salvando...
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4 mr-2" />
-                Salvar Alterações
-              </>
-            )}
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={() => navigateWithTransition('/corpo-clinico')}
+              variant="outline"
+              className="text-primary border-primary hover:bg-primary/10 transition-all duration-300"
+            >
+              <Users className="w-4 h-4 mr-2" />
+              Corpo Clínico
+            </Button>
+            <Button
+              onClick={() => navigateWithTransition('/cadastro-documentos')}
+              variant="outline"
+              className="text-secondary-foreground border-secondary hover:bg-secondary/10 transition-all duration-300"
+            >
+              <FolderOpen className="w-4 h-4 mr-2" />
+              Documentos
+            </Button>
+            <Button 
+              onClick={handleSave}
+              disabled={loading}
+              className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 hover:shadow-lg"
+            >
+              {loading ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Salvando...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Salvar Alterações
+                </>
+              )}
+            </Button>
+          </div>
         </div>
       </AnimatedSection>
 
@@ -477,9 +591,11 @@ const ClinicProfileComponent = () => {
                     value={profile.nome}
                     onChange={handleInputChange}
                     placeholder="Ex: Clínica Oncológica São Paulo"
-                    className="lco-input"
+                    className="lco-input bg-muted/30 cursor-not-allowed"
+                    disabled
                     required
                   />
+                  <p className="text-xs text-muted-foreground">Para alterar, abra um chamado solicitando a atualização pela Operadora.</p>
                 </div>
 
                 <div className="space-y-2">
@@ -490,9 +606,11 @@ const ClinicProfileComponent = () => {
                     value={profile.codigo}
                     onChange={handleInputChange}
                     placeholder="Ex: CLI001"
-                    className="lco-input"
+                    className="lco-input bg-muted/30 cursor-not-allowed"
+                    disabled
                     required
                   />
+                  <p className="text-xs text-muted-foreground">Para alterar, abra um chamado solicitando a atualização pela Operadora.</p>
                 </div>
 
                 <div className="space-y-2">
@@ -503,9 +621,11 @@ const ClinicProfileComponent = () => {
                     value={profile.cnpj}
                     onChange={handleCNPJChange}
                     placeholder="00.000.000/0000-00"
-                    className="lco-input"
+                    className="lco-input bg-muted/30 cursor-not-allowed"
+                    disabled
                     maxLength={18}
                   />
+                  <p className="text-xs text-muted-foreground">Para alterar, abra um chamado solicitando a atualização pela Operadora.</p>
                 </div>
 
                 <div className="space-y-2">
@@ -527,6 +647,46 @@ const ClinicProfileComponent = () => {
           </Card>
         </AnimatedSection>
       </div>
+
+      {/* Operadoras Credenciadas e Especialidades (Consulta) */}
+      <AnimatedSection delay={350}>
+        <Card className="lco-card">
+          <CardHeader>
+            <CardTitle className="flex items-center">
+              <Building2 className="h-5 w-5 mr-2 text-primary" />
+              Operadoras Credenciadas e Especialidades
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div>
+                <h4 className="text-sm font-medium mb-2">Operadoras Credenciadas</h4>
+                {operadorasCredenciadas.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhuma operadora cadastrada. Solicite à Operadora para manter este cadastro atualizado.</p>
+                ) : (
+                  <ul className="list-disc list-inside text-sm text-foreground">
+                    {operadorasCredenciadas.map((op) => (
+                      <li key={op.id || op.nome}>{op.nome}{op.codigo ? ` • ${op.codigo}` : ''}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div>
+                <h4 className="text-sm font-medium mb-2">Especialidades</h4>
+                {especialidades.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Nenhuma especialidade cadastrada. Solicite à Operadora para manter este cadastro atualizado.</p>
+                ) : (
+                  <ul className="list-disc list-inside text-sm text-foreground">
+                    {especialidades.map((esp) => (
+                      <li key={esp.id || esp.nome}>{esp.nome}{esp.cbo ? ` • CBO ${esp.cbo}` : ''}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </AnimatedSection>
 
       {/* Endereço */}
       <AnimatedSection delay={300}>
@@ -602,126 +762,99 @@ const ClinicProfileComponent = () => {
               Informações de Contato
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="telefone">Telefone</Label>
-                <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="telefone"
-                    name="telefone"
-                    value={profile.telefone}
-                    onChange={handlePhoneChange}
-                    placeholder="(11) 99999-9999"
-                    className="lco-input pl-10"
-                    maxLength={15}
-                  />
+          <CardContent className="space-y-6">
+            {/* Telefones e Emails lado a lado */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Telefones */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-medium">Telefones</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addTelefone}
+                    className="flex items-center gap-1"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Adicionar Telefone
+                  </Button>
+                </div>
+                
+                <div className="space-y-3">
+                  {profile.telefones?.map((telefone, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          value={telefone || ''}
+                          onChange={(e) => updateTelefone(index, e.target.value)}
+                          placeholder="(11) 99999-9999"
+                          className="lco-input pl-10"
+                          maxLength={15}
+                        />
+                      </div>
+                      {profile.telefones && profile.telefones.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeTelefone(index)}
+                          className="h-10 w-10 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="email">E-mail</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={profile.email}
-                    onChange={handleInputChange}
-                    placeholder="contato@suaclinica.com.br"
-                    className="lco-input pl-10"
-                  />
+              {/* Emails */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base font-medium">E-mails</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addEmail}
+                    className="flex items-center gap-1"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Adicionar E-mail
+                  </Button>
+                </div>
+                
+                <div className="space-y-3">
+                  {profile.emails?.map((email, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <div className="relative flex-1">
+                        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          type="email"
+                          value={email || ''}
+                          onChange={(e) => updateEmail(index, e.target.value)}
+                          placeholder="contato@suaclinica.com.br"
+                          className="lco-input pl-10"
+                        />
+                      </div>
+                      {profile.emails && profile.emails.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeEmail(index)}
+                          className="h-10 w-10 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </AnimatedSection>
-
-      {/* Responsáveis Técnicos */}
-      <AnimatedSection delay={500}>
-        <Card className="lco-card">
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between">
-              <div className="flex items-center">
-                <FileText className="h-5 w-5 mr-2 text-primary" />
-                Responsáveis Técnicos
-              </div>
-              <Button
-                onClick={handleAddResponsavel}
-                variant="outline"
-                size="sm"
-                className="text-primary border-primary hover:bg-primary/10"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Adicionar Responsável
-              </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {responsaveis.length === 0 ? (
-              <div className="text-center py-8 border-2 border-dashed border-border rounded-lg">
-                <UserPlus className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-muted-foreground mb-2">
-                  Nenhum responsável técnico cadastrado
-                </h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  Adicione os médicos responsáveis pela clínica para usar nas solicitações de autorização
-                </p>
-                <Button
-                  onClick={handleAddResponsavel}
-                  variant="outline"
-                  className="text-primary border-primary hover:bg-primary/10"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Adicionar Primeiro Responsável
-                </Button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {responsaveis.map((responsavel, index) => (
-                  <Card key={responsavel.id || index} className="border border-border hover:border-primary/30 transition-colors">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h4 className="font-medium text-primary">{responsavel.nome}</h4>
-                          <p className="text-sm text-muted-foreground">{responsavel.crm}</p>
-                        </div>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 hover:bg-primary/10"
-                            onClick={() => handleEditResponsavel(responsavel)}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 hover:bg-destructive/10 text-destructive"
-                            onClick={() => handleDeleteResponsavel(responsavel)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                      <div className="space-y-1 text-sm">
-                        <p><span className="font-medium">Especialidade:</span> {responsavel.especialidade}</p>
-                        {responsavel.telefone && (
-                          <p><span className="font-medium">Telefone:</span> {responsavel.telefone}</p>
-                        )}
-                        {responsavel.email && (
-                          <p><span className="font-medium">E-mail:</span> {responsavel.email}</p>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
           </CardContent>
         </Card>
       </AnimatedSection>
@@ -772,99 +905,7 @@ const ClinicProfileComponent = () => {
         </div>
       </AnimatedSection>
 
-      {/* Dialog para Responsável Técnico */}
-      <Dialog open={isResponsavelDialogOpen} onOpenChange={setIsResponsavelDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>
-              {isEditingResponsavel ? 'Editar Responsável Técnico' : 'Adicionar Responsável Técnico'}
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="responsavel_nome">Nome Completo *</Label>
-              <Input
-                id="responsavel_nome"
-                name="nome"
-                value={currentResponsavel.nome}
-                onChange={handleResponsavelInputChange}
-                placeholder="Dr. João Silva"
-                className="lco-input"
-                required
-              />
-            </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="responsavel_crm">CRM *</Label>
-              <Input
-                id="responsavel_crm"
-                name="crm"
-                value={currentResponsavel.crm}
-                onChange={handleResponsavelInputChange}
-                placeholder="CRM 123456/SP"
-                className="lco-input"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="responsavel_especialidade">Especialidade *</Label>
-              <Input
-                id="responsavel_especialidade"
-                name="especialidade"
-                value={currentResponsavel.especialidade}
-                onChange={handleResponsavelInputChange}
-                placeholder="Oncologia"
-                className="lco-input"
-                required
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="responsavel_telefone">Telefone</Label>
-              <Input
-                id="responsavel_telefone"
-                name="telefone"
-                value={currentResponsavel.telefone}
-                onChange={handleResponsavelInputChange}
-                placeholder="(11) 99999-9999"
-                className="lco-input"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="responsavel_email">E-mail</Label>
-              <Input
-                id="responsavel_email"
-                name="email"
-                type="email"
-                value={currentResponsavel.email}
-                onChange={handleResponsavelInputChange}
-                placeholder="joao.silva@clinica.com"
-                className="lco-input"
-              />
-            </div>
-          </div>
-          
-          <DialogFooter>
-            <Button 
-              type="button" 
-              variant="outline" 
-              onClick={() => setIsResponsavelDialogOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button 
-              type="button" 
-              className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
-              onClick={handleSaveResponsavel}
-            >
-              {isEditingResponsavel ? 'Salvar Alterações' : 'Adicionar Responsável'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

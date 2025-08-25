@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { PageTransitionProvider } from "./components/transitions/PageTransitionContext";
 import { PageTransitionWrapper } from "./components/transitions/PageTransitionWrapper";
@@ -11,6 +11,7 @@ import Layout from "./components/layout/Layout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
+import PatientDashboard from "./pages/PatientDashboard";
 import Patients from "./pages/Patients";
 import Reports from "./pages/Reports";
 import Analysis from "./pages/Analysis";
@@ -19,8 +20,25 @@ import Chat from "./pages/Chat";
 import ClinicProfile from "./pages/ClinicProfile";
 import NotFound from "./pages/NotFound";
 import RecursosGlosas from "./pages/RecursosGlosas";
+import Protocols from "./pages/Protocols";
+import AjustesNegociacao from "./pages/AjustesNegociacao";
+import AjustesCorpoClinico from "./pages/AjustesCorpoClinico";
+import HistoricoSolicitacoes from "./pages/HistoricoSolicitacoes";
+import CorpoClinico from "./pages/CorpoClinico";
+import CadastroDocumentos from "./pages/CadastroDocumentos";
+import ClinicRegisterAdmin from "./pages/ClinicRegisterAdmin";
+import AdminLogin from "./pages/AdminLogin";
+import { useAdmin } from "./contexts/AdminContext";
 
 const queryClient = new QueryClient();
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const { isAdmin } = useAdmin();
+  if (!isAdmin) {
+    return <Navigate to="/admin" replace />;
+  }
+  return <>{children}</>;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -46,11 +64,33 @@ const App = () => (
                 />
                 
                 <Route 
+                  path="/patient-dashboard" 
+                  element={
+                    <ProtectedRoute allowedRoles={['clinic']}>
+                      <Layout pageTitle="Dashboard de Pacientes">
+                        <PatientDashboard />
+                      </Layout>
+                    </ProtectedRoute>
+                  } 
+                />
+                
+                <Route 
                   path="/patients" 
                   element={
                     <ProtectedRoute allowedRoles={['clinic']}>
                       <Layout pageTitle="Pacientes">
                         <Patients />
+                      </Layout>
+                    </ProtectedRoute>
+                  } 
+                />
+                
+                <Route 
+                  path="/protocols" 
+                  element={
+                    <ProtectedRoute allowedRoles={['clinic']}>
+                      <Layout pageTitle="Protocolos">
+                        <Protocols />
                       </Layout>
                     </ProtectedRoute>
                   } 
@@ -84,6 +124,72 @@ const App = () => (
                     <ProtectedRoute allowedRoles={['clinic']}>
                       <Layout pageTitle="Recursos de Glosas">
                         <RecursosGlosas />
+                      </Layout>
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="/ajustes-negociacao" 
+                  element={
+                    <ProtectedRoute allowedRoles={['clinic']}>
+                      <Layout pageTitle="Ajustes de Negociação">
+                        <AjustesNegociacao />
+                      </Layout>
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="/ajustes-corpo-clinico" 
+                  element={
+                    <ProtectedRoute allowedRoles={['clinic']}>
+                      <Layout pageTitle="Ajustes do Corpo Clínico">
+                        <AjustesCorpoClinico />
+                      </Layout>
+                    </ProtectedRoute>
+                  } 
+                />
+                
+                <Route 
+                  path="/historico-solicitacoes" 
+                  element={
+                    <ProtectedRoute allowedRoles={['clinic']}>
+                      <Layout pageTitle="Histórico de Solicitações">
+                        <HistoricoSolicitacoes />
+                      </Layout>
+                    </ProtectedRoute>
+                  } 
+                />
+                <Route path="/admin" element={<Layout pageTitle="Admin Onkhos"><AdminLogin /></Layout>} />
+                <Route 
+                  path="/admin/clinicas/register" 
+                  element={
+                    <AdminRoute>
+                      <Layout pageTitle="Cadastro Administrativo de Clínicas">
+                        <ClinicRegisterAdmin />
+                      </Layout>
+                    </AdminRoute>
+                  } 
+                />
+                            
+                <Route 
+                  path="/corpo-clinico" 
+                  element={
+                    <ProtectedRoute allowedRoles={['clinic']}>
+                      <Layout pageTitle="Corpo Clínico">
+                        <CorpoClinico />
+                      </Layout>
+                    </ProtectedRoute>
+                  } 
+                />
+
+                <Route 
+                  path="/cadastro-documentos" 
+                  element={
+                    <ProtectedRoute allowedRoles={['clinic']}>
+                      <Layout pageTitle="Cadastro de Documentos">
+                        <CadastroDocumentos />
                       </Layout>
                     </ProtectedRoute>
                   } 

@@ -9,16 +9,16 @@ const AnimatedText = ({ className }: AnimatedTextProps) => {
   return (
     <div className={cn("content", className)}>
       <p className="content__text">
-        Somos para
+        Integramos
       </p>
       <ul className="content__list">
-        <li className="content__list__item text-support-yellow">operadoras !</li>
-        <li className="content__list__item text-support-green">clínicas !</li>
-        <li className="content__list__item text-highlight-peach">planos de saúde !</li>
-        <li className="content__list__item text-support-teal">pacientes !</li>
-        <li className="content__list__item text-primary-gray">todos !</li>
-        <li className="content__list__item text-support-yellow">operadoras !</li>
-        <li className="content__list__item text-support-green">clínicas !</li>
+        <li className="content__list__item text-support-yellow">cuidados !</li>
+        <li className="content__list__item text-support-green">gestão !</li>
+        <li className="content__list__item text-highlight-peach">processos !</li>
+        <li className="content__list__item text-support-teal">cuidados !</li>
+        <li className="content__list__item text-primary-gray">gestão !</li>
+        <li className="content__list__item text-support-yellow">processos !</li>
+        <li className="content__list__item text-support-green">cuidados !</li>
       </ul>
     </div>
   );

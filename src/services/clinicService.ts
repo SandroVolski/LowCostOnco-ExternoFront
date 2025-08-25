@@ -1,6 +1,9 @@
 // src/services/clinicService.ts
 
-const API_BASE_URL = 'http://localhost:3001/api';
+// Importar configuração de ambiente
+import config from '@/config/environment';
+
+const API_BASE_URL = config.API_BASE_URL;
 
 // Interfaces para comunicação com a API
 interface ApiResponse<T = any> {
@@ -15,8 +18,11 @@ export interface ResponsavelTecnico {
   nome: string;
   crm: string;
   especialidade: string;
+  especialidade1?: string;
+  especialidade2?: string;
   telefone?: string;
   email?: string;
+  cnes?: string;
 }
 
 export interface ClinicProfile {
@@ -28,11 +34,42 @@ export interface ClinicProfile {
   cidade?: string;
   estado?: string;
   cep?: string;
+  telefones?: string[];
+  emails?: string[];
+  // Campos antigos para compatibilidade (serão removidos gradualmente)
   telefone?: string;
   email?: string;
   website?: string;
   logo_url?: string;
   observacoes?: string;
+}
+
+export interface OperadoraCredenciada {
+  id?: number;
+  nome: string;
+  codigo?: string;
+}
+
+export interface Especialidade {
+  id?: number;
+  nome: string;
+  cbo?: string;
+}
+
+export interface Documento {
+  id?: number;
+  clinica_id?: number;
+  nome: string;
+  tipo: string;
+  descricao?: string;
+  arquivo_url?: string;
+  arquivo_nome?: string;
+  arquivo_tamanho?: number;
+  data_envio: string;
+  data_vencimento?: string;
+  status: 'ativo' | 'vencido' | 'vencendo' | 'arquivado';
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface ClinicaProfileResponse {
@@ -107,7 +144,196 @@ export class ClinicService {
       throw error;
     }
   }
+
+  // Listar operadoras credenciadas da clínica
+  static async listarOperadorasCredenciadas(params?: { clinica_id?: number }): Promise<OperadoraCredenciada[]> {
+    try {
+      const query = new URLSearchParams();
+      if (params?.clinica_id) query.append('clinica_id', String(params.clinica_id));
+      const response = await fetch(`${API_BASE_URL}/clinicas/operadoras?${query.toString()}`);
+      if (response.status === 404) {
+        return [];
+      }
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      const result: ApiResponse<OperadoraCredenciada[]> = await response.json();
+      if (!result.success) throw new Error(result.message || 'Erro ao listar operadoras credenciadas');
+      return result.data || [];
+    } catch (error) {
+      console.error('❌ Erro ao listar operadoras credenciadas:', error);
+      return [];
+    }
+  }
+
+  // Listar especialidades da clínica
+  static async listarEspecialidades(params?: { clinica_id?: number }): Promise<Especialidade[]> {
+    try {
+      const query = new URLSearchParams();
+      if (params?.clinica_id) query.append('clinica_id', String(params.clinica_id));
+      const response = await fetch(`${API_BASE_URL}/clinicas/especialidades?${query.toString()}`);
+      if (response.status === 404) {
+        return [];
+      }
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      const result: ApiResponse<Especialidade[]> = await response.json();
+      if (!result.success) throw new Error(result.message || 'Erro ao listar especialidades');
+      return result.data || [];
+    } catch (error) {
+      console.error('❌ Erro ao listar especialidades:', error);
+      return [];
+    }
+  }
+
+  // ============= GESTÃO DE DOCUMENTOS =============
+
+  // Listar documentos da clínica
+  static async listarDocumentos(params?: { clinica_id?: number }): Promise<Documento[]> {
+    try {
+      const query = new URLSearchParams();
+      if (params?.clinica_id) query.append('clinica_id', String(params.clinica_id));
+      const response = await fetch(`${API_BASE_URL}/clinicas/documentos?${query.toString()}`);
+      if (response.status === 404) {
+        return [];
+      }
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      const result: ApiResponse<Documento[]> = await response.json();
+      if (!result.success) throw new Error(result.message || 'Erro ao listar documentos');
+      return result.data || [];
+    } catch (error) {
+      console.error('❌ Erro ao listar documentos:', error);
+      return [];
+    }
+  }
+
+  // Adicionar documento
+  static async adicionarDocumento(documento: Omit<Documento, 'id' | 'created_at' | 'updated_at'>): Promise<Documento> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/clinicas/documentos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(documento),
+      });
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      const result: ApiResponse<Documento> = await response.json();
+      if (!result.success) throw new Error(result.message || 'Erro ao adicionar documento');
+      return result.data!;
+    } catch (error) {
+      console.error('❌ Erro ao adicionar documento:', error);
+      throw error;
+    }
+  }
+
+  // Atualizar documento
+  static async atualizarDocumento(id: number, documento: Partial<Documento>): Promise<Documento> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/clinicas/documentos/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(documento),
+      });
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      const result: ApiResponse<Documento> = await response.json();
+      if (!result.success) throw new Error(result.message || 'Erro ao atualizar documento');
+      return result.data!;
+    } catch (error) {
+      console.error('❌ Erro ao atualizar documento:', error);
+      throw error;
+    }
+  }
+
+  // Remover documento
+  static async removerDocumento(id: number): Promise<void> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/clinicas/documentos/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      const result: ApiResponse = await response.json();
+      if (!result.success) throw new Error(result.message || 'Erro ao remover documento');
+    } catch (error) {
+      console.error('❌ Erro ao remover documento:', error);
+      throw error;
+    }
+  }
+
+  // Upload de arquivo
+  static async uploadDocumento(file: File, documento: Omit<Documento, 'id' | 'arquivo_url' | 'arquivo_nome' | 'arquivo_tamanho' | 'created_at' | 'updated_at'>): Promise<Documento> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('documento', JSON.stringify(documento));
+
+      const response = await fetch(`${API_BASE_URL}/clinicas/documentos/upload`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result: ApiResponse<Documento> = await response.json();
+      if (!result.success) throw new Error(result.message || 'Erro ao fazer upload do documento');
+      return result.data!;
+    } catch (error) {
+      console.error('❌ Erro ao fazer upload do documento:', error);
+      throw error;
+    }
+  }
   
+  // Registro administrativo de clínicas (requer X-Admin-Secret)
+  static async registerAdminClinic(
+    clinicData: Partial<ClinicProfile> & {
+      usuario?: string;
+      senha?: string;
+      emails?: string[];
+      telefones?: string[];
+      email?: string;
+      telefone?: string;
+      status?: string;
+    },
+    adminSecret: string
+  ): Promise<ClinicProfile> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/clinicas/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Secret': adminSecret,
+        },
+        body: JSON.stringify(clinicData),
+      });
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '');
+        throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      const result: ApiResponse<ClinicProfile> = await response.json();
+      if (!result.success) throw new Error(result.message || 'Erro ao registrar clínica');
+      return result.data!;
+    } catch (error) {
+      console.error('❌ Erro ao registrar clínica (admin):', error);
+      throw error;
+    }
+  }
+
   // Adicionar responsável técnico
   static async addResponsavel(responsavel: Omit<ResponsavelTecnico, 'id'>): Promise<ResponsavelTecnico> {
     try {

@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
-import { Plus, Search, User, Calendar as CalendarIcon, Info, Phone, Mail, MapPin, CreditCard, Building2, FlipHorizontal, Edit, Trash2, Filter, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Plus, Search, User, Calendar as CalendarIcon, Info, Phone, Mail, MapPin, CreditCard, Building2, FlipHorizontal, Edit, Trash2, Filter, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, FileText, Eye } from 'lucide-react';
 import { usePageNavigation } from '@/components/transitions/PageTransitionContext';
+import { useNavigate } from 'react-router-dom';
 
 // CSS como string constante
 const patientCardStyles = `
@@ -31,6 +32,42 @@ const patientCardStyles = `
   .animate-fade-in-up {
     animation: fade-in-up 0.6s ease-out forwards;
   }
+  
+  /* Esconder scrollbar mas manter funcionalidade */
+  .scrollbar-hide {
+    -ms-overflow-style: none;  /* Internet Explorer 10+ */
+    scrollbar-width: none;  /* Firefox */
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;  /* Safari and Chrome */
+  }
+  
+  /* Garantir bordas arredondadas no hover */
+  .auth-card-hover {
+    border-radius: 0.5rem !important;
+  }
+  .auth-card-hover:hover {
+    border-radius: 0.5rem !important;
+  }
+  
+  /* Scrollbar sutil para autorizações */
+  .auth-scroll {
+    scrollbar-width: thin;  /* Firefox */
+    scrollbar-color: rgba(156, 163, 175, 0.3) transparent;  /* Firefox */
+  }
+  .auth-scroll::-webkit-scrollbar {
+    width: 4px;  /* Safari and Chrome */
+  }
+  .auth-scroll::-webkit-scrollbar-track {
+    background: transparent;  /* Safari and Chrome */
+  }
+  .auth-scroll::-webkit-scrollbar-thumb {
+    background-color: rgba(156, 163, 175, 0.3);  /* Safari and Chrome */
+    border-radius: 2px;  /* Safari and Chrome */
+  }
+  .auth-scroll::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(156, 163, 175, 0.5);  /* Safari and Chrome */
+  }
 `;
 
 import { Button } from '@/components/ui/button';
@@ -44,18 +81,25 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { PacienteService, testarConexaoBackend, testarConexaoBanco } from '@/services/api';
+import { PacienteService, testarConexaoBackend, testarConexaoBanco, SolicitacaoService, SolicitacaoFromAPI } from '@/services/api';
+import { CatalogService, type CatalogCidItem } from '@/services/api';
 import { toast } from 'sonner';
+import CIDSelection from '@/components/CIDSelection';
 
 
 
 // Interface Authorization
 interface Authorization {
-  id: string;
-  date: string;
-  status: 'approved' | 'pending' | 'rejected';
-  protocol: string;
-  description: string;
+  id: number;
+  numero_autorizacao: string;
+  status: string;
+  data_solicitacao: string;
+  diagnostico_descricao: string;
+  hospital_nome: string;
+  ciclo_atual?: number;
+  ciclos_previstos?: number;
+  medicamentos_antineoplasticos?: string;
+  finalidade?: string;
 }
 
 // Interface Patient expandida
@@ -86,6 +130,7 @@ interface Patient {
   email: string;
   endereco: string;
   observacoes: string;
+  setor_prestador: string;
   clinica_id?: number;
 }
 
@@ -173,6 +218,7 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
   onShowInfo: (id: string) => void;
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
+  const navigate = useNavigate();
 
   const handleCardClick = () => {
     setIsFlipped(!isFlipped);
@@ -239,7 +285,11 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
                     <Building2 className="h-3 w-3" />
                     Operadora:
                   </span>
-                  <span className="font-medium text-xs">{patient.Operadora}</span>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="font-medium text-xs">{getOperadoraName(patient.Operadora)}</span>
+                    <span>•</span>
+                    <span>{patient.plano_saude || '—'}</span>
+                  </div>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Data Nasc.:</span>
@@ -299,8 +349,8 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
 
         {/* Verso do Card */}
         <div className="absolute inset-0 w-full h-full backface-hidden rotate-y-180">
-          <Card className="h-full bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 shadow-lg transition-shadow duration-300 overflow-hidden border-2 border-primary/30">
-            <CardHeader className="pb-3 bg-gradient-to-r from-primary/10 to-primary/20">
+          <Card className="h-full bg-gradient-to-br from-primary/5 via-primary/10 to-primary/5 shadow-lg transition-shadow duration-300 border-2 border-primary/30 flex flex-col">
+            <CardHeader className="pb-3 bg-gradient-to-r from-primary/10 to-primary/20 flex-shrink-0">
               <div className="flex justify-between items-start">
                 <CardTitle className="text-lg font-semibold text-primary">
                   Detalhes Completos
@@ -311,77 +361,149 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
                 </div>
               </div>
               <CardDescription className="flex items-center gap-2">
-                <CreditCard className="h-3 w-3" />
-                Código: {patient.Codigo}
+                <Building2 className="h-3 w-3" />
+                Operadora: {getOperadoraName(patient.Operadora)} • Plano: {patient.plano_saude || '—'}
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-3 p-4 overflow-y-auto flex-1">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Prestador:</span>
-                  <span className="font-medium text-xs text-right">{patient.Prestador}</span>
+            <CardContent className="flex-1 flex flex-col p-4 overflow-hidden">
+              <div className="space-y-3 flex-1 overflow-y-hidden">
+              {/* Informações básicas compactas */}
+              <div className="flex items-center justify-between text-xs bg-muted/30 rounded-lg p-2 border border-border/20">
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">Médico Assistente:</span>
+                  <span className="font-medium">{patient.Prestador}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">CID:</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-muted-foreground">CID/Diagnóstico:</span>
                   <span className="font-medium">{patient.Cid_Diagnostico}</span>
                 </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Carteirinha:</span>
-                  <span className="font-medium text-xs">{patient.numero_carteirinha || 'N/A'}</span>
-                </div>
-                {patient.telefone && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Phone className="h-3 w-3 text-muted-foreground" />
-                    <span className="font-medium text-xs">{patient.telefone}</span>
-                  </div>
-                )}
-                {patient.email && (
-                  <div className="flex items-center gap-2 text-sm">
-                    <Mail className="h-3 w-3 text-muted-foreground" />
-                    <span className="font-medium text-xs line-clamp-1">{patient.email}</span>
-                  </div>
-                )}
-                {patient.endereco && (
-                  <div className="flex items-start gap-2 text-sm">
-                    <MapPin className="h-3 w-3 text-muted-foreground mt-0.5" />
-                    <span className="font-medium text-xs line-clamp-2">{patient.endereco}</span>
-                  </div>
-                )}
               </div>
-
-              <Separator className="my-3" />
 
               {patient.authorizations && patient.authorizations.length > 0 ? (
                 <div>
-                  <h5 className="text-xs font-semibold mb-2 text-primary">Últimas Autorizações</h5>
-                  <div className="space-y-2 max-h-24 overflow-y-auto">
+                  <h5 className="text-xs font-semibold mb-3 text-primary flex items-center gap-2">
+                    <FileText className="h-3 w-3" />
+                    Últimas Autorizações ({patient.authorizations.length})
+                  </h5>
+                  <div className="space-y-3 max-h-44 overflow-y-auto overflow-x-hidden auth-scroll pb-10">
                     {patient.authorizations.slice(0, 3).map((auth) => (
-                      <div key={auth.id} className="flex items-center justify-between text-xs bg-background/50 p-2 rounded">
-                        <span className="line-clamp-1">{auth.protocol}</span>
-                        <Badge 
-                          variant={auth.status === 'approved' ? 'default' : auth.status === 'pending' ? 'secondary' : 'destructive'}
-                          className="text-[10px] px-1 py-0"
-                        >
-                          {auth.status === 'approved' ? 'OK' : auth.status === 'pending' ? 'Pend' : 'Rej'}
-                        </Badge>
+                      <div 
+                        key={auth.id} 
+                        className="group relative bg-gradient-to-r from-secondary/10 to-secondary/5 border border-secondary/30 rounded-lg p-3 cursor-pointer hover:from-background/80 hover:to-background/60 hover:border-border/50 transition-all duration-300 hover:shadow-md hover:scale-[1.02] auth-card-hover"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate('/historico-solicitacoes', { 
+                            state: { 
+                              scrollToAuth: auth.id.toString(),
+                              authId: auth.id 
+                            }
+                          });
+                        }}
+                      >
+                        {/* Header com número e status */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                                                         <span className="text-xs font-bold text-primary bg-gradient-to-r from-primary/10 to-primary/5 px-2 py-1 rounded border border-primary/20">
+                               {auth.numero_autorizacao}
+                             </span>
+                            <Badge 
+                              variant={
+                                auth.status === 'aprovada' ? 'default' : 
+                                auth.status === 'pendente' ? 'secondary' : 
+                                'destructive'
+                              }
+                              className="text-[10px] px-2 py-0.5"
+                            >
+                              {auth.status === 'aprovada' ? 'Aprovada' : 
+                               auth.status === 'pendente' ? 'Pendente' : 
+                               'Rejeitada'}
+                            </Badge>
+                          </div>
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                            <Eye className="h-3 w-3 text-muted-foreground" />
+                          </div>
+                        </div>
+
+                        {/* Informações principais */}
+                        <div className="space-y-1.5">
+                          <div className="text-xs font-medium line-clamp-1 text-foreground">
+                            {auth.diagnostico_descricao}
+                          </div>
+                          
+                                                     {/* Ciclos */}
+                           {(auth.ciclo_atual || auth.ciclos_previstos) && (
+                             <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                               <div className="flex items-center gap-1">
+                                 <div className="w-2 h-2 rounded-full bg-primary shadow-sm"></div>
+                                 <span className="font-medium">Ciclo: {auth.ciclo_atual || 0}/{auth.ciclos_previstos || 0}</span>
+                               </div>
+                               {auth.ciclos_previstos && (
+                                 <div className="flex-1 bg-muted rounded-full h-1.5 overflow-hidden">
+                                   <div 
+                                     className="bg-primary h-full transition-all duration-300"
+                                     style={{ 
+                                       width: `${Math.min(100, ((auth.ciclo_atual || 0) / auth.ciclos_previstos) * 100)}%` 
+                                     }}
+                                   ></div>
+                                 </div>
+                               )}
+                             </div>
+                           )}
+
+                          {/* Medicamentos */}
+                          {auth.medicamentos_antineoplasticos && (
+                            <div className="text-[10px] text-muted-foreground line-clamp-1">
+                              <span className="font-medium">Med:</span> {auth.medicamentos_antineoplasticos}
+                            </div>
+                          )}
+
+                          {/* Finalidade */}
+                          {auth.finalidade && (
+                            <div className="text-[10px] text-muted-foreground">
+                              <span className="font-medium">Finalidade:</span> {auth.finalidade}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     ))}
+                    
+                    {/* Indicador de mais autorizações */}
+                    {patient.authorizations.length > 3 && (
+                      <div className="text-center mt-4 p-3 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20">
+                        <div className="flex items-center justify-center gap-2 mb-1">
+                          <div className="w-2 h-2 rounded-full bg-primary/60 animate-pulse"></div>
+                          <span className="text-xs text-primary font-medium">
+                            +{patient.authorizations.length - 3} autorizações adicionais
+                          </span>
+                          <div className="w-2 h-2 rounded-full bg-primary/60 animate-pulse"></div>
+                        </div>
+                        <p className="text-[10px] text-muted-foreground">
+                          Clique em "Ver Tudo" para visualizar o histórico completo
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-4">
+                <div className="text-center py-6">
+                  <FileText className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
                   <p className="text-xs text-muted-foreground">Nenhuma autorização registrada</p>
+                  <p className="text-[10px] text-muted-foreground/70 mt-1">
+                    Clique em "Ver Tudo" para criar uma nova
+                  </p>
                 </div>
               )}
 
               {patient.observacoes && (
-                <div>
+                <div className="mb-4">
                   <h5 className="text-xs font-semibold mb-1 text-primary">Observações</h5>
                   <p className="text-xs text-muted-foreground line-clamp-3">{patient.observacoes}</p>
                 </div>
               )}
 
-              <div className="flex gap-2 pt-2">
+              </div>
+              
+              <div className="flex gap-2 pt-3 mt-auto flex-shrink-0">
                 <Button
                   variant="outline"
                   size="sm"
@@ -546,6 +668,13 @@ const formatCarteirinha = (value: string): string => {
   return value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 };
 
+const formatCEP = (value: string): string => {
+	const numbers = value.replace(/\D/g, '');
+	const limited = numbers.slice(0, 8);
+	if (limited.length <= 5) return limited;
+	return `${limited.slice(0, 5)}-${limited.slice(5)}`;
+};
+
 // Funções de validação
 const validateCPF = (cpf: string): boolean => {
   const numbers = cpf.replace(/\D/g, '');
@@ -686,11 +815,12 @@ const initialPatients: Patient[] = [
     status: 'Em tratamento',
     authorizations: [
       {
-        id: 'auth1',
-        date: '10/05/2024',
-        status: 'approved',
-        protocol: 'Protocolo ABC',
-        description: 'Solicitação inicial de tratamento'
+        id: 1,
+        numero_autorizacao: 'AUTH001',
+        status: 'aprovada',
+        data_solicitacao: '10/05/2024',
+        diagnostico_descricao: 'Solicitação inicial de tratamento',
+        hospital_nome: 'Hospital ABC'
       }
     ],
     Paciente_Nome: 'Maria Silva',
@@ -709,6 +839,7 @@ const initialPatients: Patient[] = [
     email: 'maria.silva@email.com',
     endereco: 'Rua das Flores, 123 - São Paulo, SP',
     observacoes: 'Paciente colaborativa, boa resposta ao tratamento inicial.',
+    setor_prestador: 'Agendamento',
     clinica_id: 1
   }
 ];
@@ -741,14 +872,55 @@ const emptyPatient: Patient = {
   email: '',
   endereco: '',
   observacoes: '',
+  setor_prestador: '',
   clinica_id: 1
+};
+
+// Mapeamento de operadoras (nome para ID e vice-versa)
+const OPERADORAS_MAP = {
+  1: 'Unimed',
+  2: 'Amil', 
+  3: 'SulAmérica',
+  4: 'Bradesco',
+  5: 'Porto Seguro'
+} as const;
+
+const OPERADORAS_REVERSE_MAP = {
+  'Unimed': 1,
+  'Amil': 2,
+  'SulAmérica': 3, 
+  'Bradesco': 4,
+  'Porto Seguro': 5
+} as const;
+
+// Função para obter o nome da operadora
+const getOperadoraName = (operadora: string | number): string => {
+  if (typeof operadora === 'number') {
+    return OPERADORAS_MAP[operadora as keyof typeof OPERADORAS_MAP] || `Operadora ${operadora}`;
+  }
+  return operadora;
+};
+
+// Função para obter o ID da operadora
+const getOperadoraId = (operadora: string): number => {
+  return OPERADORAS_REVERSE_MAP[operadora as keyof typeof OPERADORAS_REVERSE_MAP] || 1;
 };
 
 const Patients = () => {
   const [patients, setPatients] = useState<Patient[]>([]);
+  const [solicitacoes, setSolicitacoes] = useState<SolicitacaoFromAPI[]>([]);
+  const [cidOptions, setCidOptions] = useState<CatalogCidItem[]>([]);
+  const [cidSearch, setCidSearch] = useState('');
+  const [cidTotal, setCidTotal] = useState(0);
+  const [cidLimit] = useState(100);
+  const [cidOffset, setCidOffset] = useState(0);
+  const [cidLoading, setCidLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortBy, setSortBy] = useState('newest');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [cidFilter, setCidFilter] = useState('all');
+  const [protocoloFilter, setProtocoloFilter] = useState('all');
+  const [operadoraFilter, setOperadoraFilter] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [totalPatients, setTotalPatients] = useState(0);
@@ -762,6 +934,7 @@ const Patients = () => {
   const [loading, setLoading] = useState(true);
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const { navigateWithTransition } = usePageNavigation();
+  const navigate = useNavigate();
   
   const itemsPerPage = 50;
 
@@ -786,7 +959,46 @@ const Patients = () => {
     if (backendConnected) {
       loadPatientsFromAPI();
     }
-  }, [currentPage, searchTerm, backendConnected]);
+  }, [currentPage, searchTerm, sortBy, statusFilter, cidFilter, protocoloFilter, operadoraFilter, backendConnected]);
+
+  // Resetar página quando filtros mudarem (exceto busca que já tem reset automático)
+  useEffect(() => {
+    if (currentPage !== 1) {
+      setCurrentPage(1);
+    }
+  }, [sortBy, statusFilter, cidFilter, protocoloFilter, operadoraFilter]);
+
+  useEffect(() => {
+    if (backendConnected) {
+      SolicitacaoService.listarSolicitacoes({ page: 1, limit: 10000 }).then(result => {
+        setSolicitacoes(result.data);
+      });
+    }
+  }, [backendConnected]);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      setCidLoading(true);
+      const { items, total } = await CatalogService.searchCid10Paged({ search: cidSearch, limit: cidLimit, offset: 0 });
+      if (!active) return;
+      setCidOptions(items);
+      setCidTotal(total);
+      setCidOffset(items.length);
+      setCidLoading(false);
+    })();
+    return () => { active = false; };
+  }, [cidSearch, cidLimit]);
+
+  const handleLoadMoreCid = async () => {
+    if (cidLoading) return;
+    if (cidOptions.length >= cidTotal) return;
+    setCidLoading(true);
+    const { items } = await CatalogService.searchCid10Paged({ search: cidSearch, limit: cidLimit, offset: cidOffset });
+    setCidOptions(prev => [...prev, ...items]);
+    setCidOffset(prev => prev + items.length);
+    setCidLoading(false);
+  };
 
   const checkBackendConnection = async () => {
     console.log('🔧 Verificando conexão com backend...');
@@ -826,7 +1038,12 @@ const Patients = () => {
     console.log('📡 Carregando pacientes da API...', { 
       page: currentPage, 
       limit: itemsPerPage, 
-      search: searchTerm 
+      search: searchTerm,
+      sortBy,
+      statusFilter,
+      cidFilter,
+      protocoloFilter,
+      operadoraFilter
     });
     
     setLoading(true);
@@ -834,7 +1051,12 @@ const Patients = () => {
       const result = await PacienteService.listarPacientes({
         page: currentPage,
         limit: itemsPerPage,
-        search: searchTerm
+        search: searchTerm,
+        sortBy,
+        statusFilter: statusFilter === 'all' ? undefined : statusFilter,
+        cidFilter: cidFilter === 'all' ? undefined : cidFilter,
+        protocoloFilter: protocoloFilter === 'all' ? undefined : protocoloFilter,
+        operadoraFilter: operadoraFilter === 'all' ? undefined : operadoraFilter
       });
       
       console.log('✅ Pacientes carregados da API:', result);
@@ -842,8 +1064,8 @@ const Patients = () => {
       setTotalPatients(result.pagination.total);
       setTotalPages(result.pagination.totalPages);
       
-      if (result.data.length === 0 && searchTerm) {
-        toast.info('Nenhum paciente encontrado para esta busca');
+      if (result.data.length === 0 && (searchTerm || statusFilter !== 'all' || cidFilter !== 'all' || protocoloFilter !== 'all' || operadoraFilter !== 'all')) {
+        toast.info('Nenhum paciente encontrado para os filtros aplicados');
       }
       
     } catch (error) {
@@ -861,22 +1083,69 @@ const Patients = () => {
   };
 
   // Filtrar e ordenar pacientes (apenas para dados locais)
-  const filteredAndSortedPatients = (() => {
-    // Se estamos usando dados do backend, a filtragem já foi feita no servidor
-    if (backendConnected) {
-      return patients;
-    }
+  const filteredAndSortedPatients = useMemo(() => {
+    // Se estamos usando dados do backend, aplicar filtros locais também para melhor UX
+    // O backend pode não suportar todos os filtros
+    console.log('🔍 Aplicando filtros:', { searchTerm, statusFilter, cidFilter, protocoloFilter, operadoraFilter, sortBy, totalPatients: patients.length, backendConnected });
 
     // Filtrar apenas para dados locais
     let filtered = patients.filter(patient => {
-      const matchesSearch = patient.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           patient.diagnosis.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           patient.Codigo.toLowerCase().includes(searchTerm.toLowerCase());
+      // Filtro de busca (nome, diagnóstico, código, CPF, operadora)
+      if (searchTerm && searchTerm.trim() !== '') {
+        const term = searchTerm.toLowerCase().trim();
+        const matchesSearch = 
+          patient.name.toLowerCase().includes(term) ||
+          patient.diagnosis.toLowerCase().includes(term) ||
+          patient.Codigo.toLowerCase().includes(term) ||
+          patient.cpf?.toLowerCase().includes(term) ||
+          getOperadoraName(patient.Operadora).toLowerCase().includes(term);
+        
+        if (!matchesSearch) {
+          return false;
+        }
+      }
       
-      const matchesStatus = statusFilter === 'all' || patient.status.toLowerCase().includes(statusFilter.toLowerCase());
+      // Filtro de status
+      if (statusFilter !== 'all') {
+        const matchesStatus = patient.status.toLowerCase().includes(statusFilter.toLowerCase());
+        if (!matchesStatus) {
+          return false;
+        }
+      }
       
-      return matchesSearch && matchesStatus;
+      // Filtro de CID
+      if (cidFilter !== 'all') {
+        const matchesCid = patient.Cid_Diagnostico?.toLowerCase().includes(cidFilter.toLowerCase());
+        if (!matchesCid) {
+          return false;
+        }
+      }
+      
+      // Filtro de Protocolo (tratamento)
+      if (protocoloFilter !== 'all') {
+        const matchesProtocolo = patient.treatment?.toLowerCase().includes(protocoloFilter.toLowerCase());
+        if (!matchesProtocolo) {
+          return false;
+        }
+      }
+      
+      // Filtro de Operadora
+      if (operadoraFilter !== 'all') {
+        // Obter o nome da operadora do paciente (pode ser string ou número)
+        const patientOperadoraName = getOperadoraName(patient.Operadora);
+        
+        // Verificar se a operadora do paciente corresponde ao filtro selecionado
+        const matchesOperadora = patientOperadoraName.toLowerCase() === operadoraFilter.toLowerCase();
+        
+        if (!matchesOperadora) {
+          return false;
+        }
+      }
+      
+      return true;
     });
+
+    console.log('✅ Pacientes filtrados:', filtered.length);
 
     // Ordenar apenas para dados locais
     filtered.sort((a, b) => {
@@ -897,34 +1166,66 @@ const Patients = () => {
     });
 
     return filtered;
-  })();
+  }, [patients, searchTerm, statusFilter, cidFilter, protocoloFilter, operadoraFilter, sortBy, backendConnected]);
 
   // Paginação para dados locais
-  const displayedPatients = (() => {
-    if (backendConnected) {
-      // Para backend, os dados já vêm paginados
-      return filteredAndSortedPatients;
-    }
-    
-    // Para dados locais, fazer paginação manual
+  const displayedPatients = useMemo(() => {
+    // Para ambos os casos (backend e local), aplicar paginação local para melhor controle
     const localTotalPages = Math.ceil(filteredAndSortedPatients.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedPatients = filteredAndSortedPatients.slice(startIndex, startIndex + itemsPerPage);
     
-    // Atualizar o estado de paginação para dados locais
+    // Atualizar o estado de paginação
     if (totalPages !== localTotalPages) {
       setTotalPages(localTotalPages);
       setTotalPatients(filteredAndSortedPatients.length);
     }
     
+    console.log('📄 Paginação:', { 
+      currentPage, 
+      totalPages: localTotalPages, 
+      startIndex, 
+      endIndex: startIndex + itemsPerPage,
+      displayed: paginatedPatients.length,
+      backendConnected
+    });
+    
     return paginatedPatients;
-  })();
+  }, [filteredAndSortedPatients, currentPage, totalPages, itemsPerPage, backendConnected]);
+
+  // Função para filtrar solicitações do paciente
+  const getSolicitacoesDoPaciente = (pacienteId: number): Authorization[] => {
+    return solicitacoes
+      .filter(s => s.paciente_id === pacienteId)
+      .map(s => ({
+        id: s.id,
+        numero_autorizacao: s.numero_autorizacao || `#${s.id}`,
+        status: s.status,
+        data_solicitacao: s.data_solicitacao,
+        diagnostico_descricao: s.diagnostico_descricao,
+        hospital_nome: s.hospital_nome,
+        ciclo_atual: s.ciclo_atual,
+        ciclos_previstos: s.ciclos_previstos,
+        medicamentos_antineoplasticos: s.medicamentos_antineoplasticos,
+        finalidade: s.finalidade
+      }));
+  };
 
   const handleAddNew = () => {
     setIsEditing(false);
     setCurrentPatient(emptyPatient);
     setValidationErrors({});
     setIsDialogOpen(true);
+  };
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setSortBy('newest');
+    setStatusFilter('all');
+    setCidFilter('all');
+    setProtocoloFilter('all');
+    setOperadoraFilter('all');
+    setCurrentPage(1);
   };
 
   const handleEdit = (id: string) => {
@@ -985,7 +1286,6 @@ const Patients = () => {
     
     // Campos obrigatórios
     if (!currentPatient.Paciente_Nome?.trim()) errors.Paciente_Nome = 'Nome é obrigatório';
-    if (!currentPatient.Codigo?.trim()) errors.Codigo = 'Código é obrigatório';
     if (!currentPatient.Data_Nascimento?.trim()) errors.Data_Nascimento = 'Data de nascimento é obrigatória';
     if (!currentPatient.Cid_Diagnostico?.trim()) errors.Cid_Diagnostico = 'CID diagnóstico é obrigatório';
     if (!currentPatient.stage?.trim()) errors.stage = 'Estágio é obrigatório';
@@ -1031,7 +1331,7 @@ const Patients = () => {
           Data_Nascimento: convertToISODate(currentPatient.Data_Nascimento),
           Data_Primeira_Solicitacao: convertToISODate(currentPatient.startDate),
           // Garantir que Operadora e Prestador sejam números se necessário
-          Operadora: typeof currentPatient.Operadora === 'string' ? 1 : currentPatient.Operadora,
+          Operadora: typeof currentPatient.Operadora === 'string' ? getOperadoraId(currentPatient.Operadora) : currentPatient.Operadora,
           Prestador: typeof currentPatient.Prestador === 'string' ? 1 : currentPatient.Prestador,
           // Adicionar clinica_id se não existir
           clinica_id: currentPatient.clinica_id || 1
@@ -1105,24 +1405,37 @@ const Patients = () => {
           delete newErrors.cpf;
         }
         break;
-      
-      case 'rg':
-        formattedValue = formatRG(value);
-        break;
-      
       case 'telefone':
         formattedValue = formatTelefone(value);
-        if (formattedValue.length >= 14) {
-          if (!validateTelefone(formattedValue)) {
-            newErrors.telefone = 'Telefone inválido';
-          } else {
-            delete newErrors.telefone;
-          }
+        if (!validateTelefone(formattedValue)) {
+          newErrors.telefone = 'Telefone inválido';
         } else {
           delete newErrors.telefone;
         }
         break;
-      
+      case 'contato_emergencia_telefone':
+        formattedValue = formatTelefone(value);
+        if (!validateTelefone(formattedValue)) {
+          (newErrors as any).contato_emergencia_telefone = 'Telefone inválido';
+        } else {
+          delete (newErrors as any).contato_emergencia_telefone;
+        }
+        break;
+      case 'endereco_cep':
+        formattedValue = formatCEP(value);
+        break;
+      case 'Data_Nascimento':
+        formattedValue = formatDateInput(value);
+        break;
+      case 'startDate':
+        formattedValue = formatDateInput(value);
+        break;
+      case 'numero_carteirinha':
+        formattedValue = formatCarteirinha(value);
+        break;
+      case 'rg':
+        formattedValue = formatRG(value);
+        break;
       case 'email':
         formattedValue = value.toLowerCase();
         if (formattedValue && !validateEmail(formattedValue)) {
@@ -1131,52 +1444,18 @@ const Patients = () => {
           delete newErrors.email;
         }
         break;
-      
-      case 'numero_carteirinha':
-        formattedValue = formatCarteirinha(value);
-        break;
-      
-      case 'Data_Nascimento':
-        formattedValue = formatDateInput(value);
-        if (formattedValue.length === 10) {
-          if (!validateDate(formattedValue)) {
-            newErrors.Data_Nascimento = 'Data inválida';
-          } else {
-            delete newErrors.Data_Nascimento;
-          }
-        } else {
-          delete newErrors.Data_Nascimento;
-        }
-        break;
-      
-      case 'startDate':
-        formattedValue = formatDateInput(value);
-        if (formattedValue.length === 10) {
-          if (!validateDate(formattedValue)) {
-            newErrors.startDate = 'Data inválida';
-          } else {
-            delete newErrors.startDate;
-          }
-        } else {
-          delete newErrors.startDate;
-        }
-        break;
-      
       case 'Paciente_Nome':
         // Capitalizar apenas a primeira letra, mantendo o resto como digitado
         formattedValue = value.charAt(0).toUpperCase() + value.slice(1);
         break;
-      
       case 'Codigo':
         // Remover espaços e converter para maiúsculas
         formattedValue = value.replace(/\s+/g, '').toUpperCase();
         break;
-      
       case 'Cid_Diagnostico':
         // Formato CID: letra maiúscula + números
         formattedValue = value.toUpperCase().replace(/[^A-Z0-9.]/g, '');
         break;
-      
       default:
         formattedValue = value;
         break;
@@ -1208,16 +1487,30 @@ const Patients = () => {
           
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative max-w-xs">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className={`absolute left-2.5 top-2.5 h-4 w-4 ${
+                searchTerm ? 'text-primary' : 'text-muted-foreground'
+              }`} />
               <Input
                 placeholder="Buscar pacientes..."
-                className="pl-8 transition-all duration-300 focus:ring-2 focus:ring-primary/20"
+                className={`pl-8 transition-all duration-300 focus:ring-2 focus:ring-primary/20 ${
+                  searchTerm ? 'border-primary bg-primary/5' : ''
+                }`}
                 value={searchTerm}
                 onChange={(e) => {
                   setSearchTerm(e.target.value);
                   setCurrentPage(1);
                 }}
               />
+              {searchTerm && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-1 top-1 h-6 w-6 p-0 text-muted-foreground hover:text-primary"
+                  onClick={() => setSearchTerm('')}
+                >
+                  ×
+                </Button>
+              )}
             </div>
             
             <Button 
@@ -1240,7 +1533,7 @@ const Patients = () => {
           </div>
           
           <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className={`w-40 ${sortBy !== 'newest' ? 'border-primary bg-primary/5' : ''}`}>
               <SelectValue placeholder="Ordenar por" />
             </SelectTrigger>
             <SelectContent>
@@ -1252,7 +1545,7 @@ const Patients = () => {
           </Select>
 
           <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="w-40">
+            <SelectTrigger className={`w-40 ${statusFilter !== 'all' ? 'border-primary bg-primary/5' : ''}`}>
               <SelectValue placeholder="Status" />
             </SelectTrigger>
             <SelectContent>
@@ -1263,12 +1556,64 @@ const Patients = () => {
             </SelectContent>
           </Select>
 
-          <div className="text-sm text-muted-foreground ml-auto">
-            {backendConnected ? (
-              `${totalPatients} paciente(s) encontrado(s)`
-            ) : (
-              `${filteredAndSortedPatients.length} paciente(s) encontrado(s)`
+          <Select value={cidFilter} onValueChange={setCidFilter}>
+            <SelectTrigger className={`w-40 ${cidFilter !== 'all' ? 'border-primary bg-primary/5' : ''}`}>
+              <SelectValue placeholder="CID" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os CIDs</SelectItem>
+              <SelectItem value="C50">C50 - Mama</SelectItem>
+              <SelectItem value="C78">C78 - Metástases</SelectItem>
+              <SelectItem value="C34">C34 - Pulmão</SelectItem>
+              <SelectItem value="C18">C18 - Cólon</SelectItem>
+              <SelectItem value="C16">C16 - Estômago</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={protocoloFilter} onValueChange={setProtocoloFilter}>
+            <SelectTrigger className={`w-40 ${protocoloFilter !== 'all' ? 'border-primary bg-primary/5' : ''}`}>
+              <SelectValue placeholder="Protocolo" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os protocolos</SelectItem>
+              <SelectItem value="AC-T">AC-T</SelectItem>
+              <SelectItem value="FEC">FEC</SelectItem>
+              <SelectItem value="Carboplatina">Carboplatina</SelectItem>
+              <SelectItem value="Cisplatina">Cisplatina</SelectItem>
+              <SelectItem value="Paclitaxel">Paclitaxel</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Select value={operadoraFilter} onValueChange={setOperadoraFilter}>
+            <SelectTrigger className={`w-40 ${operadoraFilter !== 'all' ? 'border-primary bg-primary/5' : ''}`}>
+              <SelectValue placeholder="Operadora" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as operadoras</SelectItem>
+              <SelectItem value="Unimed">Unimed</SelectItem>
+              <SelectItem value="Amil">Amil</SelectItem>
+              <SelectItem value="SulAmérica">SulAmérica</SelectItem>
+              <SelectItem value="Bradesco">Bradesco Saúde</SelectItem>
+              <SelectItem value="Porto Seguro">Porto Seguro</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <div className="flex items-center gap-2 ml-auto">
+
+            
+            {(searchTerm || statusFilter !== 'all' || cidFilter !== 'all' || protocoloFilter !== 'all' || operadoraFilter !== 'all' || sortBy !== 'newest') && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={resetFilters}
+                className="text-xs"
+              >
+                Limpar Filtros
+              </Button>
             )}
+            <div className="text-sm text-muted-foreground">
+              {filteredAndSortedPatients.length} paciente(s) encontrado(s)
+            </div>
           </div>
         </div>
       </AnimatedSection>
@@ -1285,7 +1630,7 @@ const Patients = () => {
             <User className="w-16 h-16 text-muted-foreground mb-4 opacity-50" />
             <h3 className="text-lg font-medium">Nenhum paciente encontrado</h3>
             <p className="text-muted-foreground mt-2">
-              {searchTerm ? 
+              {(searchTerm || statusFilter !== 'all' || cidFilter !== 'all' || protocoloFilter !== 'all' || operadoraFilter !== 'all') ? 
                 'Tente mudar sua busca ou filtros, ou adicione um novo paciente' :
                 'Nenhum paciente cadastrado ainda. Adicione o primeiro paciente!'
               }
@@ -1307,7 +1652,7 @@ const Patients = () => {
             {displayedPatients.map((patient, index) => (
               <AnimatedSection key={patient.id} delay={100 * index}>
                 <PatientCard 
-                  patient={patient} 
+                  patient={{ ...patient, authorizations: getSolicitacoesDoPaciente(parseInt(patient.id)) }} 
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                   onShowInfo={handleShowInfo}
@@ -1339,7 +1684,7 @@ const Patients = () => {
       
       {/* Modal de Adicionar/Editar Paciente */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden scrollbar-hide">
           <DialogHeader>
             <DialogTitle>
               {isEditing ? 'Editar Paciente' : 'Adicionar Novo Paciente'}
@@ -1354,11 +1699,12 @@ const Patients = () => {
           </div>
           
           <div className="space-y-4">
-            <Tabs defaultValue="dados-pessoais" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="dados-pessoais">Dados Pessoais</TabsTrigger>
-                <TabsTrigger value="dados-medicos">Dados Médicos</TabsTrigger>
-                <TabsTrigger value="dados-contato">Dados de Contato</TabsTrigger>
+                          <Tabs defaultValue="dados-pessoais" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="dados-pessoais">Dados Pessoais</TabsTrigger>
+                  <TabsTrigger value="dados-autorizacao">Dados Autorização</TabsTrigger>
+                  <TabsTrigger value="dados-medicos">Informações de Saúde</TabsTrigger>
+                  <TabsTrigger value="dados-contato">Dados de Contato</TabsTrigger>
               </TabsList>
 
               <TabsContent value="dados-pessoais" className="space-y-4">
@@ -1381,23 +1727,7 @@ const Patients = () => {
                     )}
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="Codigo">Código do Paciente *</Label>
-                    <Input
-                      id="Codigo"
-                      name="Codigo"
-                      value={currentPatient.Codigo}
-                      onChange={handleInputChange}
-                      placeholder="Ex: PAC001"
-                      required
-                      className={`transition-all duration-300 focus:border-primary ${
-                        validationErrors.Codigo ? 'border-red-500' : ''
-                      }`}
-                    />
-                    {validationErrors.Codigo && (
-                      <p className="text-sm text-red-500 mt-1">{validationErrors.Codigo}</p>
-                    )}
-                  </div>
+                  
                   
                   <div className="space-y-2">
                     <Label htmlFor="cpf">CPF</Label>
@@ -1466,14 +1796,37 @@ const Patients = () => {
                       <SelectContent>
                         <SelectItem value="Masculino">Masculino</SelectItem>
                         <SelectItem value="Feminino">Feminino</SelectItem>
-                        <SelectItem value="Outro">Outro</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
               </TabsContent>
 
-              <TabsContent value="dados-medicos" className="space-y-4">
+                             <TabsContent value="dados-autorizacao" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="plano_saude">Plano</Label>
+                    <Input
+                      id="plano_saude"
+                      name="plano_saude"
+                      value={currentPatient.plano_saude}
+                      onChange={handleInputChange}
+                      placeholder="Ex: Unimed Nacional"
+                      className="transition-all duration-300 focus:border-primary"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="numero_carteirinha">Número da Carteira</Label>
+                    <Input
+                      id="numero_carteirinha"
+                      name="numero_carteirinha"
+                      value={currentPatient.numero_carteirinha}
+                      onChange={handleInputChange}
+                      placeholder="Ex: 123456789"
+                      className="transition-all duration-300 focus:border-primary"
+                    />
+                  </div>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="Operadora">Operadora *</Label>
@@ -1499,67 +1852,35 @@ const Patients = () => {
                       <p className="text-sm text-red-500 mt-1">{validationErrors.Operadora}</p>
                     )}
                   </div>
-
                   <div className="space-y-2">
-                    <Label htmlFor="Prestador">Prestador *</Label>
+                    <Label htmlFor="abrangencia">Abrangência</Label>
                     <Input
-                      id="Prestador"
-                      name="Prestador"
-                      value={currentPatient.Prestador}
+                      id="abrangencia"
+                      name="abrangencia"
+                      value={(currentPatient as any).abrangencia || ''}
                       onChange={handleInputChange}
-                      placeholder="Digite o nome do prestador..."
-                      required
-                      className={`transition-all duration-300 focus:border-primary ${
-                        validationErrors.Prestador ? 'border-red-500' : ''
-                      }`}
-                    />
-                    {validationErrors.Prestador && (
-                      <p className="text-sm text-red-500 mt-1">{validationErrors.Prestador}</p>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="plano_saude">Plano de Saúde</Label>
-                    <Input
-                      id="plano_saude"
-                      name="plano_saude"
-                      value={currentPatient.plano_saude}
-                      onChange={handleInputChange}
-                      placeholder="Ex: Unimed Nacional"
+                      placeholder="Ex: Nacional, Estadual, Municipal"
                       className="transition-all duration-300 focus:border-primary"
                     />
                   </div>
+                </div>
+              </TabsContent>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="numero_carteirinha">Número da Carteirinha</Label>
-                    <Input
-                      id="numero_carteirinha"
-                      name="numero_carteirinha"
-                      value={currentPatient.numero_carteirinha}
-                      onChange={handleInputChange}
-                      placeholder="Ex: 123456789"
-                      className="transition-all duration-300 focus:border-primary"
-                    />
-                  </div>
-                  
+              <TabsContent value="dados-medicos" className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="Cid_Diagnostico">CID Diagnóstico *</Label>
-                    <Input
-                      id="Cid_Diagnostico"
-                      name="Cid_Diagnostico"
-                      value={currentPatient.Cid_Diagnostico}
-                      onChange={handleInputChange}
-                      placeholder="Ex: C50 (Câncer de Mama)"
-                      required
-                      className={`transition-all duration-300 focus:border-primary ${
-                        validationErrors.Cid_Diagnostico ? 'border-red-500' : ''
-                      }`}
+                    <CIDSelection
+                      value={currentPatient.Cid_Diagnostico || ''}
+                      patientCID={currentPatient.Cid_Diagnostico || ''}
+                      onChange={(arr) => handleSelectChange('Cid_Diagnostico', arr?.[0]?.codigo || '')}
+                      multiple={false}
                     />
                     {validationErrors.Cid_Diagnostico && (
                       <p className="text-sm text-red-500 mt-1">{validationErrors.Cid_Diagnostico}</p>
                     )}
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="stage">Estágio *</Label>
                     <Input
@@ -1577,7 +1898,7 @@ const Patients = () => {
                       <p className="text-sm text-red-500 mt-1">{validationErrors.stage}</p>
                     )}
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="treatment">Tratamento *</Label>
                     <Input
@@ -1595,9 +1916,9 @@ const Patients = () => {
                       <p className="text-sm text-red-500 mt-1">{validationErrors.treatment}</p>
                     )}
                   </div>
-                  
+
                   <div className="space-y-2">
-                    <Label htmlFor="startDate">Data de Início do Tratamento *</Label>
+                    <Label htmlFor="startDate">Data Início Tratamento *</Label>
                     <Input
                       id="startDate"
                       name="startDate"
@@ -1613,6 +1934,48 @@ const Patients = () => {
                     {validationErrors.startDate && (
                       <p className="text-sm text-red-500 mt-1">{validationErrors.startDate}</p>
                     )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="Prestador">Médico Assistente *</Label>
+                    <Input
+                      id="Prestador"
+                      name="Prestador"
+                      value={currentPatient.Prestador}
+                      onChange={handleInputChange}
+                      placeholder="Digite o nome do médico assistente..."
+                      required
+                      className={`transition-all duration-300 focus:border-primary ${
+                        validationErrors.Prestador ? 'border-red-500' : ''
+                      }`}
+                    />
+                    {validationErrors.Prestador && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.Prestador}</p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="peso">Peso (kg)</Label>
+                    <Input
+                      id="peso"
+                      name="peso"
+                      value={(currentPatient as any).peso || ''}
+                      onChange={handleInputChange}
+                      placeholder="Ex: 70"
+                      className="transition-all duration-300 focus:border-primary"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="altura">Altura (cm)</Label>
+                    <Input
+                      id="altura"
+                      name="altura"
+                      value={(currentPatient as any).altura || ''}
+                      onChange={handleInputChange}
+                      placeholder="Ex: 170"
+                      className="transition-all duration-300 focus:border-primary"
+                    />
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
@@ -1640,68 +2003,212 @@ const Patients = () => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="dados-contato" className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="telefone">Telefone</Label>
-                    <Input
-                      id="telefone"
-                      name="telefone"
-                      value={currentPatient.telefone}
-                      onChange={handleInputChange}
-                      placeholder="(00) 00000-0000"
-                      maxLength={15}
-                      className={`transition-all duration-300 focus:border-primary ${
-                        validationErrors.telefone ? 'border-red-500' : ''
-                      }`}
-                    />
-                    {validationErrors.telefone && (
-                      <p className="text-sm text-red-500 mt-1">{validationErrors.telefone}</p>
-                    )}
+                             <TabsContent value="dados-contato" className="space-y-4">
+                <div className="space-y-6">
+                  {/* Seção de Informações do Prestador */}
+                  <div className="space-y-4">
+                    <div className="border-b pb-2">
+                      <h3 className="text-lg font-medium text-foreground">Informações do Prestador</h3>
+                      <p className="text-sm text-muted-foreground">Dados de contato do prestador de serviços</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="setor_prestador">Setor</Label>
+                        <Select
+                          value={currentPatient.setor_prestador}
+                          onValueChange={(value) => handleSelectChange('setor_prestador', value)}
+                        >
+                          <SelectTrigger className="transition-all duration-300 focus:border-primary">
+                            <SelectValue placeholder="Selecione o setor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Agendamento">Agendamento</SelectItem>
+                            <SelectItem value="Faturamento">Faturamento</SelectItem>
+                            <SelectItem value="Administração">Administração</SelectItem>
+                            <SelectItem value="Farmácia">Farmácia</SelectItem>
+                            <SelectItem value="Contratos">Contratos</SelectItem>
+                            <SelectItem value="Outros">Outros</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="telefone">Telefone</Label>
+                        <Input
+                          id="telefone"
+                          name="telefone"
+                          value={currentPatient.telefone}
+                          onChange={handleInputChange}
+                          placeholder="(00) 00000-0000"
+                          maxLength={15}
+                          className={`transition-all duration-300 focus:border-primary ${
+                            validationErrors.telefone ? 'border-red-500' : ''
+                          }`}
+                        />
+                        {validationErrors.telefone && (
+                          <p className="text-sm text-red-500 mt-1">{validationErrors.telefone}</p>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="email">E-mail</Label>
+                        <Input
+                          id="email"
+                          name="email"
+                          type="email"
+                          value={currentPatient.email}
+                          onChange={handleInputChange}
+                          placeholder="exemplo@email.com"
+                          className={`transition-all duration-300 focus:border-primary ${
+                            validationErrors.email ? 'border-red-500' : ''
+                          }`}
+                        />
+                        {validationErrors.email && (
+                          <p className="text-sm text-red-500 mt-1">{validationErrors.email}</p>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   
-                  <div className="space-y-2">
-                    <Label htmlFor="email">E-mail</Label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      value={currentPatient.email}
-                      onChange={handleInputChange}
-                      placeholder="exemplo@email.com"
-                      className={`transition-all duration-300 focus:border-primary ${
-                        validationErrors.email ? 'border-red-500' : ''
-                      }`}
-                    />
-                    {validationErrors.email && (
-                      <p className="text-sm text-red-500 mt-1">{validationErrors.email}</p>
-                    )}
-                  </div>
+                  {/* Seção de Informações Pessoais do Paciente */}
+                  <div className="space-y-4">
+                    <div className="border-b pb-2">
+                      <h3 className="text-lg font-medium text-foreground">Informações Pessoais</h3>
+                      <p className="text-sm text-muted-foreground">Dados pessoais e endereço do paciente</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="contato_emergencia_nome">Contato de Emergência - Nome</Label>
+                          <Input
+                            id="contato_emergencia_nome"
+                            name="contato_emergencia_nome"
+                            value={(currentPatient as any).contato_emergencia_nome || ''}
+                            onChange={handleInputChange}
+                            placeholder="Nome do contato de emergência"
+                            className="transition-all duration-300 focus:border-primary"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="contato_emergencia_telefone">Contato de Emergência - Telefone</Label>
+                          <Input
+                            id="contato_emergencia_telefone"
+                            name="contato_emergencia_telefone"
+                            value={(currentPatient as any).contato_emergencia_telefone || ''}
+                            onChange={handleInputChange}
+                            placeholder="(00) 00000-0000"
+                            maxLength={15}
+                            className={`transition-all duration-300 focus:border-primary ${
+                              (validationErrors as any).contato_emergencia_telefone ? 'border-red-500' : ''
+                            }`}
+                          />
+                          {(validationErrors as any).contato_emergencia_telefone && (
+                            <p className="text-sm text-red-500 mt-1">{(validationErrors as any).contato_emergencia_telefone}</p>
+                          )}
+                        </div>
+                      </div>
 
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="endereco">Endereço</Label>
-                    <Textarea
-                      id="endereco"
-                      name="endereco"
-                      value={currentPatient.endereco}
-                      onChange={handleInputChange}
-                      placeholder="Rua, número, complemento, bairro, cidade, estado, CEP"
-                      className="transition-all duration-300 focus:border-primary"
-                      rows={3}
-                    />
-                  </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div className="space-y-2 md:col-span-2">
+                          <Label htmlFor="endereco_rua">Rua</Label>
+                          <Input
+                            id="endereco_rua"
+                            name="endereco_rua"
+                            value={(currentPatient as any).endereco_rua || ''}
+                            onChange={handleInputChange}
+                            placeholder="Rua"
+                            className="transition-all duration-300 focus:border-primary"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="endereco_numero">Número</Label>
+                          <Input
+                            id="endereco_numero"
+                            name="endereco_numero"
+                            value={(currentPatient as any).endereco_numero || ''}
+                            onChange={handleInputChange}
+                            placeholder="Número"
+                            className="transition-all duration-300 focus:border-primary"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="endereco_complemento">Complemento</Label>
+                          <Input
+                            id="endereco_complemento"
+                            name="endereco_complemento"
+                            value={(currentPatient as any).endereco_complemento || ''}
+                            onChange={handleInputChange}
+                            placeholder="Ap, Bloco, etc."
+                            className="transition-all duration-300 focus:border-primary"
+                          />
+                        </div>
+                      </div>
 
-                  <div className="space-y-2 md:col-span-2">
-                    <Label htmlFor="observacoes">Observações</Label>
-                    <Textarea
-                      id="observacoes"
-                      name="observacoes"
-                      value={currentPatient.observacoes}
-                      onChange={handleInputChange}
-                      placeholder="Informações adicionais sobre o paciente, histórico médico, etc."
-                      className="transition-all duration-300 focus:border-primary"
-                      rows={4}
-                    />
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="endereco_bairro">Bairro</Label>
+                          <Input
+                            id="endereco_bairro"
+                            name="endereco_bairro"
+                            value={(currentPatient as any).endereco_bairro || ''}
+                            onChange={handleInputChange}
+                            placeholder="Bairro"
+                            className="transition-all duration-300 focus:border-primary"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="endereco_cidade">Cidade</Label>
+                          <Input
+                            id="endereco_cidade"
+                            name="endereco_cidade"
+                            value={(currentPatient as any).endereco_cidade || ''}
+                            onChange={handleInputChange}
+                            placeholder="Cidade"
+                            className="transition-all duration-300 focus:border-primary"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="endereco_estado">Estado</Label>
+                          <Input
+                            id="endereco_estado"
+                            name="endereco_estado"
+                            value={(currentPatient as any).endereco_estado || ''}
+                            onChange={handleInputChange}
+                            placeholder="UF"
+                            maxLength={2}
+                            className="transition-all duration-300 focus:border-primary"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="endereco_cep">CEP</Label>
+                        <Input
+                          id="endereco_cep"
+                          name="endereco_cep"
+                          value={(currentPatient as any).endereco_cep || ''}
+                          onChange={handleInputChange}
+                          placeholder="00000-000"
+                          maxLength={9}
+                          className="transition-all duration-300 focus:border-primary"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="observacoes">Observações</Label>
+                        <Textarea
+                          id="observacoes"
+                          name="observacoes"
+                          value={currentPatient.observacoes}
+                          onChange={handleInputChange}
+                          placeholder="Informações adicionais sobre o paciente"
+                          className="transition-all duration-300 focus:border-primary"
+                          rows={4}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
               </TabsContent>
@@ -1729,7 +2236,7 @@ const Patients = () => {
 
       {/* Modal de Informações Detalhadas */}
       <Dialog open={isInfoDialogOpen} onOpenChange={setIsInfoDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto overflow-x-hidden scrollbar-hide">
           <DialogHeader>
             <DialogTitle className="text-xl font-semibold flex items-center gap-2">
               <User className="h-5 w-5" />
@@ -1778,17 +2285,17 @@ const Patients = () => {
               <Separator />
 
               <div>
-                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                                <h4 className="font-semibold mb-3 flex items-center gap-2">
                   <Building2 className="h-4 w-4" />
-                  Dados Médicos
+                  Informações de Saúde
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-muted-foreground">Operadora:</span>
-                    <p className="font-medium">{selectedPatient.Operadora}</p>
+                    <span className="text-muted-foreground">Operadora / Plano / Abrangência:</span>
+                    <p className="font-medium">{getOperadoraName(selectedPatient.Operadora)} {selectedPatient.plano_saude ? `• ${selectedPatient.plano_saude}` : ''} {(selectedPatient as any).abrangencia ? `• ${(selectedPatient as any).abrangencia}` : ''}</p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Prestador:</span>
+                    <span className="text-muted-foreground">Médico Assistente:</span>
                     <p className="font-medium">{selectedPatient.Prestador}</p>
                   </div>
                   <div>
@@ -1807,6 +2314,10 @@ const Patients = () => {
                     <span className="text-muted-foreground">Início do Tratamento:</span>
                     <p className="font-medium">{selectedPatient.startDate}</p>
                   </div>
+                  <div>
+                    <span className="text-muted-foreground">Peso / Altura:</span>
+                    <p className="font-medium">{(selectedPatient as any).peso || '—'} kg {(selectedPatient as any).altura ? `• ${(selectedPatient as any).altura} cm` : ''}</p>
+                  </div>
                 </div>
               </div>
 
@@ -1818,25 +2329,40 @@ const Patients = () => {
                   Dados de Contato
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Phone className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <span className="text-muted-foreground">Telefone:</span>
-                      <p className="font-medium">{selectedPatient.telefone || 'Não informado'}</p>
-                    </div>
+                                  <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <span className="text-muted-foreground">Telefone:</span>
+                    <p className="font-medium">{selectedPatient.telefone || 'Não informado'}</p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <div>
-                      <span className="text-muted-foreground">E-mail:</span>
-                      <p className="font-medium">{selectedPatient.email || 'Não informado'}</p>
-                    </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <span className="text-muted-foreground">E-mail:</span>
+                    <p className="font-medium">{selectedPatient.email || 'Não informado'}</p>
                   </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <span className="text-muted-foreground">Contato de Emergência:</span>
+                    <p className="font-medium">{(selectedPatient as any).contato_emergencia_nome || '—'} {(selectedPatient as any).contato_emergencia_telefone ? `• ${(selectedPatient as any).contato_emergencia_telefone}` : ''}</p>
+                  </div>
+                </div>
                   <div className="md:col-span-2 flex items-start gap-2">
                     <MapPin className="h-4 w-4 text-muted-foreground mt-1" />
                     <div className="flex-1">
                       <span className="text-muted-foreground">Endereço:</span>
-                      <p className="font-medium">{selectedPatient.endereco || 'Não informado'}</p>
+                      <p className="font-medium">
+                        {((selectedPatient as any).endereco_rua || '')}
+                        {((selectedPatient as any).endereco_numero ? `, ${(selectedPatient as any).endereco_numero}` : '')}
+                        {((selectedPatient as any).endereco_complemento ? ` - ${(selectedPatient as any).endereco_complemento}` : '')}
+                        {((selectedPatient as any).endereco_bairro ? ` - ${(selectedPatient as any).endereco_bairro}` : '')}
+                        {((selectedPatient as any).endereco_cidade ? ` - ${(selectedPatient as any).endereco_cidade}` : '')}
+                        {((selectedPatient as any).endereco_estado ? ` - ${(selectedPatient as any).endereco_estado}` : '')}
+                        {((selectedPatient as any).endereco_cep ? ` - ${(selectedPatient as any).endereco_cep}` : '')}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1858,25 +2384,100 @@ const Patients = () => {
                 <>
                   <Separator />
                   <div>
-                    <h4 className="font-semibold mb-3">Autorizações</h4>
-                    <div className="space-y-3">
+                    <h4 className="font-semibold mb-3 flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      Autorizações ({selectedPatient.authorizations.length})
+                    </h4>
+                    <div className="space-y-4">
                       {selectedPatient.authorizations.map((auth) => (
-                        <Card key={auth.id} className="p-3">
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="font-medium text-sm">{auth.protocol}</p>
-                              <p className="text-sm text-muted-foreground">{auth.description}</p>
-                              <p className="text-xs text-muted-foreground mt-1">Data: {auth.date}</p>
+                        <Card 
+                          key={auth.id} 
+                          className="group p-4 cursor-pointer bg-gradient-to-r from-accent/10 to-accent/5 border border-accent/30 hover:from-background/80 hover:to-background/60 hover:border-border/50 transition-all duration-300 hover:shadow-md hover:scale-[1.01] auth-card-hover"
+                          onClick={() => {
+                            setIsInfoDialogOpen(false);
+                            navigate('/historico-solicitacoes', { 
+                              state: { 
+                                scrollToAuth: auth.id.toString(),
+                                authId: auth.id 
+                              }
+                            });
+                          }}
+                        >
+                          {/* Header */}
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-3">
+                                                             <span className="text-sm font-bold text-primary bg-gradient-to-r from-primary/10 to-primary/5 px-3 py-1 rounded-full border border-primary/20">
+                                 {auth.numero_autorizacao}
+                               </span>
+                              <Badge variant={
+                                auth.status === 'aprovada' ? 'default' : 
+                                auth.status === 'pendente' ? 'secondary' : 
+                                'destructive'
+                              } className="text-xs">
+                                {auth.status === 'aprovada' ? 'Aprovada' : 
+                                 auth.status === 'pendente' ? 'Pendente' : 
+                                 'Rejeitada'}
+                              </Badge>
                             </div>
-                            <Badge variant={
-                              auth.status === 'approved' ? 'default' : 
-                              auth.status === 'pending' ? 'secondary' : 
-                              'destructive'
-                            }>
-                              {auth.status === 'approved' ? 'Aprovado' : 
-                               auth.status === 'pending' ? 'Pendente' : 
-                               'Rejeitado'}
-                            </Badge>
+                            <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Eye className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          </div>
+
+                          {/* Informações principais */}
+                          <div className="space-y-2">
+                            <div className="text-sm font-medium text-foreground">
+                              {auth.diagnostico_descricao}
+                            </div>
+                            
+                            {/* Ciclos com barra de progresso */}
+                            {(auth.ciclo_atual || auth.ciclos_previstos) && (
+                              <div className="space-y-2">
+                                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                  <span>Progresso do Tratamento</span>
+                                  <span className="font-medium">
+                                    Ciclo {auth.ciclo_atual || 0} de {auth.ciclos_previstos || 0}
+                                  </span>
+                                </div>
+                                {auth.ciclos_previstos && (
+                                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                                    <div 
+                                      className="bg-gradient-to-r from-primary to-primary/80 h-full transition-all duration-500 rounded-full"
+                                      style={{ 
+                                        width: `${Math.min(100, ((auth.ciclo_atual || 0) / auth.ciclos_previstos) * 100)}%` 
+                                      }}
+                                    ></div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Informações detalhadas */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-muted-foreground">
+                              {auth.medicamentos_antineoplasticos && (
+                                <div>
+                                  <span className="font-medium">Medicamentos:</span>
+                                  <p className="line-clamp-2 mt-1">{auth.medicamentos_antineoplasticos}</p>
+                                </div>
+                              )}
+                              
+                              {auth.finalidade && (
+                                <div>
+                                  <span className="font-medium">Finalidade:</span>
+                                  <p className="mt-1">{auth.finalidade}</p>
+                                </div>
+                              )}
+                              
+                              <div>
+                                <span className="font-medium">Data:</span>
+                                <p className="mt-1">{auth.data_solicitacao}</p>
+                              </div>
+                              
+                              <div>
+                                <span className="font-medium">Hospital:</span>
+                                <p className="mt-1 line-clamp-1">{auth.hospital_nome}</p>
+                              </div>
+                            </div>
                           </div>
                         </Card>
                       ))}
@@ -1884,6 +2485,76 @@ const Patients = () => {
                   </div>
                 </>
               )}
+
+              {/* Autorizações reais vinculadas ao paciente */}
+              {(() => {
+                const authsDoPaciente = solicitacoes.filter(s => s.paciente_id === Number(selectedPatient.id));
+                return authsDoPaciente.length > 0 ? (
+                  <>
+                    <Separator />
+                    <div>
+                      <h4 className="font-semibold mb-3 flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Autorizações ({authsDoPaciente.length})
+                      </h4>
+                      <div className="space-y-4">
+                        {authsDoPaciente.map((auth) => (
+                          <Card 
+                            key={auth.id} 
+                            className="group p-4 cursor-pointer bg-gradient-to-r from-accent/10 to-accent/5 border border-accent/30 hover:from-background/80 hover:to-background/60 hover:border-border/50 transition-all duration-300 hover:shadow-md hover:scale-[1.01] auth-card-hover"
+                            onClick={() => {
+                              setIsInfoDialogOpen(false);
+                              navigate('/historico-solicitacoes', { 
+                                    state: { 
+                                      scrollToAuth: String(auth.id || ''),
+                                      authId: auth.id 
+                                    }
+                                  });
+                            }}
+                          >
+                            {/* Header */}
+                            <div className="flex items-center justify-between mb-3">
+                              <div className="flex items-center gap-3">
+                                <span className="text-sm font-bold text-primary bg-gradient-to-r from-primary/10 to-primary/5 px-3 py-1 rounded-full border border-primary/20">
+                                  {auth.id ? `AUTH-${auth.id}` : 'Autorização'}
+                                </span>
+                              </div>
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Eye className="h-4 w-4 text-muted-foreground" />
+                              </div>
+                            </div>
+
+                            {/* Informações principais */}
+                            <div className="space-y-2">
+                              <div className="text-sm font-medium text-foreground">
+                                {auth.diagnostico_descricao}
+                              </div>
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs text-muted-foreground">
+                                <div>
+                                  <span className="font-medium">CID:</span> {auth.diagnostico_cid}
+                                </div>
+                                <div>
+                                  <span className="font-medium">Data:</span> {auth.data_solicitacao}
+                                </div>
+                                {auth.ciclos_previstos ? (
+                                  <div>
+                                    <span className="font-medium">Ciclos:</span> {auth.ciclo_atual || 0} de {auth.ciclos_previstos}
+                                  </div>
+                                ) : null}
+                                {auth.hospital_nome ? (
+                                  <div>
+                                    <span className="font-medium">Hospital:</span> {auth.hospital_nome}
+                                  </div>
+                                ) : null}
+                              </div>
+                            </div>
+                          </Card>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                ) : null;
+              })()}
             </div>
           )}
           
