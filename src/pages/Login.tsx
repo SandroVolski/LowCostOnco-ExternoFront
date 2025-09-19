@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOperadoraAuth } from '@/contexts/OperadoraAuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,7 +8,7 @@ import Logo from '@/components/Logo';
 import AnimatedText from '@/components/AnimatedText';
 import LoginTransition from '@/components/LoginTransition';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Sun, Moon } from 'lucide-react';
+import { Sun, Moon, Building2, Shield } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { AuthService } from '@/services/api';
 
@@ -18,6 +19,7 @@ const Login = () => {
   const [showTransition, setShowTransition] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const { login, navigateToDashboard } = useAuth();
+  const { login: operadoraLogin } = useOperadoraAuth();
 
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -25,11 +27,52 @@ const Login = () => {
   const [forgotMessage, setForgotMessage] = useState<string | null>(null);
   const [forgotError, setForgotError] = useState<string | null>(null);
 
+  // Estados para login administrativo discreto
+  const [adminMode, setAdminMode] = useState(false);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
+  const [adminLoading, setAdminLoading] = useState(false);
+
+  // Estados para login da operadora
+  const [operadoraMode, setOperadoraMode] = useState(false);
+  const [operadoraEmail, setOperadoraEmail] = useState('');
+  const [operadoraPassword, setOperadoraPassword] = useState('');
+  const [operadoraLoading, setOperadoraLoading] = useState(false);
+  const [operadoraError, setOperadoraError] = useState('');
+
+  // Acesso administrativo via teclas de atalho (Ctrl + Shift + A)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'A') {
+        e.preventDefault();
+        setAdminMode(true);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
     
     try {
+      // Verificar se são credenciais administrativas específicas
+      if (username === 'OnkhosGlobal' && password === 'Douglas193') {
+        // Armazenar dados administrativos
+        localStorage.setItem('adminToken', 'admin-special-access');
+        localStorage.setItem('adminUser', JSON.stringify({
+          username: 'OnkhosGlobal',
+          role: 'admin',
+          isSpecialAdmin: true
+        }));
+        
+        // Redirecionar para área administrativa
+        window.location.href = '/admin/controle-sistema';
+        return;
+      }
+      
       const success = await login(username, password, true); // Skip navigation
       if (success) {
         // Mostrar a transição antes de navegar
@@ -37,6 +80,71 @@ const Login = () => {
       }
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAdminLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAdminLoading(true);
+    
+    try {
+      // Login administrativo via endpoint existente
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || '/api'}/clinicas/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ 
+          username: adminEmail, // Usar username em vez de email
+          password: adminPassword 
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Login admin result:', result);
+        
+        // Verificar se o usuário tem role admin
+        if (result.user?.role === 'admin') {
+          // Armazenar token e dados do usuário
+          localStorage.setItem('adminToken', result.token || '');
+          localStorage.setItem('adminUser', JSON.stringify(result.user));
+          
+          // Redirecionar para dashboard administrativo
+          window.location.href = '/admin/dashboard';
+        } else {
+          alert('Acesso negado. Apenas administradores podem acessar esta área.');
+        }
+      } else {
+        const error = await response.json();
+        console.error('Erro no login admin:', error);
+        alert(error.message || 'Erro no login administrativo');
+      }
+    } catch (error) {
+      console.error('Erro no login administrativo:', error);
+      alert('Erro no login administrativo');
+    } finally {
+      setAdminLoading(false);
+    }
+  };
+
+  const handleOperadoraLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setOperadoraLoading(true);
+    setOperadoraError('');
+    
+    try {
+      const success = await operadoraLogin(operadoraEmail, operadoraPassword);
+      if (success) {
+        // Redirecionar para página de análise da operadora
+        window.location.href = '/analysis';
+      } else {
+        setOperadoraError('Email ou senha inválidos');
+      }
+    } catch (error) {
+      console.error('Erro no login da operadora:', error);
+      setOperadoraError('Erro ao fazer login. Tente novamente.');
+    } finally {
+      setOperadoraLoading(false);
     }
   };
 
@@ -215,6 +323,43 @@ const Login = () => {
                 {isLoading ? 'Autenticando...' : 'Entrar'}
               </Button>
             </form>
+
+            {/* Botões de acesso alternativo */}
+            <div className="mt-6 space-y-3">
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-card px-2 text-muted-foreground">Acesso Especial</span>
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setOperadoraMode(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Shield className="h-4 w-4" />
+                  Operadora
+                </Button>
+                
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setAdminMode(true)}
+                  className="flex items-center gap-2"
+                >
+                  <Building2 className="h-4 w-4" />
+                  Admin
+                </Button>
+              </div>
+            </div>
+
           </CardContent>
           
           <CardFooter className="flex justify-center pt-4">
@@ -222,6 +367,137 @@ const Login = () => {
           </CardFooter>
         </Card>
       </div>
+
+      {/* Modal de Login Administrativo (Discreto) */}
+      <Dialog open={adminMode} onOpenChange={setAdminMode}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center">🔐 Acesso Restrito</DialogTitle>
+            <DialogDescription className="text-center">
+              Área administrativa - Apenas usuários autorizados
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAdminLogin} className="space-y-4">
+            <div className="space-y-2">
+              <label htmlFor="adminEmail" className="text-sm font-medium">
+                Usuário Administrativo
+              </label>
+              <Input
+                id="adminEmail"
+                value={adminEmail}
+                onChange={(e) => setAdminEmail(e.target.value)}
+                placeholder="Digite o usuário admin"
+                required
+                className="lco-input"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label htmlFor="adminPassword" className="text-sm font-medium">
+                Senha
+              </label>
+              <Input
+                id="adminPassword"
+                type="password"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                placeholder="Digite sua senha"
+                required
+                className="lco-input"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setAdminMode(false)}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                type="submit"
+                disabled={adminLoading || !adminEmail || !adminPassword}
+                className="lco-btn-primary"
+              >
+                {adminLoading ? 'Autenticando...' : 'Acessar'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Login da Operadora */}
+      <Dialog open={operadoraMode} onOpenChange={setOperadoraMode}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center flex items-center gap-2">
+              <Shield className="h-5 w-5 text-primary" />
+              Login da Operadora
+            </DialogTitle>
+            <DialogDescription className="text-center">
+              Acesso para operadoras de planos de saúde
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleOperadoraLogin} className="space-y-4">
+            {operadoraError && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                {operadoraError}
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <label htmlFor="operadoraEmail" className="text-sm font-medium">
+                Email
+              </label>
+              <Input
+                id="operadoraEmail"
+                type="email"
+                value={operadoraEmail}
+                onChange={(e) => setOperadoraEmail(e.target.value)}
+                placeholder="seu@email.com"
+                required
+                className="lco-input"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label htmlFor="operadoraPassword" className="text-sm font-medium">
+                Senha
+              </label>
+              <Input
+                id="operadoraPassword"
+                type="password"
+                value={operadoraPassword}
+                onChange={(e) => setOperadoraPassword(e.target.value)}
+                placeholder="Digite sua senha"
+                required
+                className="lco-input"
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  setOperadoraMode(false);
+                  setOperadoraError('');
+                }}
+              >
+                Cancelar
+              </Button>
+              <Button 
+                type="submit"
+                disabled={operadoraLoading || !operadoraEmail || !operadoraPassword}
+                className="lco-btn-primary"
+              >
+                {operadoraLoading ? 'Autenticando...' : 'Entrar'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* Transition Animation */}
       <LoginTransition 

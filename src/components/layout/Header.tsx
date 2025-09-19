@@ -22,7 +22,9 @@ import {
   Check,
   FolderOpen,
   UserPlus,
-  AlertCircle
+  AlertCircle,
+  Activity,
+  Settings
 } from 'lucide-react';
 import Logo from '@/components/Logo';
 import { Button } from '@/components/ui/button';
@@ -217,7 +219,7 @@ const Header = () => {
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loadingNotifs, setLoadingNotifs] = useState(false);
-  const clinicaId = 1; // TODO: obter dinamicamente
+  const clinicaId = (useAuth().user?.clinica_id as number) || 1;
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
@@ -338,7 +340,7 @@ const Header = () => {
         {
           label: 'Dashboards',
           path: '/dashboard',
-          icon: <DashboardGifIcon hovered={dashboardHover} active={isMenuActive('/dashboard', ['/dashboard', '/patient-dashboard', '/patients'])} />, 
+          icon: <DashboardGifIcon hovered={dashboardHover} active={isMenuActive('/dashboard', ['/dashboard', '/patient-dashboard', '/patients', '/analyses'])} />, 
           submenu: [
             {
               label: 'Clínica',
@@ -349,6 +351,11 @@ const Header = () => {
               label: 'Pacientes',
               path: '/patient-dashboard',
               icon: <Users className="h-5 w-5" />,
+            },
+            {
+              label: 'Análises',
+              path: '/analyses',
+              icon: <Activity className="h-5 w-5" />,
             },
           ],
         },
@@ -413,16 +420,11 @@ const Header = () => {
       ];
     } else if (user?.role === 'operator') {
       return [
-        {
-          label: 'Dashboard',
-          path: '/dashboard',
-          icon: <Database className="w-5 h-5" />,
-        },
-        {
-          label: 'Análise',
-          path: '/analysis',
-          icon: <PieChart className="w-5 h-5" />,
-        },
+        { label: 'Dashboard', path: '/dashboard', icon: <Database className="w-5 h-5" /> },
+        { label: 'Clínicas', path: '/operator-clinics', icon: <Hospital className="w-5 h-5" /> },
+        { label: 'Análises', path: '/analysis', icon: <PieChart className="w-5 h-5" /> },
+        { label: 'Solicitações', path: '/operator-solicitacoes', icon: <FileText className="w-5 h-5" /> },
+        { label: 'Ajustes', path: '/operator-ajustes', icon: <Database className="w-5 h-5" /> },
         ...commonItems,
       ];
     } else {
@@ -495,7 +497,7 @@ const Header = () => {
                   {roleLabel}
                 </Badge>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm">{user?.username}</span>
+                  <span className="text-sm">{user?.username || (user as any)?.nome || 'Operadora'}</span>
                   <Button 
                     variant="ghost" 
                     size="sm" 
@@ -636,6 +638,20 @@ const Header = () => {
                           )}
                         >
                           <Users className="h-5 w-5" />
+                          <span className="whitespace-nowrap">{sub.label}</span>
+                        </TransitionLink>
+                      );
+                    } else if (sub.label === 'Análises') {
+                      return (
+                        <TransitionLink
+                          key={sub.path}
+                          to={sub.path}
+                          className={cn(
+                            "block w-full px-4 py-2 text-base transition-all duration-200 hover-lift rounded-md text-left flex flex-row items-center gap-2 whitespace-nowrap",
+                            location.pathname === sub.path && "bg-primary/10 text-primary font-semibold"
+                          )}
+                        >
+                          <Activity className="h-5 w-5" />
                           <span className="whitespace-nowrap">{sub.label}</span>
                         </TransitionLink>
                       );
@@ -858,13 +874,13 @@ const Header = () => {
             <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 p-0 relative hover-lift">
               <Avatar className="h-9 w-9">
                 <AvatarFallback className="bg-primary text-primary-foreground font-medium">
-                  {user?.username.substring(0, 2).toUpperCase()}
+                  {user?.username?.substring(0, 2).toUpperCase() || ((user as any)?.nome || '').substring(0, 2).toUpperCase() || 'OP'}
                 </AvatarFallback>
               </Avatar>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 animate-scale-in">
-            <div className="px-2 py-1.5 text-sm font-medium">{user?.username}</div>
+            <div className="px-2 py-1.5 text-sm font-medium">{user?.username || (user as any)?.nome || 'Operadora'}</div>
             <div className="px-2 pb-1.5 text-xs text-muted-foreground">{roleLabel}</div>
             <DropdownMenuSeparator />
 

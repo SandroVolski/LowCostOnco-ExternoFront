@@ -32,9 +32,11 @@ import { LoadingState } from '@/components/ui/loading-states';
 import { useDataLoader } from '@/hooks/useDataLoader';
 import { connectionManager } from '@/services/connectionManager';
 import config from '@/config/environment';
+import { useAuth } from '@/contexts/AuthContext';
 
 const AjustesCorpoClinico = () => {
   // Estados para dados e UI
+  const { user } = useAuth();
   const [solicitacoes, setSolicitacoes] = useState<SolicitacaoCorpoClinico[]>([]);
   const [totalSolicitacoes, setTotalSolicitacoes] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -130,7 +132,7 @@ const AjustesCorpoClinico = () => {
       
       // Sempre enviar os filtros, mesmo que sejam 'todas'
       const response = await AjustesService.listarSolicitacoes({
-        clinica_id: 1,
+        clinica_id: user?.clinica_id || 1,
         tipo: 'corpo_clinico',
         status: filtros.status === 'todas' ? undefined : filtros.status,
         search: filtros.search || undefined,

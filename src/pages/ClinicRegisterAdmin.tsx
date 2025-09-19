@@ -10,10 +10,10 @@ const ClinicRegisterAdmin = () => {
 	const [form, setForm] = useState({
 		nome: '',
 		codigo: '',
-		usuario: '',
-		senha: '',
+		username: '',
+		password: '',
 		email: '',
-		telefones: '' as string,
+		telefones: '',
 		emails: '' as string,
 		status: 'ativo',
 		adminSecret: ''
@@ -42,14 +42,23 @@ const ClinicRegisterAdmin = () => {
 				codigo: form.codigo.trim(),
 				status: form.status,
 			};
-			if (form.usuario.trim()) payload.usuario = form.usuario.trim();
-			if (form.senha.trim()) payload.senha = form.senha;
 			if (form.email.trim()) payload.email = form.email.trim();
 			if (form.emails.trim()) payload.emails = form.emails.split(',').map(s => s.trim()).filter(Boolean);
 			if (form.telefones.trim()) payload.telefones = form.telefones.split(',').map(s => s.trim()).filter(Boolean);
+
+			// Novo: bloco admin (nested) conforme backend
+			if (form.username.trim() || form.password.trim() || form.email.trim()) {
+				payload.admin = {
+					nome: `Administrador ${form.nome.trim()}`,
+					username: form.username.trim() || undefined,
+					password: form.password || undefined,
+					email: form.email.trim() || undefined,
+				};
+			}
+
 			await ClinicService.registerAdminClinic(payload, form.adminSecret);
 			toast.success('Clínica cadastrada com sucesso!');
-			setForm({ nome: '', codigo: '', usuario: '', senha: '', email: '', telefones: '', emails: '', status: 'ativo', adminSecret: '' });
+			setForm({ nome: '', codigo: '', username: '', password: '', email: '', telefones: '', emails: '', status: 'ativo', adminSecret: '' });
 		} catch (err: any) {
 			toast.error('Erro ao cadastrar clínica', { description: err?.message || 'Tente novamente' });
 		} finally {
@@ -75,11 +84,11 @@ const ClinicRegisterAdmin = () => {
 						</div>
 						<div className="space-y-2">
 							<Label>Usuário (opcional)</Label>
-							<Input name="usuario" value={form.usuario} onChange={handleChange} />
+							<Input name="username" value={form.username} onChange={handleChange} />
 						</div>
 						<div className="space-y-2">
 							<Label>Senha (opcional)</Label>
-							<Input type="password" name="senha" value={form.senha} onChange={handleChange} />
+							<Input type="password" name="password" value={form.password} onChange={handleChange} />
 						</div>
 						<div className="space-y-2 md:col-span-2">
 							<Label>E-mail (opcional)</Label>

@@ -9,10 +9,11 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, initializing } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
+    if (initializing) return;
     if (!isAuthenticated) {
       navigate('/', { replace: true });
       return;
@@ -24,6 +25,9 @@ const ProtectedRoute = ({ children, allowedRoles }: ProtectedRouteProps) => {
     }
   }, [isAuthenticated, navigate, allowedRoles, user]);
 
+  if (initializing) {
+    return null;
+  }
   if (!isAuthenticated) {
     return null;
   }

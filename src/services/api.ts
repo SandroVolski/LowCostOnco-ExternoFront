@@ -2,6 +2,7 @@
 
 // Importar configuração de ambiente
 import config from '@/config/environment';
+import { authorizedFetch } from '@/services/authService';
 
 // API Service para integração com backend Node.js
 const API_BASE_URL = config.API_BASE_URL;
@@ -100,8 +101,8 @@ export interface PatientFromAPI {
 }
 
 // Função para converter data YYYY-MM-DD para DD/MM/YYYY
-const convertDateFromISO = (dateStr: string): string => {
-  if (!dateStr) return '';
+const convertDateFromISO = (dateStr: string | null | undefined): string => {
+  if (!dateStr || dateStr === null || dateStr === undefined) return '';
   
   // Se já está no formato brasileiro, retorna como está
   if (dateStr.includes('/') && !dateStr.includes('T')) {
@@ -127,8 +128,8 @@ const convertDateFromISO = (dateStr: string): string => {
 };
 
 // Função para converter data DD/MM/YYYY para YYYY-MM-DD
-const convertDateToISO = (dateStr: string): string => {
-  if (!dateStr) return '';
+const convertDateToISO = (dateStr: string | null | undefined): string => {
+  if (!dateStr || dateStr === null || dateStr === undefined) return '';
   
   // Se já está no formato ISO (YYYY-MM-DD), retorna como está
   if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
@@ -149,8 +150,8 @@ const convertDateToISO = (dateStr: string): string => {
 // Função para converter data do backend para o formato do frontend
 const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
   // Calcular idade
-  const calculateAge = (birthDate: string): number => {
-    if (!birthDate) return 0;
+  const calculateAge = (birthDate: string | null | undefined): number => {
+    if (!birthDate || birthDate === null || birthDate === undefined) return 0;
     
     // Garantir que temos apenas a data (YYYY-MM-DD)
     let cleanDate = birthDate;
@@ -177,14 +178,14 @@ const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
   };
 
   return {
-    id: apiPatient.id.toString(),
+    id: apiPatient.id ? apiPatient.id.toString() : '',
     name: apiPatient.Paciente_Nome,
-    age: calculateAge(apiPatient.Data_Nascimento),
+    age: calculateAge(apiPatient.Data_Nascimento || null),
     gender: apiPatient.Sexo,
     diagnosis: apiPatient.Cid_Diagnostico,
     stage: 'II', // Você pode adaptar isso conforme sua necessidade
     treatment: 'Quimioterapia', // Você pode adaptar isso conforme sua necessidade
-    startDate: convertDateFromISO(apiPatient.Data_Primeira_Solicitacao),
+    startDate: convertDateFromISO(apiPatient.Data_Primeira_Solicitacao || null),
     status: statusMap[apiPatient.status] || apiPatient.status,
     authorizations: [], // Você pode adaptar isso quando implementar as autorizações
     
@@ -193,14 +194,14 @@ const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
     Codigo: apiPatient.Codigo,
     cpf: apiPatient.cpf || '',
     rg: apiPatient.rg || '',
-    Data_Nascimento: convertDateFromISO(apiPatient.Data_Nascimento), // Converter para exibição
+    Data_Nascimento: convertDateFromISO(apiPatient.Data_Nascimento || null), // Converter para exibição
     Sexo: apiPatient.Sexo,
-    Operadora: apiPatient.operadora_nome || apiPatient.Operadora.toString(),
-    Prestador: apiPatient.prestador_nome || apiPatient.Prestador.toString(),
+    Operadora: apiPatient.operadora_nome || (apiPatient.Operadora ? apiPatient.Operadora.toString() : ''),
+    Prestador: apiPatient.prestador_nome || (apiPatient.Prestador ? apiPatient.Prestador.toString() : ''),
     plano_saude: apiPatient.plano_saude || '',
     numero_carteirinha: apiPatient.numero_carteirinha || '',
     Cid_Diagnostico: apiPatient.Cid_Diagnostico,
-    Data_Primeira_Solicitacao: convertDateFromISO(apiPatient.Data_Primeira_Solicitacao), // Converter para exibição
+    Data_Primeira_Solicitacao: convertDateFromISO(apiPatient.Data_Primeira_Solicitacao || null), // Converter para exibição
     telefone: apiPatient.telefone || '',
     email: apiPatient.email || '',
     endereco: apiPatient.endereco || '',
@@ -213,19 +214,19 @@ const convertFrontendToAPI = (frontendPatient: any): Partial<PatientFromAPI> => 
   console.log('🔧 Dados recebidos do frontend:', frontendPatient);
   
   const converted = {
-    clinica_id: frontendPatient.clinica_id || 1, // Valor padrão para testes
+    // clinica_id definido no backend a partir do token
     Paciente_Nome: frontendPatient.Paciente_Nome || frontendPatient.name,
-    Operadora: parseInt(frontendPatient.Operadora) || 1, // Converter para número
-    Prestador: parseInt(frontendPatient.Prestador) || 1, // Converter para número
+    Operadora: frontendPatient.Operadora ? parseInt(frontendPatient.Operadora) || 1 : 1, // Converter para número
+    Prestador: frontendPatient.Prestador ? parseInt(frontendPatient.Prestador) || 1 : 1, // Converter para número
     Codigo: frontendPatient.Codigo,
-    Data_Nascimento: convertDateToISO(frontendPatient.Data_Nascimento), // ✅ CORRIGIDO
+    Data_Nascimento: convertDateToISO(frontendPatient.Data_Nascimento || null), // ✅ CORRIGIDO
     Sexo: frontendPatient.Sexo,
     Cid_Diagnostico: frontendPatient.Cid_Diagnostico,
     Data_Primeira_Solicitacao: convertDateToISO(
       frontendPatient.Data_Primeira_Solicitacao || 
       frontendPatient.startDate ||
       new Date().toISOString().split('T')[0] // Data atual como fallback
-    ), // ✅ CORRIGIDO
+    ) || new Date().toISOString().split('T')[0], // ✅ CORRIGIDO
     // Enviar também Data_Inicio_Tratamento para compatibilidade
     Data_Inicio_Tratamento: convertDateToISO(
       frontendPatient.startDate || frontendPatient.Data_Primeira_Solicitacao
@@ -303,7 +304,7 @@ export class PacienteService {
       const url = `${API_BASE_URL}/pacientes?${queryParams.toString()}`;
       console.log('🔧 Fazendo requisição para:', url);
       
-      const response = await fetch(url);
+      const response = await authorizedFetch(url);
       console.log('📡 Status da resposta:', response.status, response.statusText);
       
       if (!response.ok) {
@@ -336,7 +337,7 @@ export class PacienteService {
   // Buscar paciente por ID
   static async buscarPaciente(id: number): Promise<any> {
     try {
-      const response = await fetch(`${API_BASE_URL}/pacientes/${id}`);
+      const response = await authorizedFetch(`${API_BASE_URL}/pacientes/${id}`);
       const result: ApiResponse<PatientFromAPI> = await response.json();
       
       if (!result.success) {
@@ -355,7 +356,7 @@ export class PacienteService {
     try {
       const apiPatient = convertFrontendToAPI(paciente);
       
-      const response = await fetch(`${API_BASE_URL}/pacientes`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/pacientes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -387,7 +388,7 @@ export class PacienteService {
     try {
       const apiPatient = convertFrontendToAPI(paciente);
       
-      const response = await fetch(`${API_BASE_URL}/pacientes/${id}`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/pacientes/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -442,7 +443,7 @@ export class SolicitacaoService {
     try {
       console.log('🔧 Criando solicitação:', solicitacao);
       
-      const response = await fetch(`${API_BASE_URL}/solicitacoes`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/solicitacoes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -491,7 +492,7 @@ export class SolicitacaoService {
       const url = `${API_BASE_URL}/solicitacoes?${queryParams.toString()}`;
       console.log('🔧 Listando solicitações:', url);
       
-      const response = await fetch(url);
+      const response = await authorizedFetch(url);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -516,7 +517,7 @@ export class SolicitacaoService {
   // Buscar solicitação por ID
   static async buscarSolicitacao(id: number): Promise<SolicitacaoFromAPI> {
     try {
-      const response = await fetch(`${API_BASE_URL}/solicitacoes/${id}`);
+      const response = await authorizedFetch(`${API_BASE_URL}/solicitacoes/${id}`);
       const result: ApiResponse<SolicitacaoFromAPI> = await response.json();
       
       if (!result.success) {
@@ -535,7 +536,7 @@ export class SolicitacaoService {
     try {
       console.log('🔧 Gerando PDF para solicitação:', id);
       
-      const response = await fetch(`${API_BASE_URL}/solicitacoes/${id}/pdf`);
+      const response = await authorizedFetch(`${API_BASE_URL}/solicitacoes/${id}/pdf`);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -641,7 +642,7 @@ export class SolicitacaoService {
   // Atualizar status da solicitação
   static async atualizarStatus(id: number, status: string, observacoes?: string): Promise<SolicitacaoFromAPI> {
     try {
-      const response = await fetch(`${API_BASE_URL}/solicitacoes/${id}/status`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/solicitacoes/${id}/status`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -665,7 +666,7 @@ export class SolicitacaoService {
   // Deletar solicitação
   static async deletarSolicitacao(id: number): Promise<void> {
     try {
-      const response = await fetch(`${API_BASE_URL}/solicitacoes/${id}`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/solicitacoes/${id}`, {
         method: 'DELETE',
       });
       
@@ -756,7 +757,7 @@ export class ProtocoloService {
       const url = `${API_BASE_URL}/protocolos?${queryParams.toString()}`;
       console.log('🔧 Listando protocolos:', url);
       
-      const response = await fetch(url);
+      const response = await authorizedFetch(url);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -781,7 +782,7 @@ export class ProtocoloService {
   // Buscar protocolo por ID
   static async buscarProtocoloPorId(id: number): Promise<ProtocoloFromAPI> {
     try {
-      const response = await fetch(`${API_BASE_URL}/protocolos/${id}`);
+      const response = await authorizedFetch(`${API_BASE_URL}/protocolos/${id}`);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -805,7 +806,7 @@ export class ProtocoloService {
     try {
       console.log('🔧 Criando protocolo:', protocolo);
       
-      const response = await fetch(`${API_BASE_URL}/protocolos`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/protocolos`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -832,7 +833,7 @@ export class ProtocoloService {
     try {
       console.log('🔧 Atualizando protocolo:', id, protocolo);
       
-      const response = await fetch(`${API_BASE_URL}/protocolos/${id}`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/protocolos/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -859,7 +860,7 @@ export class ProtocoloService {
     try {
       console.log('🔧 Deletando protocolo:', id);
       
-      const response = await fetch(`${API_BASE_URL}/protocolos/${id}`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/protocolos/${id}`, {
         method: 'DELETE',
       });
       
@@ -879,7 +880,7 @@ export class ProtocoloService {
   // Buscar protocolos por status
   static async buscarPorStatus(status: 'ativo' | 'inativo'): Promise<ProtocoloFromAPI[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/protocolos/status/${status}`);
+      const response = await authorizedFetch(`${API_BASE_URL}/protocolos/status/${status}`);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -901,7 +902,7 @@ export class ProtocoloService {
   // Buscar protocolos por CID
   static async buscarPorCID(cid: string): Promise<ProtocoloFromAPI[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/protocolos/cid/${encodeURIComponent(cid)}`);
+      const response = await authorizedFetch(`${API_BASE_URL}/protocolos/cid/${encodeURIComponent(cid)}`);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

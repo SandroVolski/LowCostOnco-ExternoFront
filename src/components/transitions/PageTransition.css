@@ -101,6 +101,10 @@
     background: linear-gradient(135deg, #79d153 0%, #8cb369 100%);
   }
   
+  .page-transition-admin {
+    background: linear-gradient(135deg, #79d153 0%, #8cb369 100%);
+  }
+  
   /* Page colors based on route 
   .page-transition-dashboard {
     background: linear-gradient(135deg, #79d153 0%, #8cb369 100%);

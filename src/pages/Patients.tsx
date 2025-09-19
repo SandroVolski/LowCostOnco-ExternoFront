@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Plus, Search, User, Calendar as CalendarIcon, Info, Phone, Mail, MapPin, CreditCard, Building2, FlipHorizontal, Edit, Trash2, Filter, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, FileText, Eye } from 'lucide-react';
+import { Plus, Search, User, Calendar as CalendarIcon, Info, Phone, Mail, MapPin, CreditCard, Building2, FlipHorizontal, Edit, Trash2, Filter, ChevronLeft, ChevronRight, AlertTriangle, CheckCircle, FileText, Eye, Stethoscope, Activity } from 'lucide-react';
 import { usePageNavigation } from '@/components/transitions/PageTransitionContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -100,6 +100,7 @@ interface Authorization {
   ciclos_previstos?: number;
   medicamentos_antineoplasticos?: string;
   finalidade?: string;
+  siglas?: string;
 }
 
 // Interface Patient expandida
@@ -218,9 +219,11 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
   onShowInfo: (id: string) => void;
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
+  const [preventFlip, setPreventFlip] = useState(false);
   const navigate = useNavigate();
 
   const handleCardClick = () => {
+    if (preventFlip) return;
     setIsFlipped(!isFlipped);
   };
 
@@ -229,7 +232,7 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
       className="h-[400px] w-full perspective-1000 cursor-pointer select-none"
       onClick={handleCardClick}
     >
-      <div className={`relative w-full h-full transition-all duration-700 transform-style-preserve-3d ${isFlipped ? 'rotate-y-180' : ''} active:scale-[0.98]`}>
+      <div className={`relative w-full h-full transition-all duration-700 transform-style-preserve-3d ${isFlipped ? 'rotate-y-180' : ''}`}>
         {/* Frente do Card */}
         <div className="absolute inset-0 w-full h-full backface-hidden">
           <Card className="h-full bg-gradient-to-br from-card via-card to-card/90 shadow-lg transition-all duration-300 overflow-hidden border-2 border-border hover:shadow-xl hover:border-primary/30">
@@ -260,40 +263,45 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
               </div>
             </CardHeader>
             <CardContent className="space-y-4 p-4 flex-1">
-              <div className="space-y-3">
+              <div className="space-y-2.5">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground flex items-center gap-1">
                     <User className="h-3 w-3" />
-                    Idade:
+                    Idade
                   </span>
                   <span className="font-medium">{patient.age} anos</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Diagnóstico:</span>
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Stethoscope className="h-3 w-3" />
+                    Diagnóstico
+                  </span>
                   <span className="font-medium line-clamp-1 text-right">{patient.diagnosis}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Estágio:</span>
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <Activity className="h-3 w-3" />
+                    Estágio
+                  </span>
                   <Badge variant="outline" className="text-xs">{patient.stage}</Badge>
                 </div>
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Tratamento:</span>
+                  <span className="text-muted-foreground flex items-center gap-1">
+                    <FileText className="h-3 w-3" />
+                    Tratamento
+                  </span>
                   <span className="font-medium line-clamp-1 text-right text-xs">{patient.treatment}</span>
                 </div>
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground flex items-center gap-1">
                     <Building2 className="h-3 w-3" />
-                    Operadora:
+                    Operadora/Plano
                   </span>
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span className="font-medium text-xs">{getOperadoraName(patient.Operadora)}</span>
                     <span>•</span>
                     <span>{patient.plano_saude || '—'}</span>
                   </div>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground">Data Nasc.:</span>
-                  <span className="font-medium text-xs">{patient.Data_Nascimento}</span>
                 </div>
               </div>
               
@@ -307,7 +315,8 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
                 } className="text-xs">
                   {patient.status}
                 </Badge>
-                <span className="text-xs text-muted-foreground">
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <CalendarIcon className="h-3 w-3" />
                   Início: {patient.startDate}
                 </span>
               </div>
@@ -365,129 +374,223 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
                 Operadora: {getOperadoraName(patient.Operadora)} • Plano: {patient.plano_saude || '—'}
               </CardDescription>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col p-4 overflow-hidden">
-              <div className="space-y-3 flex-1 overflow-y-hidden">
+            <CardContent className="flex-1 flex flex-col px-4 pt-1 pb-4 overflow-hidden">
+              <div className="space-y-2 flex-1 overflow-y-hidden">
               {/* Informações básicas compactas */}
-              <div className="flex items-center justify-between text-xs bg-muted/30 rounded-lg p-2 border border-border/20">
-                <div className="flex items-center gap-2">
+              <div className="space-y-2 text-xs bg-muted/30 rounded-lg p-2.5 border border-border/20">
+                <div className="flex items-center justify-between gap-2">
                   <span className="text-muted-foreground">Médico Assistente:</span>
-                  <span className="font-medium">{patient.Prestador}</span>
+                  <span className="font-medium text-right break-words">{patient.Prestador}</span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between gap-2">
                   <span className="text-muted-foreground">CID/Diagnóstico:</span>
-                  <span className="font-medium">{patient.Cid_Diagnostico}</span>
+                  <span className="font-medium text-right break-words">{patient.Cid_Diagnostico}</span>
                 </div>
               </div>
 
               {patient.authorizations && patient.authorizations.length > 0 ? (
-                <div>
-                  <h5 className="text-xs font-semibold mb-3 text-primary flex items-center gap-2">
-                    <FileText className="h-3 w-3" />
-                    Últimas Autorizações ({patient.authorizations.length})
-                  </h5>
-                  <div className="space-y-3 max-h-44 overflow-y-auto overflow-x-hidden auth-scroll pb-10">
-                    {patient.authorizations.slice(0, 3).map((auth) => (
-                      <div 
-                        key={auth.id} 
-                        className="group relative bg-gradient-to-r from-secondary/10 to-secondary/5 border border-secondary/30 rounded-lg p-3 cursor-pointer hover:from-background/80 hover:to-background/60 hover:border-border/50 transition-all duration-300 hover:shadow-md hover:scale-[1.02] auth-card-hover"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate('/historico-solicitacoes', { 
-                            state: { 
-                              scrollToAuth: auth.id.toString(),
-                              authId: auth.id 
-                            }
+                <div 
+                  className="w-full"
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => { e.stopPropagation(); setPreventFlip(true); }}
+                  onMouseUp={(e) => { e.stopPropagation(); setPreventFlip(false); }}
+                  onPointerDown={(e) => { e.stopPropagation(); setPreventFlip(true); }}
+                  onPointerUp={(e) => { e.stopPropagation(); setPreventFlip(false); }}
+                  onTouchStart={(e) => { e.stopPropagation(); setPreventFlip(true); }}
+                  onTouchEnd={(e) => { e.stopPropagation(); setPreventFlip(false); }}
+                >
+                  <Tabs defaultValue="autorizacoes" className="w-full">
+                    <TabsList className="grid grid-cols-2 w-full mb-2">
+                      <TabsTrigger value="autorizacoes">Últimas Autorizações</TabsTrigger>
+                      <TabsTrigger value="protocolos">Protocolos</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="autorizacoes">
+                      <div className="space-y-3 max-h-44 overflow-y-auto overflow-x-hidden auth-scroll pb-10">
+                        {patient.authorizations.slice(0, 3).map((auth) => (
+                          <div 
+                            key={auth.id} 
+                            className="group relative bg-gradient-to-r from-secondary/10 to-secondary/5 border border-secondary/30 rounded-lg p-3 cursor-pointer hover:from-background/80 hover:to-background/60 hover:border-border/50 transition-all duration-300 hover:shadow-md hover:scale-[1.02] auth-card-hover"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              navigate('/historico-solicitacoes', { 
+                                state: { 
+                                  scrollToAuth: auth.id.toString(),
+                                  authId: auth.id 
+                                }
+                              });
+                            }}
+                          >
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs font-bold text-primary bg-gradient-to-r from-primary/10 to-primary/5 px-2 py-1 rounded border border-primary/20">
+                                  {auth.numero_autorizacao}
+                                </span>
+                                <Badge 
+                                  variant={
+                                    auth.status === 'aprovada' ? 'default' : 
+                                    auth.status === 'pendente' ? 'secondary' : 
+                                    'destructive'
+                                  }
+                                  className="text-[10px] px-2 py-0.5"
+                                >
+                                  {auth.status === 'aprovada' ? 'Aprovada' : 
+                                   auth.status === 'pendente' ? 'Pendente' : 
+                                   'Rejeitada'}
+                                </Badge>
+                              </div>
+                              <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Eye className="h-3 w-3 text-muted-foreground" />
+                              </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <div className="text-xs font-medium line-clamp-1 text-foreground">
+                                {auth.diagnostico_descricao}
+                              </div>
+                              {(auth.ciclo_atual || auth.ciclos_previstos) && (
+                                <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
+                                  <div className="flex items-center gap-1">
+                                    <div className="w-2 h-2 rounded-full bg-primary shadow-sm"></div>
+                                    <span className="font-medium">Ciclo: {auth.ciclo_atual || 0}/{auth.ciclos_previstos || 0}</span>
+                                  </div>
+                                  {auth.ciclos_previstos && (
+                                    <div className="flex-1 bg-muted rounded-full h-1.5 overflow-hidden">
+                                      <div 
+                                        className="bg-primary h-full transition-all duration-300"
+                                        style={{ width: `${Math.min(100, ((auth.ciclo_atual || 0) / auth.ciclos_previstos) * 100)}%` }}
+                                      ></div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              {auth.medicamentos_antineoplasticos && (
+                                <div className="text-[10px] text-muted-foreground line-clamp-1">
+                                  <span className="font-medium">Med:</span> {auth.medicamentos_antineoplasticos}
+                                </div>
+                              )}
+                              {auth.finalidade && (
+                                <div className="text-[10px] text-muted-foreground">
+                                  <span className="font-medium">Finalidade:</span> {auth.finalidade}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                        {patient.authorizations.length > 3 && (
+                          <div className="text-center mt-4 p-3 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20">
+                            <div className="flex items-center justify-center gap-2 mb-1">
+                              <div className="w-2 h-2 rounded-full bg-primary/60 animate-pulse"></div>
+                              <span className="text-xs text-primary font-medium">
+                                +{patient.authorizations.length - 3} autorizações adicionais
+                              </span>
+                              <div className="w-2 h-2 rounded-full bg-primary/60 animate-pulse"></div>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                              Clique em "Ver Tudo" para visualizar o histórico completo
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="protocolos">
+                      {(() => {
+                        type ProtoAgg = { count: number; pctSum: number };
+                        const protocolosMap: Record<string, ProtoAgg> = {};
+
+                        const extractProtocolField = (auth: any): string | undefined => {
+                          // Consider multiple possible field names
+                          const value = auth?.siglas ?? auth?.Siglas ?? auth?.sigla ?? auth?.Sigla ?? auth?.protocolo ?? auth?.Protocolo ?? auth?.protocolos ?? auth?.Protocolos ?? auth?.medicamentos_antineoplasticos;
+                          return typeof value === 'string' ? value : Array.isArray(value) ? value.join(',') : undefined;
+                        };
+
+                        (patient.authorizations || []).forEach((a: any) => {
+                          const raw = extractProtocolField(a);
+                          if (!raw) return;
+                          const parts = String(raw)
+                            .split(/[;,|\/]+/)
+                            .map((s: string) => s.trim())
+                            .filter(Boolean);
+
+                          const cicloAtual = Number(a.ciclo_atual ?? a.cicloAtual ?? a.ciclo) || 0;
+                          const ciclosPrevistos = Number(a.ciclos_previstos ?? a.ciclosPrevistos ?? a.ciclos) || 0;
+                          const pct = ciclosPrevistos > 0 ? Math.max(0, Math.min(100, Math.round((cicloAtual / ciclosPrevistos) * 100))) : 0;
+
+                          parts.forEach((sigla: string) => {
+                            const key = sigla.toUpperCase();
+                            const prev = protocolosMap[key] || { count: 0, pctSum: 0 };
+                            protocolosMap[key] = { count: prev.count + 1, pctSum: prev.pctSum + pct };
                           });
-                        }}
-                      >
-                        {/* Header com número e status */}
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2">
-                                                         <span className="text-xs font-bold text-primary bg-gradient-to-r from-primary/10 to-primary/5 px-2 py-1 rounded border border-primary/20">
-                               {auth.numero_autorizacao}
-                             </span>
-                            <Badge 
-                              variant={
-                                auth.status === 'aprovada' ? 'default' : 
-                                auth.status === 'pendente' ? 'secondary' : 
-                                'destructive'
-                              }
-                              className="text-[10px] px-2 py-0.5"
-                            >
-                              {auth.status === 'aprovada' ? 'Aprovada' : 
-                               auth.status === 'pendente' ? 'Pendente' : 
-                               'Rejeitada'}
-                            </Badge>
-                          </div>
-                          <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Eye className="h-3 w-3 text-muted-foreground" />
-                          </div>
-                        </div>
+                        });
 
-                        {/* Informações principais */}
-                        <div className="space-y-1.5">
-                          <div className="text-xs font-medium line-clamp-1 text-foreground">
-                            {auth.diagnostico_descricao}
-                          </div>
-                          
-                                                     {/* Ciclos */}
-                           {(auth.ciclo_atual || auth.ciclos_previstos) && (
-                             <div className="flex items-center gap-3 text-[10px] text-muted-foreground">
-                               <div className="flex items-center gap-1">
-                                 <div className="w-2 h-2 rounded-full bg-primary shadow-sm"></div>
-                                 <span className="font-medium">Ciclo: {auth.ciclo_atual || 0}/{auth.ciclos_previstos || 0}</span>
-                               </div>
-                               {auth.ciclos_previstos && (
-                                 <div className="flex-1 bg-muted rounded-full h-1.5 overflow-hidden">
-                                   <div 
-                                     className="bg-primary h-full transition-all duration-300"
-                                     style={{ 
-                                       width: `${Math.min(100, ((auth.ciclo_atual || 0) / auth.ciclos_previstos) * 100)}%` 
-                                     }}
-                                   ></div>
-                                 </div>
-                               )}
-                             </div>
-                           )}
+                        const protocolos = Object.entries(protocolosMap)
+                          .map(([sigla, agg]) => ({ sigla, count: agg.count, pct: Math.round(agg.pctSum / Math.max(1, agg.count)) }))
+                          .sort((a, b) => b.count - a.count || b.pct - a.pct);
 
-                          {/* Medicamentos */}
-                          {auth.medicamentos_antineoplasticos && (
-                            <div className="text-[10px] text-muted-foreground line-clamp-1">
-                              <span className="font-medium">Med:</span> {auth.medicamentos_antineoplasticos}
+                        if (protocolos.length === 0) {
+                          return (
+                            <div className="text-center py-6">
+                              <FileText className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
+                              <p className="text-xs text-muted-foreground">Nenhuma autorização/protocolo registrado</p>
+                              <p className="text-[10px] text-muted-foreground/70 mt-1">Os protocolos são inferidos pelas siglas nas autorizações</p>
                             </div>
-                          )}
+                          );
+                        }
 
-                          {/* Finalidade */}
-                          {auth.finalidade && (
-                            <div className="text-[10px] text-muted-foreground">
-                              <span className="font-medium">Finalidade:</span> {auth.finalidade}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    
-                    {/* Indicador de mais autorizações */}
-                    {patient.authorizations.length > 3 && (
-                      <div className="text-center mt-4 p-3 bg-gradient-to-r from-primary/5 to-primary/10 rounded-lg border border-primary/20">
-                        <div className="flex items-center justify-center gap-2 mb-1">
-                          <div className="w-2 h-2 rounded-full bg-primary/60 animate-pulse"></div>
-                          <span className="text-xs text-primary font-medium">
-                            +{patient.authorizations.length - 3} autorizações adicionais
-                          </span>
-                          <div className="w-2 h-2 rounded-full bg-primary/60 animate-pulse"></div>
-                        </div>
-                        <p className="text-[10px] text-muted-foreground">
-                          Clique em "Ver Tudo" para visualizar o histórico completo
-                        </p>
-                      </div>
-                    )}
-                  </div>
+                        return (
+                          <div className="space-y-3 max-h-44 overflow-y-auto overflow-x-hidden auth-scroll pb-16">
+                            {protocolos.map(({ sigla, count, pct }) => (
+                              <div
+                                key={sigla}
+                                className="group rounded-lg p-3 border bg-gradient-to-br from-card/30 via-card/20 to-card/10 border-border/30 hover:border-primary/30 hover:shadow-md transition-all duration-200 cursor-pointer"
+                                onClick={() => navigate(`/protocols?highlight=${encodeURIComponent(sigla)}`)}
+                              >
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2">
+                                    <Badge variant="outline" className="text-xs px-2 py-0.5">{sigla}</Badge>
+                                    <span className="text-[10px] text-muted-foreground">x{count}</span>
+                                  </div>
+                                  <span
+                                    className={`text-[10px] font-medium px-2 py-0.5 rounded border ${
+                                      pct >= 75
+                                        ? 'bg-support-green/15 text-support-green border-support-green/30'
+                                        : pct >= 50
+                                          ? 'bg-support-yellow/15 text-support-yellow border-support-yellow/30'
+                                          : 'bg-highlight-red/15 text-highlight-red border-highlight-red/30'
+                                    }`}
+                                  >
+                                    {pct}%
+                                  </span>
+                                </div>
+                                <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                                  <div
+                                    className={
+                                      pct >= 75
+                                        ? 'h-2 rounded-full bg-support-green'
+                                        : pct >= 50
+                                          ? 'h-2 rounded-full bg-support-yellow'
+                                          : 'h-2 rounded-full bg-highlight-red'
+                                    }
+                                    style={{ width: `${pct}%` }}
+                                  ></div>
+                                </div>
+                                <div className="mt-1 flex items-center justify-between">
+                                  <span className="text-[10px] text-muted-foreground">Progresso médio</span>
+                                  <span className="text-[10px] text-muted-foreground">de {count} autorização(ões)</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                    </TabsContent>
+                  </Tabs>
                 </div>
               ) : (
                 <div className="text-center py-6">
                   <FileText className="h-8 w-8 text-muted-foreground/50 mx-auto mb-2" />
-                  <p className="text-xs text-muted-foreground">Nenhuma autorização registrada</p>
+                  <p className="text-xs text-muted-foreground">Nenhuma autorização/protocolo registrado</p>
                   <p className="text-[10px] text-muted-foreground/70 mt-1">
                     Clique em "Ver Tudo" para criar uma nova
                   </p>
@@ -1070,13 +1173,14 @@ const Patients = () => {
       
     } catch (error) {
       console.error('❌ Erro ao carregar pacientes da API:', error);
-      toast.error('Erro ao carregar pacientes do banco', {
-        description: 'Verifique a conexão com o servidor'
+      const isServiceUnavailable = (error as any)?.message?.includes('503') || (error as any)?.toString?.().includes('503');
+      toast.error(isServiceUnavailable ? 'Serviço temporariamente indisponível' : 'Erro ao carregar pacientes do banco', {
+        description: isServiceUnavailable ? 'Mostrando últimos dados disponíveis' : 'Verifique a conexão com o servidor'
       });
-      // Em caso de erro, usar dados locais como fallback
-      setPatients(initialPatients);
-      setTotalPatients(initialPatients.length);
-      setTotalPages(Math.ceil(initialPatients.length / itemsPerPage));
+      // Em caso de erro: se já temos dados carregados, mantém. Caso contrário, usar dados locais.
+      setPatients(prev => (prev && prev.length > 0 ? prev : initialPatients));
+      setTotalPatients(prev => (prev && prev > 0 ? prev : initialPatients.length));
+      setTotalPages(prev => (prev && prev > 0 ? prev : Math.ceil(initialPatients.length / itemsPerPage)));
     } finally {
       setLoading(false);
     }
@@ -1207,7 +1311,8 @@ const Patients = () => {
         ciclo_atual: s.ciclo_atual,
         ciclos_previstos: s.ciclos_previstos,
         medicamentos_antineoplasticos: s.medicamentos_antineoplasticos,
-        finalidade: s.finalidade
+        finalidade: s.finalidade,
+        siglas: (s as any).siglas
       }));
   };
 

@@ -33,9 +33,21 @@ export const getApiUrl = (endpoint: string): string => {
 
 // Função para verificar se está em produção
 export const isProduction = (): boolean => {
-  return window.location.hostname !== 'localhost' && 
-         window.location.hostname !== '127.0.0.1' &&
-         window.location.hostname !== 'localhost:8080';
+  const hostname = window.location.hostname;
+  const port = window.location.port;
+  
+  // Em desenvolvimento local
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return false;
+  }
+  
+  // Se estiver na porta 8080 (Vite dev server), é desenvolvimento
+  if (port === '8080') {
+    return false;
+  }
+  
+  // Se não for localhost e não estiver na porta 8080, é produção
+  return true;
 };
 
 // Função para log condicional (só em desenvolvimento)

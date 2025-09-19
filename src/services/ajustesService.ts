@@ -1,6 +1,7 @@
 // src/services/ajustesService.ts
 
 import config from '@/config/environment';
+import { authorizedFetch } from '@/services/authService';
 
 const API_BASE_URL = config.API_BASE_URL;
 
@@ -179,7 +180,7 @@ export class AjustesService {
       if (filtros.pageSize) query.append('pageSize', String(filtros.pageSize));
       if (filtros.sort) query.append('sort', filtros.sort);
       
-      const response = await fetch(`${API_BASE_URL}/ajustes/solicitacoes?${query.toString()}`);
+      const response = await authorizedFetch(`${API_BASE_URL}/ajustes/solicitacoes?${query.toString()}`);
       
       if (response.status === 404) {
         // Backend remoto ainda não publicou ajustes: retornar vazio
@@ -229,7 +230,7 @@ export class AjustesService {
   // Criar nova solicitação
   static async criarSolicitacao(dados: NovaSolicitacao): Promise<SolicitacaoCorpoClinico> {
     try {
-      const response = await fetch(`${API_BASE_URL}/ajustes/solicitacoes`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/ajustes/solicitacoes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -258,7 +259,7 @@ export class AjustesService {
   // Atualizar solicitação
   static async atualizarSolicitacao(id: number, dados: AtualizacaoSolicitacao): Promise<SolicitacaoCorpoClinico> {
     try {
-      const response = await fetch(`${API_BASE_URL}/ajustes/solicitacoes/${id}`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/ajustes/solicitacoes/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -287,7 +288,7 @@ export class AjustesService {
   // Alterar status da solicitação
   static async alterarStatus(id: number, dados: AlteracaoStatus): Promise<SolicitacaoCorpoClinico> {
     try {
-      const response = await fetch(`${API_BASE_URL}/ajustes/solicitacoes/${id}/status`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/ajustes/solicitacoes/${id}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -316,7 +317,7 @@ export class AjustesService {
   // Excluir solicitação
   static async excluirSolicitacao(id: number): Promise<void> {
     try {
-      const response = await fetch(`${API_BASE_URL}/ajustes/solicitacoes/${id}`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/ajustes/solicitacoes/${id}`, {
         method: 'DELETE',
       });
       
@@ -342,7 +343,7 @@ export class AjustesService {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch(`${API_BASE_URL}/ajustes/solicitacoes/${solicitacaoId}/anexos`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/ajustes/solicitacoes/${solicitacaoId}/anexos`, {
         method: 'POST',
         body: formData,
       });
@@ -368,7 +369,7 @@ export class AjustesService {
   // Listar anexos de uma solicitação
   static async listarAnexos(solicitacaoId: number): Promise<Anexo[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/ajustes/solicitacoes/${solicitacaoId}/anexos`);
+      const response = await authorizedFetch(`${API_BASE_URL}/ajustes/solicitacoes/${solicitacaoId}/anexos`);
       
       if (response.status === 404) {
         // Endpoint de anexos ainda não publicado no remoto
@@ -395,7 +396,7 @@ export class AjustesService {
   // Remover anexo
   static async removerAnexo(anexoId: number): Promise<void> {
     try {
-      const response = await fetch(`${API_BASE_URL}/ajustes/anexos/${anexoId}`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/ajustes/anexos/${anexoId}`, {
         method: 'DELETE',
       });
       
@@ -440,7 +441,7 @@ export class AjustesService {
       if (filtros.pageSize) query.append('pageSize', String(filtros.pageSize));
       if (filtros.sort) query.append('sort', filtros.sort);
       
-      const response = await fetch(`${API_BASE_URL}/ajustes/solicitacoes?${query.toString()}`);
+      const response = await authorizedFetch(`${API_BASE_URL}/ajustes/solicitacoes?${query.toString()}`);
       
       if (response.status === 404) {
         // Backend remoto ainda não publicou ajustes/negociação: retornar vazio
@@ -525,7 +526,7 @@ export class AjustesService {
   // Obter estatísticas de negociação
   static async getEstatisticasNegociacao(clinicaId: number): Promise<EstatisticasNegociacao> {
     try {
-      const response = await fetch(`${API_BASE_URL}/ajustes/estatisticas/negociacao?clinica_id=${clinicaId}`);
+      const response = await authorizedFetch(`${API_BASE_URL}/ajustes/estatisticas/negociacao?clinica_id=${clinicaId}`);
       
       if (response.status === 404) {
         // Backend remoto ainda não publicou estatísticas: retornar zeros

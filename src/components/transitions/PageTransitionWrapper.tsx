@@ -17,6 +17,9 @@ const getPageColorClass = (pathname: string): string => {
     '/analysis': 'page-transition-analysis',
     '/expenses': 'page-transition-expenses',
     '/chat': 'page-transition-chat',
+    // Rotas administrativas
+    '/admin/controle-sistema': 'page-transition-admin',
+    '/admin/clinicas/register': 'page-transition-admin',
   };
   
   return pathMap[pathname] || 'page-transition-dashboard';
@@ -47,6 +50,11 @@ export const PageTransitionWrapper: React.FC<PageTransitionWrapperProps> = ({ ch
   
   // Don't apply transition wrapper to login page
   if (location.pathname === '/') {
+    return <>{children}</>;
+  }
+  
+  // Don't apply transition wrapper to admin pages to allow scrolling
+  if (location.pathname.startsWith('/admin/')) {
     return <>{children}</>;
   }
   

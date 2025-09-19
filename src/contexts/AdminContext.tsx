@@ -1,39 +1,83 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 
+interface AdminUser {
+  username: string;
+  role: string;
+  isSpecialAdmin: boolean;
+}
+
 interface AdminContextType {
-	isAdmin: boolean;
-	loginAdmin: (secret: string) => boolean;
-	logoutAdmin: () => void;
-	adminSecret: string | null;
+  isAdmin: boolean;
+  isSpecialAdmin: boolean;
+  adminUser: AdminUser | null;
+  loginAdmin: (username: string, password: string) => boolean;
+  logoutAdmin: () => void;
+  checkSpecialAdminAccess: () => boolean;
 }
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-	const [adminSecret, setAdminSecret] = useState<string | null>(() => localStorage.getItem('onkhosAdminSecret'));
-	const isAdmin = !!adminSecret;
+  const [adminUser, setAdminUser] = useState<AdminUser | null>(() => {
+    const stored = localStorage.getItem('adminUser');
+    return stored ? JSON.parse(stored) : null;
+  });
 
-	useEffect(() => {
-		if (adminSecret) localStorage.setItem('onkhosAdminSecret', adminSecret);
-		else localStorage.removeItem('onkhosAdminSecret');
-	}, [adminSecret]);
+  const isAdmin = !!adminUser;
+  const isSpecialAdmin = adminUser?.isSpecialAdmin || false;
 
-	const loginAdmin = (secret: string) => {
-		if (!secret || secret.trim().length < 6) return false;
-		setAdminSecret(secret.trim());
-		return true;
-	};
-	const logoutAdmin = () => setAdminSecret(null);
+  useEffect(() => {
+    if (adminUser) {
+      localStorage.setItem('adminUser', JSON.stringify(adminUser));
+    } else {
+      localStorage.removeItem('adminUser');
+    }
+  }, [adminUser]);
 
-	return (
-		<AdminContext.Provider value={{ isAdmin, loginAdmin, logoutAdmin, adminSecret }}>
-			{children}
-		</AdminContext.Provider>
-	);
+  const loginAdmin = (username: string, password: string) => {
+    if (username === 'OnkhosGlobal' && password === 'Douglas193') {
+      const specialAdmin: AdminUser = {
+        username: 'OnkhosGlobal',
+        role: 'admin',
+        isSpecialAdmin: true
+      };
+      setAdminUser(specialAdmin);
+      return true;
+    }
+    return false;
+  };
+
+  const logoutAdmin = () => {
+    setAdminUser(null);
+    localStorage.removeItem('adminUser');
+    localStorage.removeItem('adminToken');
+  };
+
+  const checkSpecialAdminAccess = () => {
+    const stored = localStorage.getItem('adminUser');
+    if (stored) {
+      const user = JSON.parse(stored);
+      return user.isSpecialAdmin === true;
+    }
+    return false;
+  };
+
+  return (
+    <AdminContext.Provider value={{ 
+      isAdmin, 
+      isSpecialAdmin, 
+      adminUser, 
+      loginAdmin, 
+      logoutAdmin, 
+      checkSpecialAdminAccess 
+    }}>
+      {children}
+    </AdminContext.Provider>
+  );
 };
 
 export const useAdmin = (): AdminContextType => {
-	const ctx = useContext(AdminContext);
-	if (!ctx) throw new Error('useAdmin must be used within AdminProvider');
-	return ctx;
+  const ctx = useContext(AdminContext);
+  if (!ctx) throw new Error('useAdmin must be used within AdminProvider');
+  return ctx;
 }; 

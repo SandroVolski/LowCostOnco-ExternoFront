@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
   Plus, Edit, Trash2, Search, X, Save, 
   Pill, Clock, Droplet, Activity, Bookmark,
@@ -216,6 +217,10 @@ const OutdoorText = ({ text, className = '', speed = 25, delay = 3000 }) => {
 };
 
 const ProtocolsSection = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightSigla = searchParams.get('highlight');
+  const listRef = useRef<HTMLDivElement>(null);
+  const [highlightedProtocol, setHighlightedProtocol] = useState<string | null>(null);
   const [protocolos, setProtocolos] = useState<Protocolo[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedProtocols, setExpandedProtocols] = useState<Set<string>>(new Set());
@@ -235,6 +240,31 @@ const ProtocolsSection = () => {
   const [principiosLimit] = useState(100);
   const [principiosOffset, setPrincipiosOffset] = useState(0);
   const [principiosLoading, setPrincipiosLoading] = useState(false);
+
+  // useEffect para destacar protocolo
+  useEffect(() => {
+    if (!highlightSigla || !listRef.current) return;
+    
+    // Aguarda um pouco para garantir que os protocolos foram renderizados
+    const timer = setTimeout(() => {
+      const target = listRef.current?.querySelector(`[data-proto-sigla="${CSS.escape(highlightSigla.toUpperCase())}"]`);
+      
+      if (target) {
+        (target as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightedProtocol(highlightSigla.toUpperCase());
+        
+        // Remove o destaque após 3 segundos e limpa o parâmetro da URL
+        const clearTimer = setTimeout(() => {
+          setHighlightedProtocol(null);
+          setSearchParams({}); // Remove o parâmetro highlight da URL
+        }, 3000);
+        
+        return () => clearTimeout(clearTimer);
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [highlightSigla, setSearchParams, protocolos.length]);
 
   // Testar conexão com o backend
   useEffect(() => {
@@ -860,19 +890,29 @@ const ProtocolsSection = () => {
             </div>
           </AnimatedSection>
         ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredAndSortedProtocolos.map((protocolo, idx) => (
-              <AnimatedSection key={protocolo.id} delay={100 * idx}>
-                <ProtocoloFlipCard
-                  protocolo={protocolo}
-                  isSelected={selectedRows.has(protocolo.id)}
-                  showProtocoloDetails={showProtocoloDetails}
-                  handleEditFixedWithSelection={handleEdit}
-                  handleDelete={handleDelete}
-                />
-              </AnimatedSection>
-              ))}
-            </div>
+          <div ref={listRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredAndSortedProtocolos.map((protocolo, idx) => {
+              const protocoloSigla = (protocolo as any).sigla?.toUpperCase?.() || (protocolo.nome || '').toUpperCase?.() || '';
+              const isHighlighted = highlightedProtocol === protocoloSigla;
+              
+              return (
+                <AnimatedSection key={protocolo.id} delay={100 * idx}>
+                  <div 
+                    data-proto-sigla={protocoloSigla}
+                    className={isHighlighted ? 'ring-2 ring-primary ring-offset-2 ring-offset-background rounded-lg transition-all duration-300 shadow-lg shadow-primary/20 scale-[1.02]' : 'transition-all duration-300'}
+                  >
+                    <ProtocoloFlipCard
+                      protocolo={protocolo}
+                      isSelected={selectedRows.has(protocolo.id)}
+                      showProtocoloDetails={showProtocoloDetails}
+                      handleEditFixedWithSelection={handleEdit}
+                      handleDelete={handleDelete}
+                    />
+                  </div>
+                </AnimatedSection>
+              );
+            })}
+          </div>
         )}
       {/* Dialog para adicionar/editar protocolo */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>

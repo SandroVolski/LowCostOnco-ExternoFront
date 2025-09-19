@@ -31,12 +31,14 @@ import { toast } from 'sonner';
 import { AjustesService, type SolicitacaoNegociacao, type Anexo, type HistoricoItem, type EstatisticasNegociacao } from '@/services/ajustesService';
 import { LoadingState } from '@/components/ui/loading-states';
 import config from '@/config/environment';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Usar os tipos do backend
 type Solicitacao = SolicitacaoNegociacao;
 
 const AjustesNegociacao = () => {
   const [solicitacoes, setSolicitacoes] = useState<Solicitacao[]>([]);
+  const { user } = useAuth();
   const [totalSolicitacoes, setTotalSolicitacoes] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize] = useState(20);
@@ -190,7 +192,7 @@ const AjustesNegociacao = () => {
       
       // Sempre enviar os filtros, mesmo que sejam 'todas'
       const response = await AjustesService.listarSolicitacoesNegociacao({
-        clinica_id: 1,
+        clinica_id: user?.clinica_id || 1,
         tipo: 'negociacao',
         status: filtros.status === 'todas' ? undefined : filtros.status,
         prioridade: filtros.prioridade === 'todas' ? undefined : filtros.prioridade,

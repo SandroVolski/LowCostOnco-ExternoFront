@@ -45,6 +45,13 @@
     --sidebar-primary: 102 58% 57%;
     --sidebar-primary-foreground: 220 3% 20%;
     --sidebar-ring: 102 58% 57%;
+
+    /* Medical Colors for Anatomy */
+    --medical-purple: 270 100% 60%;
+    --medical-blue: 210 100% 50%;
+    --medical-red: 0 100% 50%;
+    --medical-orange: 30 100% 50%;
+    --medical-teal: 180 100% 50%;
   }
 
   .dark {
@@ -85,6 +92,13 @@
     --sidebar-primary: 102 58% 57%;
     --sidebar-primary-foreground: 220 10% 10%;
     --sidebar-ring: 102 58% 57%;
+
+    /* Medical Colors for Anatomy - Dark Mode */
+    --medical-purple: 270 100% 60%;
+    --medical-blue: 210 100% 50%;
+    --medical-red: 0 100% 50%;
+    --medical-orange: 30 100% 50%;
+    --medical-teal: 180 100% 50%;
   }
 }
 
@@ -99,6 +113,12 @@
   
   body {
     @apply bg-background text-foreground font-lato transition-colors duration-300;
+  }
+
+  /* Garantir que as páginas administrativas tenham scroll */
+  body.admin-page {
+    overflow-y: auto !important;
+    height: auto !important;
   }
 
   /* Cursor Styles */
@@ -463,7 +483,10 @@
     transform: translateY(0);
     opacity: 1;
   }
+}
 
+.animate-slide-down {
+  animation: slide-down 0.3s ease-out;
 }
 
 @keyframes float-in {

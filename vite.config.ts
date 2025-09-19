@@ -10,14 +10,14 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     proxy: {
       "/api": {
-        target: "https://apisistema.onkhos.com",
+        target: "http://localhost:3001",
         changeOrigin: true,
-        secure: true,
+        secure: false,
       },
       "/health": {
-        target: "https://apisistema.onkhos.com",
+        target: "http://localhost:3001",
         changeOrigin: true,
-        secure: true,
+        secure: false,
       },
     },
   },

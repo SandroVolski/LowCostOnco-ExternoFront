@@ -1,32 +1,33 @@
 // src/services/clinicService.ts
 
-// Importar configuração de ambiente
 import config from '@/config/environment';
+import { authorizedFetch } from '@/services/authService';
 
 const API_BASE_URL = config.API_BASE_URL;
 
-// Interfaces para comunicação com a API
-interface ApiResponse<T = any> {
-  success: boolean;
-  message: string;
-  data?: T;
-  error?: string;
-}
-
-export interface ResponsavelTecnico {
+// Interfaces para Clínicas
+export interface Clinica {
   id?: number;
   nome: string;
-  crm: string;
-  especialidade: string;
-  especialidade1?: string;
-  especialidade2?: string;
-  telefone?: string;
-  email?: string;
-  cnes?: string;
+  codigo: string;
+  cnpj?: string;
+  endereco?: string;
+  cidade?: string;
+  estado?: string;
+  cep?: string;
+  telefones: string[];
+  emails: string[];
+  website?: string;
+  logo_url?: string;
+  observacoes?: string;
+  usuario?: string;
+  senha?: string;
+  status: 'ativo' | 'inativo' | 'pendente';
+  created_at?: string;
+  updated_at?: string;
 }
 
-export interface ClinicProfile {
-  id?: number;
+export interface ClinicaCreateInput {
   nome: string;
   codigo: string;
   cnpj?: string;
@@ -36,12 +37,58 @@ export interface ClinicProfile {
   cep?: string;
   telefones?: string[];
   emails?: string[];
-  // Campos antigos para compatibilidade (serão removidos gradualmente)
-  telefone?: string;
-  email?: string;
   website?: string;
   logo_url?: string;
   observacoes?: string;
+  usuario?: string;
+  senha?: string;
+  status?: 'ativo' | 'inativo' | 'pendente';
+}
+
+export interface ClinicaUpdateInput {
+  nome?: string;
+  codigo?: string;
+  cnpj?: string;
+  endereco?: string;
+  cidade?: string;
+  estado?: string;
+  cep?: string;
+  telefones?: string[];
+  emails?: string[];
+  website?: string;
+  logo_url?: string;
+  observacoes?: string;
+  usuario?: string;
+  senha?: string;
+  status?: 'ativo' | 'inativo' | 'pendente';
+}
+
+// Interface para resposta da API
+interface ApiResponse<T = any> {
+  success: boolean;
+  message: string;
+  data?: T;
+  error?: string;
+}
+
+// Interfaces para perfil da clínica
+export interface ClinicProfile {
+  nome: string;
+  codigo: string;
+  cnpj?: string;
+  endereco?: string;
+  cidade?: string;
+  estado?: string;
+  cep?: string;
+  telefones: string[];
+  emails: string[];
+  website?: string;
+  logo_url?: string;
+  observacoes?: string;
+}
+
+export interface UpdateProfileRequest {
+  clinica: ClinicProfile;
 }
 
 export interface OperadoraCredenciada {
@@ -56,69 +103,247 @@ export interface Especialidade {
   cbo?: string;
 }
 
-export interface Documento {
-  id?: number;
-  clinica_id?: number;
-  nome: string;
-  tipo: string;
-  descricao?: string;
-  arquivo_url?: string;
-  arquivo_nome?: string;
-  arquivo_tamanho?: number;
-  data_envio: string;
-  data_vencimento?: string;
-  status: 'ativo' | 'vencido' | 'vencendo' | 'arquivado';
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface ClinicaProfileResponse {
-  clinica: ClinicProfile;
-  responsaveis_tecnicos: ResponsavelTecnico[];
-}
-
-export interface UpdateProfileRequest {
-  clinica: Partial<ClinicProfile>;
-  responsaveis_tecnicos?: {
-    create?: Omit<ResponsavelTecnico, 'id'>[];
-    update?: Array<{ id: number; data: Partial<ResponsavelTecnico> }>;
-    delete?: number[];
-  };
-}
-
+// Classe de serviço para Clínicas
 export class ClinicService {
   
-  // Buscar perfil da clínica
-  static async getProfile(): Promise<ClinicaProfileResponse> {
+  // Listar todas as clínicas
+  static async getAllClinicas(): Promise<Clinica[]> {
     try {
-      console.log('🔧 Buscando perfil da clínica...');
+      console.log('🔧 ClinicService.getAllClinicas() iniciado');
+      console.log('🔧 API_BASE_URL:', API_BASE_URL);
+      console.log('🔧 URL completa:', `${API_BASE_URL}/clinicas/admin`);
       
-      const response = await fetch(`${API_BASE_URL}/clinicas/profile`);
+      const response = await fetch(`${API_BASE_URL}/clinicas/admin`);
+      
+      console.log('🔧 Resposta recebida:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
       
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      const result: ApiResponse<ClinicaProfileResponse> = await response.json();
+      const result: ApiResponse<Clinica[]> = await response.json();
+      console.log('🔧 Dados da resposta:', result);
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Erro ao buscar clínicas');
+      }
+      
+      console.log('✅ Clínicas obtidas com sucesso:', result.data);
+      return result.data || [];
+    } catch (error) {
+      console.error('❌ Erro no ClinicService.getAllClinicas():', error);
+      throw new Error('Erro ao buscar clínicas');
+    }
+  }
+
+  // Buscar clínica por ID
+  static async getClinicaById(id: number): Promise<Clinica> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/clinicas/admin/${id}`);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result: ApiResponse<Clinica> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Erro ao buscar clínica');
+      }
+      
+      if (!result.data) {
+        throw new Error('Clínica não encontrada');
+      }
+      
+      return result.data;
+    } catch (error) {
+      console.error('Erro ao buscar clínica:', error);
+      throw new Error('Erro ao buscar clínica');
+    }
+  }
+
+  // Criar nova clínica
+  static async createClinica(clinicaData: ClinicaCreateInput): Promise<Clinica> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/clinicas/admin`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(clinicaData),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result: ApiResponse<Clinica> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Erro ao criar clínica');
+      }
+      
+      if (!result.data) {
+        throw new Error('Erro ao criar clínica');
+      }
+      
+      return result.data;
+    } catch (error) {
+      console.error('Erro ao criar clínica:', error);
+      throw new Error('Erro ao criar clínica');
+    }
+  }
+
+  // Atualizar clínica
+  static async updateClinica(id: number, clinicaData: ClinicaUpdateInput): Promise<Clinica> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/clinicas/admin/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(clinicaData),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result: ApiResponse<Clinica> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Erro ao atualizar clínica');
+      }
+      
+      if (!result.data) {
+        throw new Error('Erro ao atualizar clínica');
+      }
+      
+      return result.data;
+    } catch (error) {
+      console.error('Erro ao atualizar clínica:', error);
+      throw new Error('Erro ao atualizar clínica');
+    }
+  }
+
+  // Deletar clínica
+  static async deleteClinica(id: number): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/clinicas/admin/${id}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result: ApiResponse = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Erro ao deletar clínica');
+      }
+      
+      return true;
+    } catch (error) {
+      console.error('Erro ao deletar clínica:', error);
+      throw new Error('Erro ao deletar clínica');
+    }
+  }
+
+  // Validar CNPJ (formato básico)
+  static validateCNPJ(cnpj: string): boolean {
+    const cnpjClean = cnpj.replace(/[^\d]/g, '');
+    return cnpjClean.length === 14;
+  }
+
+  // Validar CEP (formato brasileiro)
+  static validateCEP(cep: string): boolean {
+    const cepClean = cep.replace(/[^\d]/g, '');
+    return cepClean.length === 8;
+  }
+
+  // Validar telefone (formato brasileiro)
+  static validatePhone(phone: string): boolean {
+    const phoneClean = phone.replace(/[^\d]/g, '');
+    return phoneClean.length >= 10 && phoneClean.length <= 11;
+  }
+
+  // Validar email
+  static validateEmail(email: string): boolean {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  }
+
+  // Preparar dados para envio (remover campos vazios)
+  static prepareDataForSubmission(data: ClinicaCreateInput | ClinicaUpdateInput): any {
+    const prepared: any = {};
+    
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        if (Array.isArray(value)) {
+          // Filtrar arrays vazios
+          const filteredArray = value.filter(item => item && item.trim() !== '');
+          if (filteredArray.length > 0) {
+            prepared[key] = filteredArray;
+          }
+        } else {
+          prepared[key] = value;
+        }
+      }
+    });
+    
+    return prepared;
+  }
+
+  // Buscar perfil da clínica (com responsáveis técnicos)
+  static async getProfile(): Promise<{ clinica: Clinica; responsaveis_tecnicos: any[] }> {
+    try {
+      console.log('🔧 ClinicService.getProfile() iniciado');
+      console.log('🔧 API_BASE_URL:', API_BASE_URL);
+      console.log('🔧 URL completa:', `${API_BASE_URL}/clinicas/profile`);
+      
+      const response = await authorizedFetch(`${API_BASE_URL}/clinicas/profile`);
+      
+      console.log('🔧 Resposta recebida:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result: ApiResponse<{ clinica: Clinica; responsaveis_tecnicos: any[] }> = await response.json();
+      console.log('🔧 Dados da resposta:', result);
       
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar perfil da clínica');
       }
       
-      console.log('✅ Perfil da clínica encontrado:', result.data);
-      return result.data!;
+      console.log('✅ Perfil obtido com sucesso:', result.data);
+      return result.data || { clinica: {} as Clinica, responsaveis_tecnicos: [] };
     } catch (error) {
-      console.error('❌ Erro ao buscar perfil da clínica:', error);
-      throw error;
+      console.error('❌ Erro no ClinicService.getProfile():', error);
+      throw new Error('Erro ao buscar perfil da clínica');
     }
   }
-  
+
   // Atualizar perfil da clínica
-  static async updateProfile(updateData: UpdateProfileRequest): Promise<ClinicaProfileResponse> {
+  static async updateProfile(updateData: { clinica: ClinicaUpdateInput }): Promise<{ clinica: Clinica; responsaveis_tecnicos: any[] }> {
     try {
-      console.log('🔧 Atualizando perfil da clínica...', updateData);
+      console.log('🔧 ClinicService.updateProfile() iniciado');
+      console.log('🔧 API_BASE_URL:', API_BASE_URL);
+      console.log('🔧 URL completa:', `${API_BASE_URL}/clinicas/profile`);
+      console.log('🔧 Dados para atualização:', updateData);
       
-      const response = await fetch(`${API_BASE_URL}/clinicas/profile`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/clinicas/profile`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -126,366 +351,75 @@ export class ClinicService {
         body: JSON.stringify(updateData),
       });
       
+      console.log('🔧 Resposta recebida:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        headers: Object.fromEntries(response.headers.entries())
+      });
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      const result: ApiResponse<ClinicaProfileResponse> = await response.json();
+      const result: ApiResponse<{ clinica: Clinica; responsaveis_tecnicos: any[] }> = await response.json();
+      console.log('🔧 Dados da resposta:', result);
       
       if (!result.success) {
         throw new Error(result.message || 'Erro ao atualizar perfil da clínica');
       }
       
-      console.log('✅ Perfil da clínica atualizado:', result.data);
-      return result.data!;
+      console.log('✅ Perfil atualizado com sucesso:', result.data);
+      return result.data || { clinica: {} as Clinica, responsaveis_tecnicos: [] };
     } catch (error) {
-      console.error('❌ Erro ao atualizar perfil da clínica:', error);
-      throw error;
+      console.error('❌ Erro no ClinicService.updateProfile():', error);
+      throw new Error('Erro ao atualizar perfil da clínica');
     }
   }
 
-  // Listar operadoras credenciadas da clínica
-  static async listarOperadorasCredenciadas(params?: { clinica_id?: number }): Promise<OperadoraCredenciada[]> {
+  // Listar operadoras credenciadas
+  static async listarOperadorasCredenciadas(params: { clinica_id: number }): Promise<any[]> {
     try {
-      const query = new URLSearchParams();
-      if (params?.clinica_id) query.append('clinica_id', String(params.clinica_id));
-      const response = await fetch(`${API_BASE_URL}/clinicas/operadoras?${query.toString()}`);
-      if (response.status === 404) {
-        return [];
-      }
+      console.log('🔧 ClinicService.listarOperadorasCredenciadas() iniciado');
+      const response = await authorizedFetch(`${API_BASE_URL}/operadoras/credenciadas?clinica_id=${params.clinica_id}`);
+      
       if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const result: ApiResponse<OperadoraCredenciada[]> = await response.json();
-      if (!result.success) throw new Error(result.message || 'Erro ao listar operadoras credenciadas');
+      
+      const result: ApiResponse<any[]> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Erro ao buscar operadoras credenciadas');
+      }
+      
       return result.data || [];
     } catch (error) {
-      console.error('❌ Erro ao listar operadoras credenciadas:', error);
+      console.error('❌ Erro no ClinicService.listarOperadorasCredenciadas():', error);
       return [];
     }
   }
 
-  // Listar especialidades da clínica
-  static async listarEspecialidades(params?: { clinica_id?: number }): Promise<Especialidade[]> {
+  // Listar especialidades
+  static async listarEspecialidades(params: { clinica_id: number }): Promise<any[]> {
     try {
-      const query = new URLSearchParams();
-      if (params?.clinica_id) query.append('clinica_id', String(params.clinica_id));
-      const response = await fetch(`${API_BASE_URL}/clinicas/especialidades?${query.toString()}`);
-      if (response.status === 404) {
-        return [];
-      }
+      console.log('🔧 ClinicService.listarEspecialidades() iniciado');
+      const response = await authorizedFetch(`${API_BASE_URL}/especialidades?clinica_id=${params.clinica_id}`);
+      
       if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
-      const result: ApiResponse<Especialidade[]> = await response.json();
-      if (!result.success) throw new Error(result.message || 'Erro ao listar especialidades');
+      
+      const result: ApiResponse<any[]> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Erro ao buscar especialidades');
+      }
+      
       return result.data || [];
     } catch (error) {
-      console.error('❌ Erro ao listar especialidades:', error);
+      console.error('❌ Erro no ClinicService.listarEspecialidades():', error);
       return [];
-    }
-  }
-
-  // ============= GESTÃO DE DOCUMENTOS =============
-
-  // Listar documentos da clínica
-  static async listarDocumentos(params?: { clinica_id?: number }): Promise<Documento[]> {
-    try {
-      const query = new URLSearchParams();
-      if (params?.clinica_id) query.append('clinica_id', String(params.clinica_id));
-      const response = await fetch(`${API_BASE_URL}/clinicas/documentos?${query.toString()}`);
-      if (response.status === 404) {
-        return [];
-      }
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
-      }
-      const result: ApiResponse<Documento[]> = await response.json();
-      if (!result.success) throw new Error(result.message || 'Erro ao listar documentos');
-      return result.data || [];
-    } catch (error) {
-      console.error('❌ Erro ao listar documentos:', error);
-      return [];
-    }
-  }
-
-  // Adicionar documento
-  static async adicionarDocumento(documento: Omit<Documento, 'id' | 'created_at' | 'updated_at'>): Promise<Documento> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/clinicas/documentos`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(documento),
-      });
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
-      }
-      const result: ApiResponse<Documento> = await response.json();
-      if (!result.success) throw new Error(result.message || 'Erro ao adicionar documento');
-      return result.data!;
-    } catch (error) {
-      console.error('❌ Erro ao adicionar documento:', error);
-      throw error;
-    }
-  }
-
-  // Atualizar documento
-  static async atualizarDocumento(id: number, documento: Partial<Documento>): Promise<Documento> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/clinicas/documentos/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(documento),
-      });
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
-      }
-      const result: ApiResponse<Documento> = await response.json();
-      if (!result.success) throw new Error(result.message || 'Erro ao atualizar documento');
-      return result.data!;
-    } catch (error) {
-      console.error('❌ Erro ao atualizar documento:', error);
-      throw error;
-    }
-  }
-
-  // Remover documento
-  static async removerDocumento(id: number): Promise<void> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/clinicas/documentos/${id}`, {
-        method: 'DELETE',
-      });
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
-      }
-      const result: ApiResponse = await response.json();
-      if (!result.success) throw new Error(result.message || 'Erro ao remover documento');
-    } catch (error) {
-      console.error('❌ Erro ao remover documento:', error);
-      throw error;
-    }
-  }
-
-  // Upload de arquivo
-  static async uploadDocumento(file: File, documento: Omit<Documento, 'id' | 'arquivo_url' | 'arquivo_nome' | 'arquivo_tamanho' | 'created_at' | 'updated_at'>): Promise<Documento> {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('documento', JSON.stringify(documento));
-
-      const response = await fetch(`${API_BASE_URL}/clinicas/documentos/upload`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const result: ApiResponse<Documento> = await response.json();
-      if (!result.success) throw new Error(result.message || 'Erro ao fazer upload do documento');
-      return result.data!;
-    } catch (error) {
-      console.error('❌ Erro ao fazer upload do documento:', error);
-      throw error;
-    }
-  }
-  
-  // Registro administrativo de clínicas (requer X-Admin-Secret)
-  static async registerAdminClinic(
-    clinicData: Partial<ClinicProfile> & {
-      usuario?: string;
-      senha?: string;
-      emails?: string[];
-      telefones?: string[];
-      email?: string;
-      telefone?: string;
-      status?: string;
-    },
-    adminSecret: string
-  ): Promise<ClinicProfile> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/clinicas/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Admin-Secret': adminSecret,
-        },
-        body: JSON.stringify(clinicData),
-      });
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => '');
-        throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
-      }
-      const result: ApiResponse<ClinicProfile> = await response.json();
-      if (!result.success) throw new Error(result.message || 'Erro ao registrar clínica');
-      return result.data!;
-    } catch (error) {
-      console.error('❌ Erro ao registrar clínica (admin):', error);
-      throw error;
-    }
-  }
-
-  // Adicionar responsável técnico
-  static async addResponsavel(responsavel: Omit<ResponsavelTecnico, 'id'>): Promise<ResponsavelTecnico> {
-    try {
-      console.log('🔧 Adicionando responsável técnico...', responsavel);
-      
-      const response = await fetch(`${API_BASE_URL}/clinicas/responsaveis`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(responsavel),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const result: ApiResponse<ResponsavelTecnico> = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.message || 'Erro ao adicionar responsável técnico');
-      }
-      
-      console.log('✅ Responsável técnico adicionado:', result.data);
-      return result.data!;
-    } catch (error) {
-      console.error('❌ Erro ao adicionar responsável técnico:', error);
-      throw error;
-    }
-  }
-  
-  // Atualizar responsável técnico
-  static async updateResponsavel(id: number, responsavel: Partial<ResponsavelTecnico>): Promise<ResponsavelTecnico> {
-    try {
-      console.log('🔧 Atualizando responsável técnico...', id, responsavel);
-      
-      const response = await fetch(`${API_BASE_URL}/clinicas/responsaveis/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(responsavel),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const result: ApiResponse<ResponsavelTecnico> = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.message || 'Erro ao atualizar responsável técnico');
-      }
-      
-      console.log('✅ Responsável técnico atualizado:', result.data);
-      return result.data!;
-    } catch (error) {
-      console.error('❌ Erro ao atualizar responsável técnico:', error);
-      throw error;
-    }
-  }
-  
-  // Remover responsável técnico
-  static async removeResponsavel(id: number): Promise<void> {
-    try {
-      console.log('🔧 Removendo responsável técnico...', id);
-      
-      const response = await fetch(`${API_BASE_URL}/clinicas/responsaveis/${id}`, {
-        method: 'DELETE',
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const result: ApiResponse = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.message || 'Erro ao remover responsável técnico');
-      }
-      
-      console.log('✅ Responsável técnico removido');
-    } catch (error) {
-      console.error('❌ Erro ao remover responsável técnico:', error);
-      throw error;
-    }
-  }
-  
-  // Login da clínica
-  static async login(usuario: string, senha: string): Promise<{ clinic: ClinicProfile; token: string }> {
-    try {
-      console.log('🔧 Fazendo login da clínica...', usuario);
-      
-      const response = await fetch(`${API_BASE_URL}/clinicas/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ usuario, senha }),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const result: ApiResponse<{ clinic: ClinicProfile; token: string }> = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.message || 'Erro no login');
-      }
-      
-      console.log('✅ Login realizado com sucesso');
-      return result.data!;
-    } catch (error) {
-      console.error('❌ Erro no login:', error);
-      throw error;
-    }
-  }
-  
-  // Registrar nova clínica
-  static async register(clinicData: Partial<ClinicProfile> & { usuario?: string; senha?: string }): Promise<ClinicProfile> {
-    try {
-      console.log('🔧 Registrando nova clínica...', clinicData);
-      
-      const response = await fetch(`${API_BASE_URL}/clinicas/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(clinicData),
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const result: ApiResponse<ClinicProfile> = await response.json();
-      
-      if (!result.success) {
-        throw new Error(result.message || 'Erro ao registrar clínica');
-      }
-      
-      console.log('✅ Clínica registrada com sucesso:', result.data);
-      return result.data!;
-    } catch (error) {
-      console.error('❌ Erro ao registrar clínica:', error);
-      throw error;
     }
   }
 }

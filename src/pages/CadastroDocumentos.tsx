@@ -14,6 +14,7 @@ import { useDataLoader, useDataMutation } from '@/hooks/useDataLoader';
 import { LoadingState } from '@/components/ui/loading-states';
 import { cn } from '@/lib/utils';
 import config from '@/config/environment';
+import { useAuth } from '@/contexts/AuthContext';
 
 const emptyDocumento: Documento = {
   nome: '',
@@ -55,6 +56,7 @@ const AnimatedSection = ({ children, delay = 0, className = "" }: {
 
 const CadastroDocumentos = () => {
   const [isDocumentoDialogOpen, setIsDocumentoDialogOpen] = useState(false);
+  const { user } = useAuth();
   const [currentDocumento, setCurrentDocumento] = useState<Documento>(emptyDocumento);
   const [isEditingDocumento, setIsEditingDocumento] = useState(false);
   const [filterType, setFilterType] = useState<string>('todos');
@@ -76,7 +78,7 @@ const CadastroDocumentos = () => {
   } = useDataLoader({
     key: `documentos:${refreshKey}`, // Chave dinâmica para forçar refresh
     loader: async () => {
-      return await ClinicService.listarDocumentos({ clinica_id: 1 });
+      return await ClinicService.listarDocumentos({ clinica_id: user?.clinica_id || 1 });
     },
     fallback: () => {
       const savedDocumentos = localStorage.getItem('clinic_documentos');

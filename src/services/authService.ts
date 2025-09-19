@@ -9,32 +9,27 @@ export interface AuthUser {
   clinica_id?: number | null;
 }
 
-export interface LoginResponse {
+export interface ClinicLoginResponse {
   success: boolean;
   message?: string;
   data?: {
-    accessToken: string;
-    refreshToken: string;
-    user: AuthUser;
+    token: string;
+    clinic: { id: number; nome?: string } & Record<string, any>;
   };
 }
 
 const STORAGE_KEYS = {
   access: 'authAccessToken',
-  refresh: 'authRefreshToken',
   user: 'lcoUser',
 };
 
 export const TokenStore = {
   getAccess(): string | null { return localStorage.getItem(STORAGE_KEYS.access); },
-  getRefresh(): string | null { return localStorage.getItem(STORAGE_KEYS.refresh); },
-  set(accessToken: string, refreshToken: string) {
+  set(accessToken: string) {
     localStorage.setItem(STORAGE_KEYS.access, accessToken);
-    localStorage.setItem(STORAGE_KEYS.refresh, refreshToken);
   },
   clear() {
     localStorage.removeItem(STORAGE_KEYS.access);
-    localStorage.removeItem(STORAGE_KEYS.refresh);
   }
 };
 
@@ -59,47 +54,43 @@ function isApiUrl(url: string): boolean {
 
 export const AuthService = {
   async login(username: string, password: string): Promise<AuthUser> {
-    const res = await fetch(`${config.API_BASE_URL}/auth/login`, {
+    const res = await fetch(`${config.API_BASE_URL}/clinicas/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ usuario: username, senha: password })
     });
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       throw new Error(text || `Falha no login (HTTP ${res.status})`);
     }
-    const json: LoginResponse = await res.json();
+    const json: ClinicLoginResponse = await res.json();
     if (!json.success || !json.data) throw new Error(json.message || 'Login inválido');
-    const { accessToken, refreshToken, user } = json.data;
-    TokenStore.set(accessToken, refreshToken);
-    UserStore.set(user);
-    return user;
-  },
-
-  async refresh(): Promise<string> {
-    const refreshToken = TokenStore.getRefresh();
-    if (!refreshToken) throw new Error('Sem refresh token');
-    const res = await fetch(`${config.API_BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken })
-    });
-    if (!res.ok) throw new Error(`Falha ao renovar token (HTTP ${res.status})`);
-    const json: { success: boolean; data?: { accessToken: string } } = await res.json();
-    if (!json.success || !json.data) throw new Error('Resposta inválida ao renovar');
-    const newAccess = json.data.accessToken;
-    const currentRefresh = TokenStore.getRefresh() || '';
-    TokenStore.set(newAccess, currentRefresh);
-    return newAccess;
+    const { token, clinic } = json.data;
+    TokenStore.set(token);
+    const authUser: AuthUser = {
+      id: clinic.id,
+      username: clinic.nome || username,
+      role: 'clinic',
+      clinica_id: clinic.id,
+    };
+    UserStore.set(authUser);
+    return authUser;
   },
 
   async me(): Promise<AuthUser> {
-    const res = await fetch(`${config.API_BASE_URL}/auth/me`, { headers: AuthService.authHeader() });
+    const res = await fetch(`${config.API_BASE_URL}/clinicas/profile`, { headers: AuthService.authHeader() });
     if (!res.ok) throw new Error(`Falha ao obter perfil (HTTP ${res.status})`);
-    const json: { success: boolean; data?: AuthUser } = await res.json();
+    const json: { success: boolean; data?: { clinica?: { id: number; nome?: string } } & Record<string, any> } = await res.json();
     if (!json.success || !json.data) throw new Error('Perfil inválido');
-    UserStore.set(json.data);
-    return json.data;
+    const clinica = (json.data as any).clinica || json.data;
+    const authUser: AuthUser = {
+      id: clinica.id,
+      username: clinica.nome || 'Clínica',
+      role: 'clinic',
+      clinica_id: clinica.id,
+    };
+    UserStore.set(authUser);
+    return authUser;
   },
 
   async logout(): Promise<void> {
@@ -134,19 +125,10 @@ export async function authorizedFetch(input: RequestInfo | URL, init?: RequestIn
 
   let response = await fetch(input, initWithAuth);
   if (response.status !== 401) return response;
-
-  // Se 401 e é chamada da API, tentar 1x refresh e repetir
+  // Sem refresh: se 401, efetua logout e retorna o 401 ao caller
   if (shouldAuth) {
-    try {
-      await AuthService.refresh();
-      const retryInit = AuthService.withAuthHeaders(init);
-      response = await fetch(input, retryInit);
-    } catch (err) {
-      await AuthService.logout();
-      throw err;
-    }
+    await AuthService.logout();
   }
-
   return response;
 }
 

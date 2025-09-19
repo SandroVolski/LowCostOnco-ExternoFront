@@ -1,11 +1,15 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { VialIcon, PillIcon, SyringeIcon } from '@/components/MedicalIcons';
-import { CalendarIcon, UsersIcon, ChartPieIcon, AlertCircle, FileText, Clock, CheckCircle, XCircle, Loader2, BarChart3, ArrowRight, Pill } from 'lucide-react';
+import { CalendarIcon, UsersIcon, ChartPieIcon, AlertCircle, FileText, Clock, CheckCircle, XCircle, Loader2, BarChart3, ArrowRight, Pill, Activity, Building2, Users } from 'lucide-react';
 import { CardHoverEffect, Card as HoverCard, CardTitle as HoverCardTitle, CardDescription as HoverCardDescription } from '@/components/ui/card-hover-effect';
 import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import AnimatedSection from '@/components/AnimatedSection';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { MouseTilt } from '@/components/MouseTilt';
 import { PacienteService, SolicitacaoService, ProtocoloService, testarConexaoBackend, PatientFromAPI, SolicitacaoFromAPI, ProtocoloFromAPI } from '@/services/api';
@@ -1743,21 +1747,519 @@ const Dashboard = () => {
     );
   };
 
-  const OperatorDashboard = () => (
-    <div className="space-y-6">
-      <Card className="lco-card border-blue-200">
-        <CardContent className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <AlertCircle className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-blue-800 mb-2">Dashboard da Operadora</h3>
-            <p className="text-blue-600">
-              Em desenvolvimento. Funcionalidades específicas da operadora serão implementadas em breve.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  const OperatorDashboard = () => {
+    // Mock de clínicas gerenciadas pela operadora
+    const clinics = [
+      { id: 1, nome: 'Clínica Onco Vida', cidade: 'São Paulo' },
+      { id: 2, nome: 'Centro Oncológico Alfa', cidade: 'Campinas' },
+      { id: 3, nome: 'Instituto Beta', cidade: 'Santos' },
+    ];
+
+    // Filtros
+    const [selectedClinicId, setSelectedClinicId] = useState<number | 'todas'>('todas');
+    const [periodo, setPeriodo] = useState<'30' | '60' | '90'>('30');
+    const [activeTab, setActiveTab] = useState<'principal' | 'clinicas'>(() => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        return (params.get('tab') as any) === 'clinicas' ? 'clinicas' : 'principal';
+      } catch {
+        return 'principal';
+      }
+    });
+
+    // Mock de agregados (substituir por API futura)
+    const kpis = {
+      totalClinicas: clinics.length,
+      totalSolicitacoes: 487,
+      taxaAprovacao: 0.92,
+      tempoMedioAnaliseDias: 3.4,
+      totalPacientes: 1325,
+      custoTotalPeriodo: 1845000,
+      custoMedioPorPaciente: 1393,
+      economiaEstimativa: 0.18,
+      taxaNegacao: 0.06,
+      slaDentroPrazo: 0.88,
+    };
+
+    // Mock de dados para gráficos
+    const statusPorClinica = clinics.map((c, idx) => ({
+      name: c.nome.split(' ')[0],
+      aprovadas: [120, 80, 65][idx] || 40,
+      pendentes: [20, 14, 11][idx] || 8,
+      rejeitadas: [9, 7, 6][idx] || 4,
+    }));
+
+    const protocolosTop = [
+      { name: 'Quimio AC-T', value: 34 },
+      { name: 'FOLFOX', value: 28 },
+      { name: 'R-CHOP', value: 19 },
+      { name: 'Carboplatina + Paclitaxel', value: 15 },
+    ];
+
+    const principiosAtivosTop = [
+      { name: 'Trastuzumabe', value: 35 },
+      { name: 'Bevacizumabe', value: 25 },
+      { name: 'Pembrolizumabe', value: 20 },
+      { name: 'Rituximabe', value: 15 },
+      { name: 'Outros', value: 5 },
+    ];
+
+    const demografiaSexo = [
+      { name: 'Feminino', value: 62 },
+      { name: 'Masculino', value: 38 },
+    ];
+
+    const demografiaIdade = [
+      { faixa: '0-17', qtd: 2 },
+      { faixa: '18-39', qtd: 18 },
+      { faixa: '40-59', qtd: 46 },
+      { faixa: '60+', qtd: 34 },
+    ];
+
+    // Financeiro por mês (mock)
+    const custosPorMes = [
+      { mes: 'jan', total: 280000, economias: 42000 },
+      { mes: 'fev', total: 295000, economias: 48000 },
+      { mes: 'mar', total: 310000, economias: 51000 },
+      { mes: 'abr', total: 315000, economias: 56000 },
+      { mes: 'mai', total: 330000, economias: 60000 },
+      { mes: 'jun', total: 330000, economias: 59000 },
+    ];
+
+    // Desempenho por clínica (mock)
+    const desempenhoClinica = clinics.map((c, idx) => ({
+      name: c.nome.split(' ')[0],
+      aprovacao: [0.93, 0.9, 0.88][idx],
+      prazoMedio: [3.1, 3.7, 4.3][idx],
+    }));
+
+    // Custo por princípio ativo (mock)
+    const principiosPorCusto = [
+      { name: 'Pembrolizumabe', custo: 420000 },
+      { name: 'Trastuzumabe', custo: 360000 },
+      { name: 'Bevacizumabe', custo: 340000 },
+      { name: 'Rituximabe', custo: 290000 },
+      { name: 'Docetaxel', custo: 210000 },
+    ];
+
+    // Distribuição de tempo de autorização (mock)
+    const tempoAutorizacaoDist = [
+      { faixa: '0-1d', qtd: 120 },
+      { faixa: '2-3d', qtd: 210 },
+      { faixa: '4-5d', qtd: 95 },
+      { faixa: '6-7d', qtd: 42 },
+      { faixa: '8+d', qtd: 20 },
+    ];
+
+    const clinicLabel = selectedClinicId === 'todas'
+      ? 'Todas as clínicas'
+      : clinics.find(c => c.id === selectedClinicId)?.nome || 'Clínica';
+
+    return (
+      <div className="space-y-6">
+        {/* Header elegante com informações da operadora */}
+        <Card className="relative overflow-hidden border-primary/20">
+          <div className="absolute inset-0 bg-gradient-to-r from-primary/10 via-transparent to-accent/10" />
+          <CardContent className="relative p-6">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="p-3 rounded-xl bg-primary/10 border border-primary/20">
+                  <Building2 className="h-8 w-8 text-primary" />
+                </div>
+                <div>
+                  <div className="text-xs uppercase tracking-wider text-muted-foreground">Operadora</div>
+                  <div className="text-2xl font-bold">
+                    {clinicLabel}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Período: {periodo === '30' ? 'Últimos 30 dias' : periodo === '60' ? 'Últimos 60 dias' : 'Últimos 90 dias'}</div>
+                </div>
+              </div>
+              {/* Toolbar de filtros organizada */}
+              <div className="w-full md:w-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                  <div className="flex gap-2">
+                    <Button variant={activeTab==='principal' ? 'default' : 'outline'} onClick={() => setActiveTab('principal')}>Dashboard</Button>
+                    <Button variant={activeTab==='clinicas' ? 'default' : 'outline'} onClick={() => setActiveTab('clinicas')}>Clínicas</Button>
+                  </div>
+                  <Button
+                    onClick={() => (window.location.href = '/operator-patients')}
+                    className="justify-start md:justify-center"
+                    variant="outline"
+                  >
+                    <Users className="h-4 w-4 mr-2" /> Pacientes
+                  </Button>
+                  <div className="min-w-[240px]">
+                    <div className="text-xs font-medium text-muted-foreground mb-1">Clínica</div>
+                    <Select onValueChange={(v) => setSelectedClinicId(v === 'todas' ? 'todas' : Number(v))}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder={clinicLabel} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="todas">Todas as clínicas</SelectItem>
+                        {clinics.map(c => (
+                          <SelectItem key={c.id} value={String(c.id)}>{c.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="min-w-[200px]">
+                    <div className="text-xs font-medium text-muted-foreground mb-1">Período</div>
+                    <Select value={periodo} onValueChange={(v) => setPeriodo(v as any)}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Últimos 30 dias" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="30">Últimos 30 dias</SelectItem>
+                        <SelectItem value="60">Últimos 60 dias</SelectItem>
+                        <SelectItem value="90">Últimos 90 dias</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* KPIs resumidos na parte superior */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+          <AnimatedSection delay={80}>
+            <Card className="lco-card hover-lift group relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <CardHeader className="pb-2 relative z-10">
+                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Clínicas</CardTitle>
+              </CardHeader>
+              <CardContent className="relative z-10 flex items-end justify-between">
+                <div className="text-3xl font-bold">{kpis.totalClinicas}</div>
+                <Building2 className="h-6 w-6 text-primary" />
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+          {/* Pacientes agora logo após Clínicas */}
+          <AnimatedSection delay={100}>
+            <Card className="lco-card hover-lift group relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <CardHeader className="pb-2 relative z-10">
+                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Pacientes</CardTitle>
+              </CardHeader>
+              <CardContent className="relative z-10 flex items-end justify-between">
+                <div className="text-3xl font-bold">{kpis.totalPacientes}</div>
+                <UsersIcon className="h-6 w-6 text-primary" />
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+          <AnimatedSection delay={120}>
+            <Card className="lco-card hover-lift group relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-support-yellow/5 to-support-yellow/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <CardHeader className="pb-2 relative z-10">
+                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Solicitações</CardTitle>
+              </CardHeader>
+              <CardContent className="relative z-10 flex items-end justify-between">
+                <div className="text-3xl font-bold">{kpis.totalSolicitacoes}</div>
+                <FileText className="h-6 w-6 text-support-yellow" />
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+          <AnimatedSection delay={160}>
+            <Card className="lco-card hover-lift group relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-support-green/5 to-support-green/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <CardHeader className="pb-2 relative z-10">
+                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Taxa de Aprovação</CardTitle>
+              </CardHeader>
+              <CardContent className="relative z-10 flex items-end justify-between">
+                <div className="text-3xl font-bold">{Math.round(kpis.taxaAprovacao * 100)}%</div>
+                <CheckCircle className="h-6 w-6 text-support-green" />
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+          <AnimatedSection delay={200}>
+            <Card className="lco-card hover-lift group relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-highlight-peach/5 to-highlight-peach/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <CardHeader className="pb-2 relative z-10">
+                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Tempo Médio</CardTitle>
+              </CardHeader>
+              <CardContent className="relative z-10 flex items-end justify-between">
+                <div className="text-3xl font-bold">{kpis.tempoMedioAnaliseDias}d</div>
+                <Clock className="h-6 w-6 text-highlight-peach" />
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+        </div>
+
+        {/* KPIs de negócio (financeiro/SLA) */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+          <AnimatedSection delay={220}>
+            <Card className="lco-card hover-lift group relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <CardHeader className="pb-2 relative z-10">
+                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Custo Total</CardTitle>
+              </CardHeader>
+              <CardContent className="relative z-10">
+                <div className="text-3xl font-bold">R$ {kpis.custoTotalPeriodo.toLocaleString('pt-BR')}</div>
+                <CardDescription>no período selecionado</CardDescription>
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+          <AnimatedSection delay={240}>
+            <Card className="lco-card hover-lift group relative overflow-hidden">
+              <CardHeader className="pb-2 relative z-10">
+                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Custo Médio / Paciente</CardTitle>
+              </CardHeader>
+              <CardContent className="relative z-10">
+                <div className="text-3xl font-bold">R$ {kpis.custoMedioPorPaciente.toLocaleString('pt-BR')}</div>
+                <CardDescription>em todas as clínicas</CardDescription>
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+          <AnimatedSection delay={260}>
+            <Card className="lco-card hover-lift group relative overflow-hidden">
+              <CardHeader className="pb-2 relative z-10">
+                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Economia Estimada</CardTitle>
+              </CardHeader>
+              <CardContent className="relative z-10">
+                <div className="text-3xl font-bold">{Math.round(kpis.economiaEstimativa * 100)}%</div>
+                <CardDescription>vs. modelo tradicional</CardDescription>
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+          <AnimatedSection delay={280}>
+            <Card className="lco-card hover-lift group relative overflow-hidden">
+              <CardHeader className="pb-2 relative z-10">
+                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Taxa de Negação</CardTitle>
+              </CardHeader>
+              <CardContent className="relative z-10">
+                <div className="text-3xl font-bold">{Math.round(kpis.taxaNegacao * 100)}%</div>
+                <CardDescription>solicitações negadas</CardDescription>
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+          <AnimatedSection delay={300}>
+            <Card className="lco-card hover-lift group relative overflow-hidden">
+              <CardHeader className="pb-2 relative z-10">
+                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">SLA no Prazo</CardTitle>
+              </CardHeader>
+              <CardContent className="relative z-10">
+                <div className="text-3xl font-bold">{Math.round(kpis.slaDentroPrazo * 100)}%</div>
+                <CardDescription>decididas no tempo alvo</CardDescription>
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+        </div>
+
+        {/* Gráficos principais (estilo neon/clinic) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <AnimatedSection delay={400}>
+            <Card className="lco-card h-[380px] hover-lift group overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <BarChart3 className="mr-2 h-5 w-5 text-primary" />
+                  Status por Clínica
+                </CardTitle>
+                <CardDescription>Comparativo entre clínicas</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={statusPorClinica}>
+                    <defs>
+                      <linearGradient id="barGradient2" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.9}/>
+                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.25}/>
+                      </linearGradient>
+                      <filter id="barShadow2" x="-20%" y="-20%" width="140%" height="140%">
+                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.25"/>
+                      </filter>
+                    </defs>
+                    <CartesianGrid strokeDasharray="5 5" opacity={0.08} stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }} />
+                    <YAxis tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }} />
+                    <Tooltip 
+                      cursor={{ fill: 'hsl(var(--primary))', fillOpacity: 0.06 }}
+                      contentStyle={{
+                        borderRadius: '12px',
+                        border: '1px solid var(--border)',
+                        background: 'var(--background)',
+                        color: 'hsl(var(--foreground))',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.12)'
+                      }}
+                    />
+                    <Legend wrapperStyle={{ color: 'hsl(var(--foreground))' }} />
+                    <Bar dataKey="aprovadas" name="Autorizadas" fill="url(#barGradient2)" stroke="hsl(var(--primary))" strokeWidth={1.5} radius={[8,8,0,0]} filter="url(#barShadow2)" />
+                    <Bar dataKey="pendentes" name="Em Processamento" fill="#f59e0b" radius={[8,8,0,0]} filter="url(#barShadow2)" />
+                    <Bar dataKey="rejeitadas" name="Negadas" fill="#ef4444" radius={[8,8,0,0]} filter="url(#barShadow2)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+
+          <AnimatedSection delay={500}>
+            <Card className="lco-card h-[380px] hover-lift group overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-secondary/0 to-secondary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <ChartPieIcon className="mr-2 h-5 w-5 text-secondary" />
+                  Top Protocolos
+                </CardTitle>
+                <CardDescription>Mais utilizados no período</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <defs>
+                      <filter id="pieShadowOp" x="-20%" y="-20%" width="140%" height="140%">
+                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.25"/>
+                      </filter>
+                    </defs>
+                    <Pie 
+                      data={protocolosTop} 
+                      dataKey="value" 
+                      cx="50%" cy="60%" 
+                      innerRadius={60} outerRadius={95} 
+                      paddingAngle={5}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      labelLine={false}
+                      filter="url(#pieShadowOp)"
+                    >
+                      {protocolosTop.map((entry, index) => (
+                        <Cell 
+                          key={`cell-prot-${index}`} 
+                          fill={CHART_COLORS[index % CHART_COLORS.length].fill}
+                          stroke={CHART_COLORS[index % CHART_COLORS.length].stroke}
+                          strokeWidth={2}
+                          style={{ filter: `drop-shadow(${CHART_COLORS[index % CHART_COLORS.length].glow})` }}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      contentStyle={{ 
+                        borderRadius: '12px', 
+                        border: '1px solid var(--border)', 
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                        background: 'var(--background)',
+                        color: 'hsl(var(--foreground))'
+                      }}
+                      itemStyle={{ color: 'hsl(var(--foreground))' }}
+                    />
+                    <Legend wrapperStyle={{ color: 'hsl(var(--foreground))' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+        </div>
+
+        {/* Finanças, princípios ativos e demografia */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Custos mensais vs. economia */}
+          <AnimatedSection delay={560}>
+            <Card className="lco-card h-[380px] hover-lift group overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <ChartPieIcon className="mr-2 h-5 w-5 text-primary" />
+                  Custos por Mês vs. Economia
+                </CardTitle>
+                <CardDescription>Visão financeira do período</CardDescription>
+              </CardHeader>
+              <CardContent className="h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={custosPorMes}>
+                    <CartesianGrid strokeDasharray="5 5" opacity={0.08} stroke="hsl(var(--border))" />
+                    <XAxis dataKey="mes" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="total" name="Custo Total (R$)" fill="#6366f1" radius={[8,8,0,0]} />
+                    <Bar dataKey="economias" name="Economia (R$)" fill="#22c55e" radius={[8,8,0,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+          <AnimatedSection delay={600}>
+            <Card className="lco-card h-[380px] hover-lift group overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <CardHeader><CardTitle>Principais Princípios Ativos</CardTitle><CardDescription>Top 5 no período</CardDescription></CardHeader>
+              <CardContent className="h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={principiosAtivosTop}>
+                    <defs>
+                      <linearGradient id="barGradientPA" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.85}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.25}/>
+                      </linearGradient>
+                      <filter id="barShadowPA" x="-20%" y="-20%" width="140%" height="140%">
+                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.25"/>
+                      </filter>
+                    </defs>
+                    <CartesianGrid strokeDasharray="5 5" opacity={0.08} stroke="hsl(var(--border))" />
+                    <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-15} textAnchor="end" height={60} />
+                    <YAxis />
+                    <Tooltip 
+                      cursor={{ fill: '#3b82f6', fillOpacity: 0.06 }}
+                      contentStyle={{
+                        borderRadius: '12px',
+                        border: '1px solid var(--border)',
+                        background: 'var(--background)',
+                        color: 'hsl(var(--foreground))',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.12)'
+                      }}
+                    />
+                    <Bar dataKey="value" name="Solicitações" fill="url(#barGradientPA)" stroke="#3b82f6" strokeWidth={1.5} radius={[8,8,0,0]} filter="url(#barShadowPA)" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+
+          <AnimatedSection delay={700}>
+            <Card className="lco-card h-[380px] hover-lift group overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-accent/0 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <CardHeader><CardTitle>Demografia - Sexo</CardTitle><CardDescription>Distribuição por sexo</CardDescription></CardHeader>
+              <CardContent className="h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <defs>
+                      <filter id="pieShadowDemo" x="-20%" y="-20%" width="140%" height="140%">
+                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.25"/>
+                      </filter>
+                    </defs>
+                    <Pie 
+                      data={demografiaSexo} dataKey="value" cx="50%" cy="60%" 
+                      innerRadius={55} outerRadius={90} labelLine={false}
+                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                      filter="url(#pieShadowDemo)"
+                    />
+                    <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--background)', color: 'hsl(var(--foreground))' }} />
+                    <Legend wrapperStyle={{ color: 'hsl(var(--foreground))' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+
+          <AnimatedSection delay={720}>
+            <Card className="lco-card h-[380px] hover-lift group overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-accent/0 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <CardHeader><CardTitle>Demografia - Idade</CardTitle><CardDescription>Faixas etárias</CardDescription></CardHeader>
+              <CardContent className="h-[280px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={demografiaIdade}>
+                    <CartesianGrid strokeDasharray="5 5" opacity={0.08} stroke="hsl(var(--border))" />
+                    <XAxis dataKey="faixa" />
+                    <YAxis />
+                    <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--background)', color: 'hsl(var(--foreground))' }} />
+                    <Bar dataKey="qtd" name="Pacientes" fill="#10b981" radius={[8,8,0,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+        </div>
+      </div>
+    );
+  };
 
   const HealthPlanDashboard = () => (
     <div className="space-y-6">
