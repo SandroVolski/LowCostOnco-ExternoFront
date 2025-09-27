@@ -938,7 +938,7 @@ export const testarConexaoBackend = async (): Promise<boolean> => {
     const response = await fetch(config.BACKEND_HEALTH_URL);
     
     if (!response.ok) {
-      console.error('❌ Resposta não OK:', response.status, response.statusText);
+      console.log('ℹ️ Backend não disponível:', response.status, response.statusText);
       return false;
     }
     
@@ -946,7 +946,7 @@ export const testarConexaoBackend = async (): Promise<boolean> => {
     console.log('✅ Backend respondeu:', result);
     return result.success;
   } catch (error) {
-    console.error('❌ Backend não está respondendo:', error);
+    console.log('ℹ️ Backend não está respondendo, usando dados mockados:', error);
     return false;
   }
 };

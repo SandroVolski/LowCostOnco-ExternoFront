@@ -20,6 +20,7 @@ import {
 import { toast } from 'sonner';
 import AnimatedSection from '@/components/AnimatedSection';
 import { OperadoraService } from '@/services/operadoraService';
+import { Dialog, DialogContent } from '@/components/ui/dialog';
 
 interface OperadoraUser {
   id: number;
@@ -380,9 +381,9 @@ const GerenciarUsuariosOperadora = () => {
       )}
 
       {/* Modal de Formulário */}
-      {isFormOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) resetForm(); }}>
+        <DialogContent className="max-w-2xl w-[95vw] p-0">
+          <Card className="w-full max-h-[80vh] overflow-y-auto border-0 shadow-none">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -393,16 +394,6 @@ const GerenciarUsuariosOperadora = () => {
                     {editingUser ? 'Atualize as informações do usuário' : 'Preencha os dados para criar um novo usuário'}
                   </CardDescription>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setIsFormOpen(false);
-                    resetForm();
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
               </div>
             </CardHeader>
             
@@ -516,8 +507,8 @@ const GerenciarUsuariosOperadora = () => {
               </form>
             </CardContent>
           </Card>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

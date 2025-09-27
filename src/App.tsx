@@ -273,16 +273,7 @@ const App = () => (
                     } 
                   />
 
-                  <Route 
-                    path="/operator-clinics" 
-                    element={
-                      <ProtectedRoute allowedRoles={['operator']}>
-                        <Layout pageTitle="Clínicas da Operadora">
-                          <OperatorClinics />
-                        </Layout>
-                      </ProtectedRoute>
-                    } 
-                  />
+                  {/* Rota removida: Clínicas da Operadora agora é parte do Dashboard principal */}
 
                   <Route 
                     path="/operator-solicitacoes" 

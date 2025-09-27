@@ -250,8 +250,13 @@ const Header = () => {
     };
   }, [scrolled]);
 
-  // Carregar notificações com polling simples
+  // Carregar notificações com polling simples (apenas para clínicas)
   useEffect(() => {
+    // Não carregar notificações para operadoras
+    if (user?.role === 'operator') {
+      return;
+    }
+    
     let timer: number | null = null;
     let failureCooldown = 0;
     const load = async () => {
@@ -421,7 +426,6 @@ const Header = () => {
     } else if (user?.role === 'operator') {
       return [
         { label: 'Dashboard', path: '/dashboard', icon: <Database className="w-5 h-5" /> },
-        { label: 'Clínicas', path: '/operator-clinics', icon: <Hospital className="w-5 h-5" /> },
         { label: 'Análises', path: '/analysis', icon: <PieChart className="w-5 h-5" /> },
         { label: 'Solicitações', path: '/operator-solicitacoes', icon: <FileText className="w-5 h-5" /> },
         { label: 'Ajustes', path: '/operator-ajustes', icon: <Database className="w-5 h-5" /> },
@@ -777,7 +781,7 @@ const Header = () => {
               >
                 {item.icon}
                 <span>{item.label}</span>
-                <svg className="ml-1 w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                
               </TransitionLink>
             </span>
           ) : (

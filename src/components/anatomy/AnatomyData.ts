@@ -107,7 +107,7 @@ export const defaultOrganData: Record<string, OrganData> = {
 
 // Função para converter dados de análise para formato de órgão
 export const convertAnalysisToOrganData = (analysisData: OrganAnalysisData[]): Record<string, OrganData> => {
-  const organData: Record<string, OrganData> = { ...defaultOrganData };
+  const organData: Record<string, OrganData> = {};
   
   analysisData.forEach(data => {
     organData[data.organId] = {
@@ -126,4 +126,4 @@ export const convertAnalysisToOrganData = (analysisData: OrganAnalysisData[]): R
 };
 
 // Exportar dados padrão como organData para compatibilidade
-export const organData = defaultOrganData;
+export const organData = defaultOrganData; // usado apenas como base de estrutura (zeros)

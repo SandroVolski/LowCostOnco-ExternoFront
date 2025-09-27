@@ -20,7 +20,7 @@ import { LineChart, Line, AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, X
 
 import AnimatedSection from '@/components/AnimatedSection';
 import { MouseTilt } from '@/components/MouseTilt';
-import { DashboardService, SystemMetrics, ClinicaPerformance, ChartsData } from '@/services/dashboardService';
+import { AdminDashboardService, AdminSystemMetrics, OperadoraInfo, ClinicaInfo, AdminChartsData } from '@/services/adminDashboardService';
 import { toast } from 'sonner';
 
 // Interfaces importadas do service
@@ -35,20 +35,23 @@ const CHART_COLORS = [
 ];
 
 const DashboardAdmin = () => {
-  const [metrics, setMetrics] = useState<SystemMetrics>({
+  const [metrics, setMetrics] = useState<AdminSystemMetrics>({
     totalClinicas: 0,
     totalOperadoras: 0,
     totalProtocolos: 0,
     totalPacientes: 0,
-    totalPrincipiosAtivos: 0,
+    totalSolicitacoes: 0,
     solicitacoesHoje: 0,
     solicitacoesSemana: 0,
     solicitacoesMes: 0,
-    taxaAprovacao: 0,
-    tempoMedioResposta: 0
+    taxaAprovacaoGeral: 0,
+    tempoMedioResposta: 0,
+    clinicasAtivas: 0,
+    operadorasAtivas: 0
   });
 
-  const [clinicasPerformance, setClinicasPerformance] = useState<ClinicaPerformance[]>([]);
+  const [operadoras, setOperadoras] = useState<OperadoraInfo[]>([]);
+  const [clinicas, setClinicas] = useState<ClinicaInfo[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Estados para dados dos gráficos
@@ -58,45 +61,60 @@ const DashboardAdmin = () => {
   const [trendData, setTrendData] = useState<any[]>([]);
 
   useEffect(() => {
-    // Carregar dados reais do dashboard
-    const loadDashboardData = async () => {
+    // Carregar dados reais do dashboard administrativo
+    const loadAdminDashboardData = async () => {
       try {
         setLoading(true);
-        console.log('🔧 Carregando dados do dashboard...');
+        console.log('🔧 Carregando dados do dashboard administrativo...');
         
-        // Buscar todos os dados do dashboard de uma vez
-        const dashboardData = await DashboardService.getAllDashboardData();
+        // Buscar todos os dados administrativos de uma vez
+        const adminData = await AdminDashboardService.getAllAdminData();
         
-        setMetrics(dashboardData.metrics);
-        setClinicasPerformance(dashboardData.performance);
+        setMetrics(adminData.metrics);
+        // Dados detalhados não são listados no dashboard; mantidos internamente se precisar
+        setOperadoras(adminData.operadoras);
+        setClinicas(adminData.clinicas);
         
-        // Atualizar dados dos gráficos
-        setChartData(dashboardData.chartsData.chartData);
-        setPerformanceData(dashboardData.chartsData.performanceData);
-        setStatusData(dashboardData.chartsData.statusData);
-        setTrendData(dashboardData.chartsData.trendData);
+        // Atualizar dados dos gráficos com verificações de segurança
+        setChartData(adminData.chartsData?.chartData || []);
+        setPerformanceData(adminData.chartsData?.performanceData || []);
+        setStatusData(adminData.chartsData?.statusData || []);
+        setTrendData(adminData.chartsData?.trendData || []);
         
-        console.log('✅ Dashboard carregado com sucesso');
-        toast.success('Dashboard atualizado com dados reais');
+        console.log('✅ Dashboard administrativo carregado com sucesso');
+        toast.success('Dashboard administrativo atualizado com dados reais');
       } catch (error) {
-        console.error('❌ Erro ao carregar dados do dashboard:', error);
+        console.error('❌ Erro ao carregar dados do dashboard administrativo:', error);
         
-        // Fallback para dados mock em caso de erro
-        const mockData = DashboardService.getMockData();
-        setMetrics(mockData.metrics);
-        setClinicasPerformance(mockData.performance);
-        setChartData(mockData.chartsData.chartData);
-        setPerformanceData(mockData.chartsData.performanceData);
-        setStatusData(mockData.chartsData.statusData);
-        setTrendData(mockData.chartsData.trendData);
+        // Em caso de erro, mostrar dados vazios ao invés de mock
+        setMetrics({
+          totalClinicas: 0,
+          totalOperadoras: 0,
+          totalProtocolos: 0,
+          totalPacientes: 0,
+          totalSolicitacoes: 0,
+          solicitacoesHoje: 0,
+          solicitacoesSemana: 0,
+          solicitacoesMes: 0,
+          taxaAprovacaoGeral: 0,
+          tempoMedioResposta: 0,
+          clinicasAtivas: 0,
+          operadorasAtivas: 0
+        });
+        setOperadoras([]);
+        setClinicas([]);
+        setChartData([]);
+        setPerformanceData([]);
+        setStatusData([]);
+        setTrendData([]);
         
-        toast.error('Erro ao carregar dados reais. Usando dados de exemplo.');
+        toast.error('Erro ao carregar dados administrativos. Verifique a conexão com o servidor.');
       } finally {
         setLoading(false);
       }
     };
 
-    loadDashboardData();
+    loadAdminDashboardData();
   }, []);
 
   // Dados dos gráficos agora são gerenciados pelos estados
@@ -112,7 +130,7 @@ const DashboardAdmin = () => {
   return (
     <div className="w-full space-y-6">
       {/* Métricas Principais */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
         <AnimatedSection delay={100}>
           <MouseTilt maxTilt={5} scale={1.02}>
             <div className="lco-card bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 dark:from-blue-900/20 dark:to-blue-800/20 dark:border-blue-700/50 hover-lift group relative overflow-hidden">
@@ -128,7 +146,31 @@ const DashboardAdmin = () => {
                 <div className="text-3xl font-bold">{metrics.totalClinicas}</div>
                 <p className="text-sm text-muted-foreground mt-2">
                   <span className="text-support-green">
-                    {metrics.totalOperadoras} operadoras ativas
+                    {metrics.operadorasAtivas} operadoras ativas
+                  </span>
+                </p>
+              </CardContent>
+            </div>
+          </MouseTilt>
+        </AnimatedSection>
+
+        {/* Total de Operadoras */}
+        <AnimatedSection delay={150}>
+          <MouseTilt maxTilt={5} scale={1.02}>
+            <div className="lco-card bg-gradient-to-br from-indigo-50 to-indigo-100 border-indigo-200 dark:from-indigo-900/20 dark:to-indigo-800/20 dark:border-indigo-700/50 hover-lift group relative overflow-hidden">
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/5 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <CardHeader className="pb-2 relative z-10">
+                <CardTitle className="text-lg flex items-center">
+                  <Shield className="mr-2 h-5 w-5 text-indigo-600" />
+                  Total de Operadoras
+                </CardTitle>
+                <CardDescription>Operadoras cadastradas</CardDescription>
+              </CardHeader>
+              <CardContent className="relative z-10">
+                <div className="text-3xl font-bold">{metrics.totalOperadoras}</div>
+                <p className="text-sm text-muted-foreground mt-2">
+                  <span className="text-indigo-600">
+                    {metrics.operadorasAtivas} ativas
                   </span>
                 </p>
               </CardContent>
@@ -151,7 +193,7 @@ const DashboardAdmin = () => {
                 <div className="text-3xl font-bold">{metrics.totalPacientes.toLocaleString()}</div>
                 <p className="text-sm text-muted-foreground mt-2">
                   <span className="text-support-yellow">
-                    {metrics.solicitacoesMes} solicitações este mês
+                    {metrics.totalSolicitacoes} solicitações totais
                   </span>
                 </p>
               </CardContent>
@@ -194,7 +236,7 @@ const DashboardAdmin = () => {
                 <CardDescription>Média geral do sistema</CardDescription>
               </CardHeader>
               <CardContent className="relative z-10">
-                <div className="text-3xl font-bold">{metrics.taxaAprovacao}%</div>
+                <div className="text-3xl font-bold">{metrics.taxaAprovacaoGeral}%</div>
                 <p className="text-sm text-muted-foreground mt-2">
                   <span className="text-support-green">
                     {metrics.tempoMedioResposta} dias tempo médio
@@ -221,7 +263,7 @@ const DashboardAdmin = () => {
             <CardContent className="p-6 h-[320px] bg-gradient-to-br from-background via-background to-muted/20">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart 
-                  data={chartData} 
+                  data={chartData || []} 
                   margin={{ top: 20, right: 40, left: 20, bottom: 20 }}
                 >
                   <defs>
@@ -369,7 +411,7 @@ const DashboardAdmin = () => {
               <CardDescription>Distribuição por status atual</CardDescription>
             </CardHeader>
             <CardContent className="h-[320px] flex justify-center">
-              {statusData.length > 0 ? (
+              {statusData && statusData.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <defs>
@@ -378,7 +420,7 @@ const DashboardAdmin = () => {
                       </filter>
                     </defs>
                     <Pie
-                      data={statusData}
+                      data={statusData || []}
                       cx="50%"
                       cy="60%"
                       innerRadius={60}
@@ -391,7 +433,7 @@ const DashboardAdmin = () => {
                       labelLine={false}
                       filter="url(#shadow)"
                     >
-                      {statusData.map((entry, index) => (
+                      {statusData && statusData.map((entry, index) => (
                         <Cell 
                           key={`cell-${index}`} 
                           fill={CHART_COLORS[index % CHART_COLORS.length].fill}
@@ -446,7 +488,7 @@ const DashboardAdmin = () => {
           </CardHeader>
           <CardContent className="h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={trendData} margin={{ top: 20, right: 40, left: 20, bottom: 20 }}>
+              <LineChart data={trendData || []} margin={{ top: 20, right: 40, left: 20, bottom: 20 }}>
                 <defs>
                   <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
@@ -483,20 +525,22 @@ const DashboardAdmin = () => {
                     color: 'hsl(var(--foreground))'
                   }}
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="usuarios" 
-                  stroke="hsl(var(--primary))" 
+                <Line
+                  type="monotone"
+                  dataKey="solicitacoes"
+                  name="Solicitações"
+                  stroke="hsl(var(--primary))"
                   strokeWidth={3}
                   fill="url(#lineGradient)"
                   filter="url(#lineShadow)"
                   dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6, stroke: 'hsl(var(--primary))', strokeWidth: 2 }}
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="solicitacoes" 
-                  stroke="hsl(var(--secondary))" 
+                <Line
+                  type="monotone"
+                  dataKey="aprovacoes"
+                  name="Aprovações"
+                  stroke="hsl(var(--secondary))"
                   strokeWidth={3}
                   dot={{ fill: 'hsl(var(--secondary))', strokeWidth: 2, r: 4 }}
                   activeDot={{ r: 6, stroke: 'hsl(var(--secondary))', strokeWidth: 2 }}
@@ -506,6 +550,8 @@ const DashboardAdmin = () => {
           </CardContent>
         </div>
       </AnimatedSection>
+
+      {/* As listagens detalhadas foram removidas para manter o dashboard focado em visão geral */}
 
       {/* Performance das Clínicas */}
       <AnimatedSection delay={700}>
@@ -519,7 +565,7 @@ const DashboardAdmin = () => {
           </CardHeader>
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={clinicasPerformance} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <BarChart data={clinicas || []} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <defs>
                   <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#79d153" stopOpacity={0.8}/>

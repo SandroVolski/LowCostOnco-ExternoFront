@@ -1,6 +1,6 @@
 // src/services/analysisService.ts
 
-import { authorizedFetch } from './authService';
+import { operadoraAuthService } from './operadoraAuthService';
 import config from '@/config/environment';
 
 export interface OrganAnalysisData {
@@ -33,6 +33,20 @@ export interface AnalysisMetrics {
   sistemasMonitorados: number;
   protocolosAtivos: number;
   cidsCadastrados: number;
+}
+
+export interface OperationalKPIs {
+  taxaAprovacao: number;
+  tempoMedioAprovacao: number;
+  custoMedioPorPaciente: number;
+  totalSolicitacoes30Dias: number;
+  pacientesUnicos30Dias: number;
+}
+
+export interface ChartData {
+  medicamentos: Array<{ name: string; value: number }>;
+  cancerTypes: Array<{ tipo_cancer: string; casos: number }>;
+  monthlyData: Array<{ name: string; solicitacoes: number; patients: number }>;
 }
 
 export interface AnalysisFilters {
@@ -96,7 +110,6 @@ const CID_TO_ORGAN_MAP: Record<string, string> = {
   'C22.7': 'liver',
   'C22.8': 'liver',
   'C22.9': 'liver',
-  'C78.7': 'liver',
   
   // Sistema Digestivo - Estômago
   'C16.0': 'stomach',
@@ -113,16 +126,6 @@ const CID_TO_ORGAN_MAP: Record<string, string> = {
   'C64': 'kidneys',
   'C65': 'kidneys',
   'C66': 'kidneys',
-  'C67.0': 'kidneys',
-  'C67.1': 'kidneys',
-  'C67.2': 'kidneys',
-  'C67.3': 'kidneys',
-  'C67.4': 'kidneys',
-  'C67.5': 'kidneys',
-  'C67.6': 'kidneys',
-  'C67.7': 'kidneys',
-  'C67.8': 'kidneys',
-  'C67.9': 'kidneys',
   
   // Sistema Urinário - Bexiga
   'C67.0': 'bladder',
@@ -209,9 +212,14 @@ export class AnalysisService {
       const url = `${config.API_BASE_URL}/analysis/organs${qs ? `?${qs}` : ''}`;
 
       // Usar endpoint otimizado de análise
-      const response = await authorizedFetch(url);
+      let response = await operadoraAuthService.authorizedFetch(url);
+      // Fallback se o proxy devolver HTML (authorizedFetch retorna null)
+      if (!response) {
+        const token = localStorage.getItem('operadora_access_token') || '';
+        response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      }
       
-      if (!response.ok) {
+      if (!response || !response.ok) {
         throw new Error('Erro ao buscar dados de análise');
       }
       
@@ -246,9 +254,13 @@ export class AnalysisService {
       const url = `${config.API_BASE_URL}/analysis/metrics${qs ? `?${qs}` : ''}`;
 
       // Usar endpoint otimizado de métricas
-      const response = await authorizedFetch(url);
+      let response = await operadoraAuthService.authorizedFetch(url);
+      if (!response) {
+        const token = localStorage.getItem('operadora_access_token') || '';
+        response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      }
       
-      if (!response.ok) {
+      if (!response || !response.ok) {
         throw new Error('Erro ao buscar métricas de análise');
       }
       
@@ -277,6 +289,78 @@ export class AnalysisService {
     } catch (error) {
       console.error('❌ Erro ao buscar dados do órgão:', error);
       return null;
+    }
+  }
+
+  // Buscar KPIs operacionais
+  static async getOperationalKPIs(filters?: AnalysisFilters): Promise<OperationalKPIs> {
+    try {
+      console.log('🔧 Buscando KPIs operacionais...');
+      
+      const queryParams = new URLSearchParams();
+      if (filters?.clinicId) queryParams.append('clinicId', filters.clinicId.toString());
+      if (filters?.sex) queryParams.append('sex', filters.sex);
+      if (filters?.ageMin !== undefined) queryParams.append('ageMin', filters.ageMin.toString());
+      if (filters?.ageMax !== undefined) queryParams.append('ageMax', filters.ageMax.toString());
+      
+      const url = `/api/analysis/kpis${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      console.log('🔧 URL:', url);
+      
+      let response = await operadoraAuthService.authorizedFetch(url);
+      if (!response) {
+        const token = localStorage.getItem('operadora_access_token') || '';
+        response = await fetch(`${config.API_BASE_URL}/analysis/kpis${queryParams.toString() ? `?${queryParams.toString()}` : ''}` , {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      
+      if (!response || !response.ok) {
+        throw new Error(`Erro ao buscar KPIs operacionais: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('✅ KPIs operacionais carregados:', data.data);
+      
+      return data.data;
+    } catch (error) {
+      console.error('❌ Erro ao buscar KPIs operacionais:', error);
+      throw new Error('Erro ao buscar KPIs operacionais');
+    }
+  }
+
+  // Buscar dados para gráficos
+  static async getChartData(filters?: AnalysisFilters): Promise<ChartData> {
+    try {
+      console.log('🔧 Buscando dados de gráficos...');
+      
+      const queryParams = new URLSearchParams();
+      if (filters?.clinicId) queryParams.append('clinicId', filters.clinicId.toString());
+      if (filters?.sex) queryParams.append('sex', filters.sex);
+      if (filters?.ageMin !== undefined) queryParams.append('ageMin', filters.ageMin.toString());
+      if (filters?.ageMax !== undefined) queryParams.append('ageMax', filters.ageMax.toString());
+      
+      const url = `/api/analysis/charts${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      console.log('🔧 URL:', url);
+      
+      let response = await operadoraAuthService.authorizedFetch(url);
+      if (!response) {
+        const token = localStorage.getItem('operadora_access_token') || '';
+        response = await fetch(`${config.API_BASE_URL}/analysis/charts${queryParams.toString() ? `?${queryParams.toString()}` : ''}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      
+      if (!response || !response.ok) {
+        throw new Error(`Erro ao buscar dados de gráficos: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('✅ Dados de gráficos carregados:', data.data);
+      
+      return data.data;
+    } catch (error) {
+      console.error('❌ Erro ao buscar dados de gráficos:', error);
+      throw new Error('Erro ao buscar dados de gráficos');
     }
   }
 }

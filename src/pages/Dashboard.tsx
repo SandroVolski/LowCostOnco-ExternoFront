@@ -13,7 +13,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { MouseTilt } from '@/components/MouseTilt';
 import { PacienteService, SolicitacaoService, ProtocoloService, testarConexaoBackend, PatientFromAPI, SolicitacaoFromAPI, ProtocoloFromAPI } from '@/services/api';
-import { ClinicService } from '@/services/clinicService';
+import { operadoraAuthService } from '@/services/operadoraAuthService';
+import { ClinicService, Clinica } from '@/services/clinicService';
 import { toast } from 'sonner';
 
 // Interfaces para dados processados
@@ -122,10 +123,12 @@ const Dashboard = () => {
   const [recentSolicitacoes, setRecentSolicitacoes] = useState<SolicitacaoFromAPI[]>([]);
   const [hovered, setHovered] = useState(false);
 
-  // Verificar conexão e carregar dados
+  // Verificar conexão e carregar dados (apenas para clínicas)
   useEffect(() => {
+    if (user?.role === 'clinic') {
     checkConnectionAndLoadData();
-  }, []);
+    }
+  }, [user?.role]);
 
   const checkConnectionAndLoadData = async () => {
     setLoading(true);
@@ -423,7 +426,10 @@ const Dashboard = () => {
       const hasMoreCycles = cicloAtual < ciclosPrevistos;
       const isRecent = solicitacao.created_at && new Date(solicitacao.created_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Últimos 30 dias
       
-      if ((isActive && hasMoreCycles) || isRecent) {
+      // Verificar se deve incluir este tratamento
+      const shouldInclude = (isActive && hasMoreCycles) || isRecent;
+      
+      if (shouldInclude) {
         // Cálculo real de dias restantes baseado em datas
         let diasRestantes = 21; // Padrão de 21 dias
         
@@ -441,26 +447,32 @@ const Dashboard = () => {
               if (intervalo > 0) {
                 // Calcular quando deveria ser o próximo ciclo
                 const diasParaProximoCiclo = (cicloAtual * intervalo) - diasDesdeCriacao;
-                diasRestantes = Math.max(1, diasParaProximoCiclo);
+                // CORRIGIDO: Permitir valores negativos (atraso) e zero (hoje)
+                diasRestantes = diasParaProximoCiclo;
               }
             } else {
               // Fallback: estimar baseado no progresso do tratamento
               const progresso = cicloAtual / ciclosPrevistos;
+              let intervaloEstimado = 21; // Padrão
               if (progresso < 0.3) {
-                diasRestantes = Math.max(1, 21 - diasDesdeCriacao);
+                intervaloEstimado = 21;
               } else if (progresso < 0.6) {
-                diasRestantes = Math.max(1, 14 - diasDesdeCriacao);
+                intervaloEstimado = 14;
               } else {
-                diasRestantes = Math.max(1, 7 - diasDesdeCriacao);
+                intervaloEstimado = 7;
               }
+              // CORRIGIDO: Calcular baseado no ciclo atual e dias passados
+              const diasParaProximoCiclo = (cicloAtual * intervaloEstimado) - diasDesdeCriacao;
+              diasRestantes = diasParaProximoCiclo;
             }
             
-            console.log(`📅 Cálculo real para ${solicitacao.cliente_nome}:`, {
+            console.log(`📅 Cálculo CORRIGIDO para ${solicitacao.cliente_nome}:`, {
               dataSolicitacao: dataSolicitacao.toISOString().split('T')[0],
               diasDesdeCriacao,
               cicloAtual,
               ciclosPrevistos,
-              diasRestantes
+              diasRestantes,
+              status: diasRestantes <= 0 ? 'ATRASADO' : diasRestantes === 1 ? 'AMANHÃ' : 'FUTURO'
             });
           }
         } catch (error) {
@@ -470,9 +482,16 @@ const Dashboard = () => {
         
         console.log(`⏰ Dias calculados para ${solicitacao.cliente_nome}:`, diasRestantes);
         
+        // FILTRO: Não incluir tratamentos muito atrasados (mais de 30 dias)
+        if (diasRestantes < -30) {
+          console.log(`❌ Tratamento muito atrasado para ${solicitacao.cliente_nome}: ${diasRestantes} dias`);
+          return; // Pular este tratamento
+        }
+        
         // Determinar status
         let status: 'urgent' | 'warning' | 'normal' = 'normal';
-        if (diasRestantes <= 3) status = 'urgent';
+        if (diasRestantes <= 0) status = 'urgent'; // Atrasado ou hoje
+        else if (diasRestantes <= 3) status = 'urgent';
         else if (diasRestantes <= 7) status = 'warning';
         
         // Determinar tipo de tratamento
@@ -509,86 +528,6 @@ const Dashboard = () => {
     
     console.log('📊 Tratamentos finais a vencer:', upcomingData);
     setUpcomingTreatments(upcomingData.slice(0, 6));
-  };
-
-  // ✅ FUNÇÃO CORRIGIDA: Cálculo real de dias restantes
-  const calculateRealDaysRemaining = (solicitacao: SolicitacaoFromAPI): number => {
-    try {
-      console.log(`🔧 Calculando dias para ${solicitacao.cliente_nome}:`);
-      console.log('   - Dados:', {
-        cicloAtual: solicitacao.ciclo_atual,
-        ciclosPrevistos: solicitacao.ciclos_previstos,
-        intervalo: solicitacao.dias_aplicacao_intervalo,
-        dataSolicitacao: solicitacao.data_solicitacao,
-        createdAt: solicitacao.created_at,
-        hoje: new Date().toISOString().split('T')[0]
-      });
-      
-      const hoje = new Date();
-      const cicloAtual = solicitacao.ciclo_atual || 1;
-      
-      // 1. TENTATIVA: Baseado no intervalo de aplicação
-      if (solicitacao.dias_aplicacao_intervalo) {
-        const intervaloDias = parseIntervaloDias(solicitacao.dias_aplicacao_intervalo);
-        console.log(`   - Intervalo parseado: ${intervaloDias} dias`);
-        
-        if (intervaloDias > 0) {
-          // Usar created_at como referência mais confiável
-          const dataReferencia = new Date(solicitacao.created_at || solicitacao.data_solicitacao || '');
-          
-          if (!isNaN(dataReferencia.getTime())) {
-            console.log(`   - Data de referência: ${dataReferencia.toISOString().split('T')[0]}`);
-            
-            const diasDecorridos = Math.floor((hoje.getTime() - dataReferencia.getTime()) / (1000 * 60 * 60 * 24));
-            console.log(`   - Dias decorridos desde criação: ${diasDecorridos}`);
-            
-            // ✅ LÓGICA CORRIGIDA: 
-            // Se estamos no ciclo 1, o próximo ciclo (2) será após o intervalo
-            // Se estamos no ciclo 2, o próximo ciclo (3) será após 2x o intervalo, etc.
-            const diasParaProximoCiclo = (cicloAtual * intervaloDias) - diasDecorridos;
-            console.log(`   - Dias para próximo ciclo (${cicloAtual + 1}): ${diasParaProximoCiclo}`);
-            
-            // Se já passou da data do próximo ciclo
-            if (diasParaProximoCiclo <= 0) {
-              // Calcular quantos ciclos estamos atrasados
-              const ciclosAtrasados = Math.ceil(Math.abs(diasParaProximoCiclo) / intervaloDias);
-              const proximaDataPossivel = ciclosAtrasados * intervaloDias + diasParaProximoCiclo;
-              console.log(`   - Ciclos atrasados: ${ciclosAtrasados}, próxima data possível em: ${proximaDataPossivel} dias`);
-              return Math.max(1, proximaDataPossivel);
-            }
-            
-            return Math.max(1, diasParaProximoCiclo);
-          }
-        }
-      }
-      
-      // 2. FALLBACK: Baseado em padrão de 21 dias
-      console.log('   - Usando fallback de 21 dias');
-      const dataReferencia = new Date(solicitacao.created_at || solicitacao.data_solicitacao || '');
-      
-      if (!isNaN(dataReferencia.getTime())) {
-        const diasDesdeCriacao = Math.floor((hoje.getTime() - dataReferencia.getTime()) / (1000 * 60 * 60 * 24));
-        const diasPorCiclo = 21; // Padrão comum em oncologia
-        
-        const diasParaProximoCiclo = (cicloAtual * diasPorCiclo) - diasDesdeCriacao;
-        console.log(`   - Fallback: ${diasParaProximoCiclo} dias`);
-        
-        return Math.max(1, Math.min(30, diasParaProximoCiclo));
-      }
-      
-      // 3. FALLBACK FINAL: Estimativa baseada no progresso
-      console.log('   - Usando fallback final baseado em progresso');
-      const ciclosPrevistos = solicitacao.ciclos_previstos || 6;
-      const progresso = cicloAtual / ciclosPrevistos;
-      
-      if (progresso < 0.3) return 14; // Início do tratamento
-      if (progresso < 0.6) return 21; // Meio do tratamento
-      return 28; // Final do tratamento
-      
-    } catch (error) {
-      console.error('❌ Erro ao calcular dias restantes:', error);
-      return 21; // Fallback seguro
-    }
   };
 
   // ✅ FUNÇÃO MELHORADA: Parse do intervalo de dias com logs
@@ -669,10 +608,6 @@ const Dashboard = () => {
       console.log('   - Intervalo:', joao.dias_aplicacao_intervalo);
       console.log('   - Data solicitação:', joao.data_solicitacao);
       console.log('   - Created at:', joao.created_at);
-      
-      // Testar cálculo de dias
-      const dias = calculateRealDaysRemaining(joao);
-      console.log('   - Dias calculados:', dias);
       
       // Testar parse do intervalo
       if (joao.dias_aplicacao_intervalo) {
@@ -782,11 +717,17 @@ const Dashboard = () => {
     setActivePrinciples(sortedPrinciples);
   };
 
-  // ✅ FORMATAÇÃO DE DIAS CORRIGIDA
+  // ✅ FORMATAÇÃO DE DIAS CORRIGIDA E MELHORADA
   const formatDaysRemaining = (days: number): string => {
     if (days === 0) return 'Hoje';
     if (days === 1) return 'Amanhã';
-    if (days < 0) return `${Math.abs(days)} dias atraso`;
+    if (days < 0) {
+      const atraso = Math.abs(days);
+      if (atraso === 1) return '1 dia atraso';
+      if (atraso <= 7) return `${atraso} dias atraso`;
+      if (atraso <= 30) return `${Math.ceil(atraso / 7)} semanas atraso`;
+      return `${Math.ceil(atraso / 30)} meses atraso`;
+    }
     if (days === 2) return '2 dias';
     if (days === 3) return '3 dias';
     if (days === 4) return '4 dias';
@@ -973,8 +914,6 @@ const Dashboard = () => {
             </MouseTilt>
           </AnimatedSection>
         </div>
-        
-        {/* O card/botão 'Dashboard de Pacientes' foi removido daqui */}
         
         {/* Gráficos com Dados Reais */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1302,7 +1241,7 @@ const Dashboard = () => {
 
         {/* Solicitações Recentes */}
         <div className="grid grid-cols-1 gap-6">
-          <AnimatedSection delay={800}>
+          <AnimatedSection delay={700}>
             <Card className="lco-card">
               <CardHeader>
                 <CardTitle className="flex items-center">
@@ -1362,153 +1301,13 @@ const Dashboard = () => {
           </AnimatedSection>
         </div>
 
-        {/* Principais Princípios Ativos (ocultado) */}
-        <div className="grid grid-cols-1 gap-6 hidden">
-          <AnimatedSection delay={850}>
-            <Card className="lco-card">
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <Pill className="mr-2 h-5 w-5 text-primary" />
-                  Principais Princípios Ativos
-                </CardTitle>
-                <CardDescription>Medicamentos mais utilizados nos protocolos da clínica • Frequência de uso</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {activePrinciples.length === 0 ? (
-                  <div className="text-center py-12">
-                    <div className="w-16 h-16 mx-auto mb-6 bg-muted rounded-xl flex items-center justify-center">
-                      <Pill className="h-8 w-8 text-muted-foreground" />
-                    </div>
-                    
-                    <h3 className="text-lg font-semibold text-foreground mb-2">
-                      Nenhum medicamento encontrado
-                    </h3>
-                    
-                    <p className="text-muted-foreground max-w-md mx-auto mb-4">
-                      Crie protocolos com medicamentos para visualizar os dados de frequência de uso
-                    </p>
-                    
-                    <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-                      <div className="w-1.5 h-1.5 bg-muted-foreground rounded-full"></div>
-                      <span>Os medicamentos aparecerão automaticamente</span>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {/* Top 3 com CardHoverEffect */}
-                    <CardHoverEffect
-                      items={activePrinciples.slice(0, 3).map((principle, index) => ({
-                        id: index,
-                        title: principle.name,
-                        description: `${principle.totalUsage} vezes usado • ${principle.protocols.length} protocolos • ${principle.percentage.toFixed(1)}% frequência`,
-                        link: "#",
-                        ranking: index + 1,
-                        usage: principle.totalUsage,
-                        protocols: principle.protocols,
-                        percentage: principle.percentage
-                      }))}
-                      className="gap-6"
-                    />
-
-                    {/* Demais medicamentos em tabela profissional */}
-                    {activePrinciples.length > 3 && (
-                      <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-px h-6 bg-gradient-to-b from-primary to-transparent"></div>
-                          <h4 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-                            Outros Medicamentos
-                          </h4>
-                        </div>
-                        
-                        <div className="bg-card border border-border rounded-lg overflow-hidden">
-                          <div className="overflow-x-auto">
-                            <table className="w-full">
-                              <thead className="bg-muted/50">
-                                <tr>
-                                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                    Ranking
-                                  </th>
-                                  <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                    Medicamento
-                                  </th>
-                                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                    Usos
-                                  </th>
-                                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                    Protocolos
-                                  </th>
-                                  <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                                    Frequência
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-border">
-                                {activePrinciples.slice(3, 8).map((principle, index) => (
-                                  <tr 
-                                    key={principle.name}
-                                    className="group hover:bg-muted/30 transition-colors cursor-pointer"
-                                  >
-                                    <td className="px-4 py-3">
-                                      <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
-                                        {index + 4}
-                                      </div>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                      <div className="font-medium text-sm text-foreground group-hover:text-primary transition-colors">
-                                        {principle.name}
-                                      </div>
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                      <div className="text-sm font-bold text-primary">
-                                        {principle.totalUsage}
-                                      </div>
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                      <div className="text-sm text-muted-foreground">
-                                        {principle.protocols.length}
-                                      </div>
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                      <div className="text-sm text-muted-foreground">
-                                        {principle.percentage.toFixed(1)}%
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {activePrinciples.length > 8 && (
-                  <div className="mt-6 pt-4 border-t border-border">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Pill className="h-4 w-4" />
-                        <span>Mostrando os 8 principais medicamentos</span>
-                      </div>
-                      <div className="text-muted-foreground">
-                        {activePrinciples.length} medicamentos no total
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </AnimatedSection>
-        </div>
-
-        {/* Principais Medicamentos por Principio Ativos */}
-        <AnimatedSection delay={700}>
+        {/* Principais Medicamentos por Princípio Ativos */}
+        <AnimatedSection delay={800}>
           <Card className="lco-card h-[400px]">
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Pill className="mr-2 h-5 w-5 text-primary" />
-                Principais Medicamentos por Principio Ativos
+                Principais Medicamentos por Princípio Ativos
               </CardTitle>
               <CardDescription>Top 10 medicamentos mais utilizados</CardDescription>
             </CardHeader>
@@ -1748,16 +1547,33 @@ const Dashboard = () => {
   };
 
   const OperatorDashboard = () => {
-    // Mock de clínicas gerenciadas pela operadora
-    const clinics = [
-      { id: 1, nome: 'Clínica Onco Vida', cidade: 'São Paulo' },
-      { id: 2, nome: 'Centro Oncológico Alfa', cidade: 'Campinas' },
-      { id: 3, nome: 'Instituto Beta', cidade: 'Santos' },
-    ];
+    // Estados para dados da operadora
+    const [operatorLoading, setOperatorLoading] = useState(true);
+    const [operatorBackendConnected, setOperatorBackendConnected] = useState(false);
+    const [operatorMetrics, setOperatorMetrics] = useState({
+      totalClinicas: 0,
+      totalSolicitacoes: 0,
+      totalPacientes: 0,
+      taxaAprovacao: 0,
+      tempoMedioAnaliseDias: 0,
+      custoTotalPeriodo: 0,
+      custoMedioPorPaciente: 0,
+      economiaEstimativa: 0,
+      taxaNegacao: 0,
+      slaDentroPrazo: 0,
+    });
+    
+    const [clinicsData, setClinicsData] = useState<any[]>([]);
+    const [statusPorClinica, setStatusPorClinica] = useState<any[]>([]);
+    const [solicitacoesPorMes, setSolicitacoesPorMes] = useState<any[]>([]);
+    const [performanceClinicas, setPerformanceClinicas] = useState<any[]>([]);
+    const [principiosAtivosTop, setPrincipiosAtivosTop] = useState<any[]>([]);
+    const [demografiaSexo, setDemografiaSexo] = useState<any[]>([]);
+    const [demografiaIdade, setDemografiaIdade] = useState<any[]>([]);
+    const [realClinicas, setRealClinicas] = useState<Clinica[]>([]);
 
     // Filtros
     const [selectedClinicId, setSelectedClinicId] = useState<number | 'todas'>('todas');
-    const [periodo, setPeriodo] = useState<'30' | '60' | '90'>('30');
     const [activeTab, setActiveTab] = useState<'principal' | 'clinicas'>(() => {
       try {
         const params = new URLSearchParams(window.location.search);
@@ -1767,93 +1583,563 @@ const Dashboard = () => {
       }
     });
 
-    // Mock de agregados (substituir por API futura)
-    const kpis = {
-      totalClinicas: clinics.length,
-      totalSolicitacoes: 487,
-      taxaAprovacao: 0.92,
-      tempoMedioAnaliseDias: 3.4,
-      totalPacientes: 1325,
-      custoTotalPeriodo: 1845000,
-      custoMedioPorPaciente: 1393,
-      economiaEstimativa: 0.18,
-      taxaNegacao: 0.06,
-      slaDentroPrazo: 0.88,
+    // Carregar e recarregar dados conforme filtros
+    useEffect(() => {
+      loadOperatorData();
+    }, [selectedClinicId]);
+
+    // Funções específicas para operadora usando operadoraAuthService
+    const listarPacientesOperadora = async (params: { page: number; limit: number }) => {
+      const queryParams = new URLSearchParams();
+      queryParams.append('page', params.page.toString());
+      queryParams.append('limit', params.limit.toString());
+      
+      const url = `/api/pacientes?${queryParams.toString()}`;
+      console.log('🔧 Operadora - Fazendo requisição para:', url);
+      
+      let response = await operadoraAuthService.authorizedFetch(url);
+      if (!response) {
+        const token = localStorage.getItem('operadora_access_token') || '';
+        const { default: cfg } = await import('@/config/environment');
+        response = await fetch(`${cfg.API_BASE_URL}/pacientes?${queryParams.toString()}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      
+      if (!response || !response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Operadora - Resposta não OK:', errorText);
+        throw new Error(`HTTP ${response?.status}: ${response?.statusText}`);
+      }
+      // Evitar tentar parsear HTML como JSON (quando proxy devolve index.html)
+      const ct1 = response.headers.get('content-type') || '';
+      if (ct1.includes('text/html')) {
+        const html = await response.text();
+        console.error('❌ Operadora - Recebeu HTML ao buscar pacientes');
+        throw new Error('Resposta HTML do backend (pacientes)');
+      }
+      
+      const result = await response.json();
+      return result;
     };
 
-    // Mock de dados para gráficos
-    const statusPorClinica = clinics.map((c, idx) => ({
-      name: c.nome.split(' ')[0],
-      aprovadas: [120, 80, 65][idx] || 40,
-      pendentes: [20, 14, 11][idx] || 8,
-      rejeitadas: [9, 7, 6][idx] || 4,
-    }));
+    const listarSolicitacoesOperadora = async (params: { page: number; limit: number }) => {
+      const queryParams = new URLSearchParams();
+      queryParams.append('page', params.page.toString());
+      queryParams.append('limit', params.limit.toString());
+      
+      const url = `/api/solicitacoes?${queryParams.toString()}`;
+      console.log('🔧 Operadora - Fazendo requisição para:', url);
+      
+      let response = await operadoraAuthService.authorizedFetch(url);
+      if (!response) {
+        const token = localStorage.getItem('operadora_access_token') || '';
+        const { default: cfg } = await import('@/config/environment');
+        response = await fetch(`${cfg.API_BASE_URL}/solicitacoes?${queryParams.toString()}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      
+      if (!response || !response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Operadora - Resposta não OK:', errorText);
+        throw new Error(`HTTP ${response?.status}: ${response?.statusText}`);
+      }
+      const ct2 = response.headers.get('content-type') || '';
+      if (ct2.includes('text/html')) {
+        const html = await response.text();
+        console.error('❌ Operadora - Recebeu HTML ao buscar solicitações');
+        throw new Error('Resposta HTML do backend (solicitações)');
+      }
+      
+      const result = await response.json();
+      return result;
+    };
 
-    const protocolosTop = [
-      { name: 'Quimio AC-T', value: 34 },
-      { name: 'FOLFOX', value: 28 },
-      { name: 'R-CHOP', value: 19 },
-      { name: 'Carboplatina + Paclitaxel', value: 15 },
-    ];
+    const listarProtocolosOperadora = async (params: { page: number; limit: number }) => {
+      const queryParams = new URLSearchParams();
+      queryParams.append('page', params.page.toString());
+      queryParams.append('limit', params.limit.toString());
+      
+      const url = `/api/protocolos?${queryParams.toString()}`;
+      console.log('🔧 Operadora - Fazendo requisição para:', url);
+      
+      let response = await operadoraAuthService.authorizedFetch(url);
+      if (!response) {
+        const token = localStorage.getItem('operadora_access_token') || '';
+        const { default: cfg } = await import('@/config/environment');
+        response = await fetch(`${cfg.API_BASE_URL}/protocolos?${queryParams.toString()}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      
+      if (!response || !response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Operadora - Resposta não OK:', errorText);
+        throw new Error(`HTTP ${response?.status}: ${response?.statusText}`);
+      }
+      const ct3 = response.headers.get('content-type') || '';
+      if (ct3.includes('text/html')) {
+        const html = await response.text();
+        console.error('❌ Operadora - Recebeu HTML ao buscar protocolos');
+        throw new Error('Resposta HTML do backend (protocolos)');
+      }
+      
+      const result = await response.json();
+      return result;
+    };
 
-    const principiosAtivosTop = [
-      { name: 'Trastuzumabe', value: 35 },
-      { name: 'Bevacizumabe', value: 25 },
-      { name: 'Pembrolizumabe', value: 20 },
-      { name: 'Rituximabe', value: 15 },
-      { name: 'Outros', value: 5 },
-    ];
+    const loadOperatorData = async () => {
+      setOperatorLoading(true);
+      try {
+        console.log('🔧 Carregando dados da operadora...');
+        
+        // Verificar conexão
+        const connected = await testarConexaoBackend();
+        setOperatorBackendConnected(connected);
+        
+        if (!connected) {
+          console.log('❌ Backend não conectado para operadora');
+          return;
+        }
 
-    const demografiaSexo = [
-      { name: 'Feminino', value: 62 },
-      { name: 'Masculino', value: 38 },
-    ];
+        // Carregar dados agregados de todas as clínicas usando operadoraAuthService
+        const [pacientesResult, solicitacoesResult, protocolosResult, clinicasResult] = await Promise.all([
+          listarPacientesOperadora({ page: 1, limit: 10000 }),
+          listarSolicitacoesOperadora({ page: 1, limit: 10000 }),
+          listarProtocolosOperadora({ page: 1, limit: 10000 }),
+          ClinicService.getAllClinicasForOperadora()
+        ]);
 
-    const demografiaIdade = [
-      { faixa: '0-17', qtd: 2 },
-      { faixa: '18-39', qtd: 18 },
-      { faixa: '40-59', qtd: 46 },
-      { faixa: '60+', qtd: 34 },
-    ];
+        console.log('🔍 Debug - Resposta pacientes:', pacientesResult);
+        console.log('🔍 Debug - Resposta solicitações:', solicitacoesResult);
+        console.log('🔍 Debug - Resposta protocolos:', protocolosResult);
+        console.log('🔍 Debug - Resposta clínicas:', clinicasResult);
 
-    // Financeiro por mês (mock)
-    const custosPorMes = [
-      { mes: 'jan', total: 280000, economias: 42000 },
-      { mes: 'fev', total: 295000, economias: 48000 },
-      { mes: 'mar', total: 310000, economias: 51000 },
-      { mes: 'abr', total: 315000, economias: 56000 },
-      { mes: 'mai', total: 330000, economias: 60000 },
-      { mes: 'jun', total: 330000, economias: 59000 },
-    ];
+        const pacientes = pacientesResult.data?.data || [];
+        const solicitacoes = solicitacoesResult.data?.data || [];
+        const protocolos = protocolosResult.data?.data || [];
+        const clinicas = clinicasResult || [];
 
-    // Desempenho por clínica (mock)
-    const desempenhoClinica = clinics.map((c, idx) => ({
-      name: c.nome.split(' ')[0],
-      aprovacao: [0.93, 0.9, 0.88][idx],
-      prazoMedio: [3.1, 3.7, 4.3][idx],
-    }));
+        // Debug: Verificar IDs de clínicas nos dados
+        console.log('🔍 Debug - Clínicas do banco:', clinicas.map(c => ({ id: c.id, nome: c.nome })));
+        console.log('🔍 Debug - Clinica IDs nos pacientes:', [...new Set(pacientes.map(p => p.clinica_id))]);
+        console.log('🔍 Debug - Clinica IDs nas solicitações:', [...new Set(solicitacoes.map(s => s.clinica_id))]);
+        console.log('🔍 Debug - Total de clínicas encontradas:', clinicas.length);
 
-    // Custo por princípio ativo (mock)
-    const principiosPorCusto = [
-      { name: 'Pembrolizumabe', custo: 420000 },
-      { name: 'Trastuzumabe', custo: 360000 },
-      { name: 'Bevacizumabe', custo: 340000 },
-      { name: 'Rituximabe', custo: 290000 },
-      { name: 'Docetaxel', custo: 210000 },
-    ];
+        // Filtrar TUDO por clínicas pertencentes à operadora
+        const clinicIdSet = new Set((clinicas || []).map((c: any) => c.id));
+        const pacientesOperadora = pacientes.filter((p: any) => p?.clinica_id && clinicIdSet.has(p.clinica_id));
+        const solicitacoesOperadora = solicitacoes.filter((s: any) => s?.clinica_id && clinicIdSet.has(s.clinica_id));
+        const protocolosOperadora = protocolos.filter((pr: any) => !('clinica_id' in pr) || (pr?.clinica_id && clinicIdSet.has(pr.clinica_id)));
 
-    // Distribuição de tempo de autorização (mock)
-    const tempoAutorizacaoDist = [
-      { faixa: '0-1d', qtd: 120 },
-      { faixa: '2-3d', qtd: 210 },
-      { faixa: '4-5d', qtd: 95 },
-      { faixa: '6-7d', qtd: 42 },
-      { faixa: '8+d', qtd: 20 },
-    ];
+        console.log('📊 Dados da operadora carregados (filtrados por operadora):', {
+          pacientes: pacientesOperadora.length,
+          solicitacoes: solicitacoesOperadora.length,
+          protocolos: protocolosOperadora.length
+        });
 
-    const clinicLabel = selectedClinicId === 'todas'
-      ? 'Todas as clínicas'
-      : clinics.find(c => c.id === selectedClinicId)?.nome || 'Clínica';
+        // Validar se os dados são arrays
+        if (!Array.isArray(pacientes)) {
+          console.error('❌ Dados de pacientes não são um array:', pacientes);
+          throw new Error('Dados de pacientes inválidos');
+        }
+        if (!Array.isArray(solicitacoes)) {
+          console.error('❌ Dados de solicitações não são um array:', solicitacoes);
+          throw new Error('Dados de solicitações inválidos');
+        }
+        if (!Array.isArray(protocolos)) {
+          console.error('❌ Dados de protocolos não são um array:', protocolos);
+          throw new Error('Dados de protocolos inválidos');
+        }
+
+        // Armazenar clínicas reais
+        setRealClinicas(clinicas);
+
+        // Processar métricas agregadas (passando clínicas diretamente)
+        processOperatorMetrics(pacientesOperadora, solicitacoesOperadora, selectedClinicId, clinicas);
+        processClinicsData(pacientesOperadora, solicitacoesOperadora, clinicas);
+        processStatusPorClinica(solicitacoesOperadora, clinicas, selectedClinicId);
+        processSolicitacoesPorMesOperator(solicitacoesOperadora, selectedClinicId);
+        processPerformanceClinicas(pacientesOperadora, solicitacoesOperadora, clinicas, selectedClinicId);
+        processPrincipiosAtivosOperator(protocolosOperadora, selectedClinicId);
+        processDemografiaOperator(pacientesOperadora, selectedClinicId);
+
+      } catch (error) {
+        console.error('❌ Erro ao carregar dados da operadora:', error);
+        toast.error('Erro ao carregar dados da operadora');
+      } finally {
+        setOperatorLoading(false);
+      }
+    };
+
+    // Processar métricas agregadas da operadora
+    const processOperatorMetrics = (pacientes: PatientFromAPI[], solicitacoes: SolicitacaoFromAPI[], selectedClinicId: number | 'todas', clinicas: Clinica[]) => {
+      // Filtrar dados por clínica se necessário
+      const pacientesFiltrados = selectedClinicId === 'todas' 
+        ? pacientes 
+        : pacientes.filter(p => p.clinica_id === selectedClinicId);
+      
+      const solicitacoesFiltradas = selectedClinicId === 'todas' 
+        ? solicitacoes 
+        : solicitacoes.filter(s => s.clinica_id === selectedClinicId);
+
+      const totalSolicitacoes = solicitacoesFiltradas.length;
+      const totalPacientes = pacientesFiltrados.length;
+      
+      // Contar status das solicitações
+      const solicitacoesAprovadas = solicitacoesFiltradas.filter(s => s.status === 'aprovada').length;
+      const solicitacoesNegadas = solicitacoesFiltradas.filter(s => s.status === 'rejeitada').length;
+      const solicitacoesPendentes = solicitacoesFiltradas.filter(s => s.status === 'pendente').length;
+      
+      // Calcular métricas
+      const taxaAprovacao = totalSolicitacoes > 0 ? solicitacoesAprovadas / totalSolicitacoes : 0;
+      const taxaNegacao = totalSolicitacoes > 0 ? solicitacoesNegadas / totalSolicitacoes : 0;
+      
+      // Calcular tempo médio de análise (simulado baseado em datas)
+      const tempoMedioAnaliseDias = calculateTempoMedioAnalise(solicitacoesFiltradas);
+      
+      // Remover métricas financeiras inventadas - usar apenas dados reais
+      // TODO: Implementar endpoint de custos reais no backend
+      const custoTotalPeriodo = 0; // Sem dados financeiros reais
+      const custoMedioPorPaciente = 0; // Sem dados financeiros reais
+      const economiaEstimativa = 0; // Sem dados financeiros reais
+      const slaDentroPrazo = 0; // Sem dados de SLA reais
+      
+      // Contar clínicas únicas (usar lista da própria chamada)
+      const clinicasUnicas = selectedClinicId === 'todas' 
+        ? (Array.isArray(clinicas) ? clinicas.length : 0)
+        : 1; // Se filtrado por clínica específica, mostrar 1
+
+      setOperatorMetrics({
+        totalClinicas: clinicasUnicas,
+        totalSolicitacoes,
+        totalPacientes,
+        taxaAprovacao,
+        tempoMedioAnaliseDias,
+        custoTotalPeriodo,
+        custoMedioPorPaciente,
+        economiaEstimativa,
+        taxaNegacao,
+        slaDentroPrazo,
+      });
+    };
+
+    // Calcular tempo médio de análise
+    const calculateTempoMedioAnalise = (solicitacoes: SolicitacaoFromAPI[]): number => {
+      const solicitacoesComData = solicitacoes.filter(s => s.created_at && s.updated_at);
+      if (solicitacoesComData.length === 0) return 0;
+      
+      const tempos = solicitacoesComData.map(s => {
+        const inicio = new Date(s.created_at!);
+        const fim = new Date(s.updated_at!);
+        return Math.floor((fim.getTime() - inicio.getTime()) / (1000 * 60 * 60 * 24));
+      });
+      
+      return tempos.reduce((sum, tempo) => sum + tempo, 0) / tempos.length;
+    };
+
+    // Processar dados das clínicas
+    const processClinicsData = (pacientes: PatientFromAPI[], solicitacoes: SolicitacaoFromAPI[], clinicas: any[]) => {
+      console.log('🔍 processClinicsData - clinicas recebidas:', clinicas);
+      console.log('🔍 processClinicsData - pacientes:', pacientes.length);
+      console.log('🔍 processClinicsData - solicitacoes:', solicitacoes.length);
+      
+      const clinicasMap = new Map();
+      
+      // Usar dados reais de clínicas se disponíveis
+      clinicas.forEach(clinica => {
+        console.log('🔍 processClinicsData - Adicionando clínica:', { id: clinica.id, nome: clinica.nome });
+        clinicasMap.set(clinica.id, {
+          id: clinica.id,
+          nome: clinica.nome,
+          cidade: clinica.cidade || 'Não informado',
+          totalPacientes: 0,
+          totalSolicitacoes: 0
+        });
+      });
+      
+      // Contar pacientes por clínica (apenas clínicas que existem no banco)
+      pacientes.forEach(paciente => {
+        const clinicaId = paciente.clinica_id || 1;
+        if (clinicasMap.has(clinicaId)) {
+          clinicasMap.get(clinicaId).totalPacientes++;
+        }
+        // Não criar clínicas inventadas - apenas usar as que existem no banco
+      });
+      
+      // Contar solicitações por clínica
+      solicitacoes.forEach(solicitacao => {
+        const clinicaId = solicitacao.clinica_id || 1;
+        if (clinicasMap.has(clinicaId)) {
+          clinicasMap.get(clinicaId).totalSolicitacoes++;
+        }
+      });
+      
+      const clinicasArray = Array.from(clinicasMap.values());
+      console.log('🔍 processClinicsData - Resultado final:', clinicasArray);
+      console.log('🔍 processClinicsData - Setando clinicsData com:', clinicasArray.length, 'clínicas');
+      setClinicsData(clinicasArray);
+    };
+
+    // Processar status por clínica
+    const processStatusPorClinica = (solicitacoes: SolicitacaoFromAPI[], clinicas: any[], selectedClinicId: number | 'todas') => {
+      console.log('🔍 processStatusPorClinica - clinicas recebidas:', clinicas.length);
+      console.log('🔍 processStatusPorClinica - solicitacoes:', solicitacoes.length);
+      
+      const clinicasMap = new Map();
+      
+      // Filtrar dados por clínica se necessário
+      const solicitacoesFiltradas = selectedClinicId === 'todas' 
+        ? solicitacoes 
+        : solicitacoes.filter(s => s.clinica_id === selectedClinicId);
+
+      // Inicializar TODAS as clínicas com contadores zerados
+      clinicas.forEach(clinica => {
+        clinicasMap.set(clinica.id, {
+          name: clinica.nome,
+          aprovadas: 0,
+          pendentes: 0,
+          rejeitadas: 0
+        });
+      });
+      
+      // Processar solicitações e distribuir por status
+      solicitacoesFiltradas.forEach(solicitacao => {
+        const clinicaId = solicitacao.clinica_id || 1;
+        if (clinicasMap.has(clinicaId)) {
+          const clinica = clinicasMap.get(clinicaId);
+          switch (solicitacao.status) {
+            case 'aprovada':
+              clinica.aprovadas++;
+              break;
+            case 'pendente':
+              clinica.pendentes++;
+              break;
+            case 'rejeitada':
+              clinica.rejeitadas++;
+              break;
+          }
+        }
+      });
+      
+      const result = Array.from(clinicasMap.values());
+      console.log('🔍 processStatusPorClinica - Resultado final:', result);
+      setStatusPorClinica(result);
+    };
+
+    // Processar solicitações por mês para operadora
+    const processSolicitacoesPorMesOperator = (solicitacoes: SolicitacaoFromAPI[], selectedClinicId: number | 'todas') => {
+      const mesesData: Record<string, any> = {};
+      
+      // Filtrar dados por clínica se necessário
+      const solicitacoesFiltradas = selectedClinicId === 'todas' 
+        ? solicitacoes 
+        : solicitacoes.filter(s => s.clinica_id === selectedClinicId);
+      
+      solicitacoesFiltradas.forEach(solicitacao => {
+        try {
+          const dataSolicitacao = new Date(solicitacao.created_at || solicitacao.data_solicitacao || '');
+          if (isNaN(dataSolicitacao.getTime())) return;
+          
+          const mes = dataSolicitacao.toLocaleDateString('pt-BR', { month: 'short' });
+          
+          if (!mesesData[mes]) {
+            mesesData[mes] = {
+              mes,
+              total: 0,
+              aprovadas: 0,
+              pendentes: 0,
+              rejeitadas: 0
+            };
+          }
+          
+          mesesData[mes].total++;
+          switch (solicitacao.status) {
+            case 'aprovada':
+              mesesData[mes].aprovadas++;
+              break;
+            case 'pendente':
+              mesesData[mes].pendentes++;
+              break;
+            case 'rejeitada':
+              mesesData[mes].rejeitadas++;
+              break;
+          }
+        } catch (error) {
+          console.warn('Erro ao processar data da solicitação:', error);
+        }
+      });
+      
+      setSolicitacoesPorMes(Object.values(mesesData).sort((a, b) => {
+        const meses = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+        return meses.indexOf(a.mes) - meses.indexOf(b.mes);
+      }));
+    };
+
+    // Processar performance por clínica
+    const processPerformanceClinicas = (pacientes: PatientFromAPI[], solicitacoes: SolicitacaoFromAPI[], clinicas: any[], selectedClinicId: number | 'todas') => {
+      console.log('🔍 processPerformanceClinicas - clinicas recebidas:', clinicas.length);
+      console.log('🔍 processPerformanceClinicas - solicitacoes:', solicitacoes.length);
+      
+      const performanceMap = new Map();
+      
+      // Filtrar dados por clínica se necessário
+      const solicitacoesFiltradas = selectedClinicId === 'todas' 
+        ? solicitacoes 
+        : solicitacoes.filter(s => s.clinica_id === selectedClinicId);
+      
+      // Inicializar TODAS as clínicas (mesmo as sem solicitações)
+      clinicas.forEach(clinica => {
+        performanceMap.set(clinica.id, {
+          name: clinica.nome,
+          aprovacao: 0,
+          prazoMedio: 0,
+          totalSolicitacoes: 0
+        });
+      });
+      
+      // Agrupar solicitações por clínica
+      const solicitacoesPorClinica = solicitacoesFiltradas.reduce((acc, s) => {
+        const clinicaId = s.clinica_id || 1;
+        if (!acc[clinicaId]) acc[clinicaId] = [];
+        acc[clinicaId].push(s);
+        return acc;
+      }, {} as Record<number, SolicitacaoFromAPI[]>);
+      
+      // Atualizar dados das clínicas que têm solicitações
+      Object.entries(solicitacoesPorClinica).forEach(([clinicaId, s]) => {
+        const aprovadas = s.filter(s => s.status === 'aprovada').length;
+        const total = s.length;
+        const aprovacao = total > 0 ? aprovadas / total : 0;
+        
+        if (performanceMap.has(parseInt(clinicaId))) {
+          performanceMap.set(parseInt(clinicaId), {
+            name: performanceMap.get(parseInt(clinicaId)).name, // Manter nome original
+            aprovacao: Math.round(aprovacao * 100) / 100,
+            prazoMedio: calculateTempoMedioAnalise(s),
+            totalSolicitacoes: total
+          });
+        }
+      });
+      
+      const result = Array.from(performanceMap.values());
+      console.log('🔍 processPerformanceClinicas - Resultado final:', result);
+      setPerformanceClinicas(result);
+    };
+
+    // Processar princípios ativos para operadora
+    const processPrincipiosAtivosOperator = (protocolos: ProtocoloFromAPI[], selectedClinicId: number | 'todas') => {
+      const principleCount: Record<string, number> = {};
+      
+      protocolos.forEach(protocolo => {
+        if (protocolo.medicamentos && protocolo.medicamentos.length > 0) {
+          protocolo.medicamentos.forEach(medicamento => {
+            const principio = medicamento.nome || 'Não especificado';
+            principleCount[principio] = (principleCount[principio] || 0) + 1;
+          });
+        }
+      });
+      
+      const sortedPrinciples = Object.entries(principleCount)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 5);
+      
+      setPrincipiosAtivosTop(sortedPrinciples);
+    };
+
+    // Processar demografia para operadora
+    const processDemografiaOperator = (pacientes: PatientFromAPI[], selectedClinicId: number | 'todas') => {
+      // Filtrar dados por clínica se necessário
+      const pacientesFiltrados = selectedClinicId === 'todas' 
+        ? pacientes 
+        : pacientes.filter(p => p.clinica_id === selectedClinicId);
+
+      // Demografia por sexo
+      const sexoCount = pacientesFiltrados.reduce((acc, p) => {
+        const sexo = p.Sexo || 'Não informado';
+        acc[sexo] = (acc[sexo] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      const demografiaSexoData = Object.entries(sexoCount).map(([name, value]) => ({
+        name: name === 'M' ? 'Masculino' : name === 'F' ? 'Feminino' : name,
+        value: Math.round((value / pacientes.length) * 100)
+      }));
+      
+      setDemografiaSexo(demografiaSexoData);
+      
+      // Demografia por idade
+      const faixasIdade = [
+        { faixa: '0-17', min: 0, max: 17 },
+        { faixa: '18-39', min: 18, max: 39 },
+        { faixa: '40-59', min: 40, max: 59 },
+        { faixa: '60+', min: 60, max: 120 }
+      ];
+      
+      const demografiaIdadeData = faixasIdade.map(faixa => {
+        const count = pacientesFiltrados.filter(p => {
+          // Calcular idade a partir da data de nascimento
+          const dataNascimento = new Date(p.Data_Nascimento);
+          if (isNaN(dataNascimento.getTime())) return false;
+          
+          const hoje = new Date();
+          const idade = hoje.getFullYear() - dataNascimento.getFullYear();
+          const mesAtual = hoje.getMonth();
+          const mesNascimento = dataNascimento.getMonth();
+          
+          // Ajustar se ainda não fez aniversário este ano
+          const idadeReal = (mesAtual < mesNascimento || 
+            (mesAtual === mesNascimento && hoje.getDate() < dataNascimento.getDate())) 
+            ? idade - 1 : idade;
+          
+          return idadeReal >= faixa.min && idadeReal <= faixa.max;
+        }).length;
+        return { faixa: faixa.faixa, qtd: count };
+      });
+      
+      setDemografiaIdade(demografiaIdadeData);
+    };
+
+    // Verificar se está carregando
+    if (operatorLoading) {
+      return (
+    <div className="space-y-6">
+          <div className="flex items-center justify-center py-12">
+            <div className="text-center">
+              <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
+              <p className="text-muted-foreground">Carregando dados da operadora...</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Verificar se backend está conectado
+    if (!operatorBackendConnected) {
+      return (
+        <div className="space-y-6">
+          <Card className="lco-card border-orange-200">
+        <CardContent className="flex items-center justify-center py-12">
+          <div className="text-center">
+                <AlertCircle className="h-12 w-12 text-orange-500 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-orange-800 mb-2">Backend não conectado</h3>
+                <p className="text-orange-600 mb-4">
+                  Para visualizar os dados da operadora, certifique-se de que o servidor backend está rodando.
+                </p>
+                <button 
+                  onClick={loadOperatorData}
+                  className="px-4 py-2 bg-orange-500 text-white rounded hover:bg-orange-600 transition-colors"
+                >
+                  Tentar Novamente
+                </button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+    }
 
     return (
       <div className="space-y-6">
@@ -1869,52 +2155,26 @@ const Dashboard = () => {
                 <div>
                   <div className="text-xs uppercase tracking-wider text-muted-foreground">Operadora</div>
                   <div className="text-2xl font-bold">
-                    {clinicLabel}
+                    {selectedClinicId === 'todas' ? 'Todas as clínicas' : clinicsData.find(c => c.id === selectedClinicId)?.nome || 'Clínica'}
                   </div>
-                  <div className="text-sm text-muted-foreground">Período: {periodo === '30' ? 'Últimos 30 dias' : periodo === '60' ? 'Últimos 60 dias' : 'Últimos 90 dias'}</div>
+                  <div className="text-sm text-muted-foreground">Dashboard da Operadora</div>
                 </div>
               </div>
-              {/* Toolbar de filtros organizada */}
+              {/* Toolbar de filtros */}
               <div className="w-full md:w-auto">
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                  <div className="flex gap-2">
-                    <Button variant={activeTab==='principal' ? 'default' : 'outline'} onClick={() => setActiveTab('principal')}>Dashboard</Button>
-                    <Button variant={activeTab==='clinicas' ? 'default' : 'outline'} onClick={() => setActiveTab('clinicas')}>Clínicas</Button>
-                  </div>
-                  <Button
-                    onClick={() => (window.location.href = '/operator-patients')}
-                    className="justify-start md:justify-center"
-                    variant="outline"
-                  >
-                    <Users className="h-4 w-4 mr-2" /> Pacientes
-                  </Button>
-                  <div className="min-w-[240px]">
-                    <div className="text-xs font-medium text-muted-foreground mb-1">Clínica</div>
-                    <Select onValueChange={(v) => setSelectedClinicId(v === 'todas' ? 'todas' : Number(v))}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder={clinicLabel} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="todas">Todas as clínicas</SelectItem>
-                        {clinics.map(c => (
-                          <SelectItem key={c.id} value={String(c.id)}>{c.nome}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="min-w-[200px]">
-                    <div className="text-xs font-medium text-muted-foreground mb-1">Período</div>
-                    <Select value={periodo} onValueChange={(v) => setPeriodo(v as any)}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Últimos 30 dias" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="30">Últimos 30 dias</SelectItem>
-                        <SelectItem value="60">Últimos 60 dias</SelectItem>
-                        <SelectItem value="90">Últimos 90 dias</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                <div className="min-w-[200px]">
+                  <div className="text-xs font-medium text-muted-foreground mb-1">Clínica</div>
+                  <Select value={selectedClinicId === 'todas' ? 'todas' : String(selectedClinicId)} onValueChange={(v) => setSelectedClinicId(v === 'todas' ? 'todas' : Number(v))}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Todas as clínicas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="todas">Todas as clínicas</SelectItem>
+                      {clinicsData.map(c => (
+                        <SelectItem key={c.id} value={String(c.id)}>{c.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -1930,12 +2190,11 @@ const Dashboard = () => {
                 <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Clínicas</CardTitle>
               </CardHeader>
               <CardContent className="relative z-10 flex items-end justify-between">
-                <div className="text-3xl font-bold">{kpis.totalClinicas}</div>
+                <div className="text-3xl font-bold">{operatorMetrics.totalClinicas}</div>
                 <Building2 className="h-6 w-6 text-primary" />
               </CardContent>
             </Card>
           </AnimatedSection>
-          {/* Pacientes agora logo após Clínicas */}
           <AnimatedSection delay={100}>
             <Card className="lco-card hover-lift group relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
@@ -1943,7 +2202,7 @@ const Dashboard = () => {
                 <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Pacientes</CardTitle>
               </CardHeader>
               <CardContent className="relative z-10 flex items-end justify-between">
-                <div className="text-3xl font-bold">{kpis.totalPacientes}</div>
+                <div className="text-3xl font-bold">{operatorMetrics.totalPacientes}</div>
                 <UsersIcon className="h-6 w-6 text-primary" />
               </CardContent>
             </Card>
@@ -1955,7 +2214,7 @@ const Dashboard = () => {
                 <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Solicitações</CardTitle>
               </CardHeader>
               <CardContent className="relative z-10 flex items-end justify-between">
-                <div className="text-3xl font-bold">{kpis.totalSolicitacoes}</div>
+                <div className="text-3xl font-bold">{operatorMetrics.totalSolicitacoes}</div>
                 <FileText className="h-6 w-6 text-support-yellow" />
               </CardContent>
             </Card>
@@ -1967,7 +2226,7 @@ const Dashboard = () => {
                 <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Taxa de Aprovação</CardTitle>
               </CardHeader>
               <CardContent className="relative z-10 flex items-end justify-between">
-                <div className="text-3xl font-bold">{Math.round(kpis.taxaAprovacao * 100)}%</div>
+                <div className="text-3xl font-bold">{Math.round(operatorMetrics.taxaAprovacao * 100)}%</div>
                 <CheckCircle className="h-6 w-6 text-support-green" />
               </CardContent>
             </Card>
@@ -1979,74 +2238,41 @@ const Dashboard = () => {
                 <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Tempo Médio</CardTitle>
               </CardHeader>
               <CardContent className="relative z-10 flex items-end justify-between">
-                <div className="text-3xl font-bold">{kpis.tempoMedioAnaliseDias}d</div>
+                <div className="text-3xl font-bold">{Math.round(operatorMetrics.tempoMedioAnaliseDias)}d</div>
                 <Clock className="h-6 w-6 text-highlight-peach" />
               </CardContent>
             </Card>
           </AnimatedSection>
         </div>
 
-        {/* KPIs de negócio (financeiro/SLA) */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        {/* KPIs operacionais (apenas dados reais) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <AnimatedSection delay={220}>
-            <Card className="lco-card hover-lift group relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              <CardHeader className="pb-2 relative z-10">
-                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Custo Total</CardTitle>
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-3xl font-bold">R$ {kpis.custoTotalPeriodo.toLocaleString('pt-BR')}</div>
-                <CardDescription>no período selecionado</CardDescription>
-              </CardContent>
-            </Card>
-          </AnimatedSection>
-          <AnimatedSection delay={240}>
-            <Card className="lco-card hover-lift group relative overflow-hidden">
-              <CardHeader className="pb-2 relative z-10">
-                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Custo Médio / Paciente</CardTitle>
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-3xl font-bold">R$ {kpis.custoMedioPorPaciente.toLocaleString('pt-BR')}</div>
-                <CardDescription>em todas as clínicas</CardDescription>
-              </CardContent>
-            </Card>
-          </AnimatedSection>
-          <AnimatedSection delay={260}>
-            <Card className="lco-card hover-lift group relative overflow-hidden">
-              <CardHeader className="pb-2 relative z-10">
-                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Economia Estimada</CardTitle>
-              </CardHeader>
-              <CardContent className="relative z-10">
-                <div className="text-3xl font-bold">{Math.round(kpis.economiaEstimativa * 100)}%</div>
-                <CardDescription>vs. modelo tradicional</CardDescription>
-              </CardContent>
-            </Card>
-          </AnimatedSection>
-          <AnimatedSection delay={280}>
             <Card className="lco-card hover-lift group relative overflow-hidden">
               <CardHeader className="pb-2 relative z-10">
                 <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Taxa de Negação</CardTitle>
               </CardHeader>
               <CardContent className="relative z-10">
-                <div className="text-3xl font-bold">{Math.round(kpis.taxaNegacao * 100)}%</div>
+                <div className="text-3xl font-bold">{Math.round(operatorMetrics.taxaNegacao * 100)}%</div>
                 <CardDescription>solicitações negadas</CardDescription>
               </CardContent>
             </Card>
           </AnimatedSection>
-          <AnimatedSection delay={300}>
+
+          <AnimatedSection delay={240}>
             <Card className="lco-card hover-lift group relative overflow-hidden">
               <CardHeader className="pb-2 relative z-10">
-                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">SLA no Prazo</CardTitle>
+                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Tempo Médio de Análise</CardTitle>
               </CardHeader>
               <CardContent className="relative z-10">
-                <div className="text-3xl font-bold">{Math.round(kpis.slaDentroPrazo * 100)}%</div>
-                <CardDescription>decididas no tempo alvo</CardDescription>
+                <div className="text-3xl font-bold">{Math.round(operatorMetrics.tempoMedioAnaliseDias)} dias</div>
+                <CardDescription>média de processamento</CardDescription>
               </CardContent>
             </Card>
           </AnimatedSection>
         </div>
 
-        {/* Gráficos principais (estilo neon/clinic) */}
+        {/* Gráficos principais */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <AnimatedSection delay={400}>
             <Card className="lco-card h-[380px] hover-lift group overflow-hidden">
@@ -2059,36 +2285,45 @@ const Dashboard = () => {
                 <CardDescription>Comparativo entre clínicas</CardDescription>
               </CardHeader>
               <CardContent className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={statusPorClinica}>
-                    <defs>
-                      <linearGradient id="barGradient2" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.9}/>
-                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.25}/>
-                      </linearGradient>
-                      <filter id="barShadow2" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.25"/>
-                      </filter>
-                    </defs>
-                    <CartesianGrid strokeDasharray="5 5" opacity={0.08} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="name" tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }} />
-                    <YAxis tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }} />
-                    <Tooltip 
-                      cursor={{ fill: 'hsl(var(--primary))', fillOpacity: 0.06 }}
-                      contentStyle={{
-                        borderRadius: '12px',
-                        border: '1px solid var(--border)',
-                        background: 'var(--background)',
-                        color: 'hsl(var(--foreground))',
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.12)'
-                      }}
-                    />
-                    <Legend wrapperStyle={{ color: 'hsl(var(--foreground))' }} />
-                    <Bar dataKey="aprovadas" name="Autorizadas" fill="url(#barGradient2)" stroke="hsl(var(--primary))" strokeWidth={1.5} radius={[8,8,0,0]} filter="url(#barShadow2)" />
-                    <Bar dataKey="pendentes" name="Em Processamento" fill="#f59e0b" radius={[8,8,0,0]} filter="url(#barShadow2)" />
-                    <Bar dataKey="rejeitadas" name="Negadas" fill="#ef4444" radius={[8,8,0,0]} filter="url(#barShadow2)" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {statusPorClinica.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={statusPorClinica}>
+                      <defs>
+                        <linearGradient id="barGradient2" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.9}/>
+                          <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0.25}/>
+                        </linearGradient>
+                        <filter id="barShadow2" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.25"/>
+                        </filter>
+                      </defs>
+                      <CartesianGrid strokeDasharray="5 5" opacity={0.08} stroke="hsl(var(--border))" />
+                      <XAxis dataKey="name" tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }} />
+                      <YAxis tick={{ fill: 'hsl(var(--foreground))', fontSize: 12 }} />
+                      <Tooltip 
+                        cursor={{ fill: 'hsl(var(--primary))', fillOpacity: 0.06 }}
+                        contentStyle={{
+                          borderRadius: '12px',
+                          border: '1px solid var(--border)',
+                          background: 'var(--background)',
+                          color: 'hsl(var(--foreground))',
+                          boxShadow: '0 8px 24px rgba(0,0,0,0.12)'
+                        }}
+                      />
+                      <Legend wrapperStyle={{ color: 'hsl(var(--foreground))' }} />
+                      <Bar dataKey="aprovadas" name="Autorizadas" fill="url(#barGradient2)" stroke="hsl(var(--primary))" strokeWidth={1.5} radius={[8,8,0,0]} filter="url(#barShadow2)" />
+                      <Bar dataKey="pendentes" name="Em Processamento" fill="#f59e0b" radius={[8,8,0,0]} filter="url(#barShadow2)" />
+                      <Bar dataKey="rejeitadas" name="Negadas" fill="#ef4444" radius={[8,8,0,0]} filter="url(#barShadow2)" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <div className="text-center">
+                      <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Nenhum dado encontrado</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </AnimatedSection>
@@ -2099,116 +2334,117 @@ const Dashboard = () => {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <ChartPieIcon className="mr-2 h-5 w-5 text-secondary" />
-                  Top Protocolos
+                  Top Princípios Ativos
                 </CardTitle>
                 <CardDescription>Mais utilizados no período</CardDescription>
               </CardHeader>
               <CardContent className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <defs>
-                      <filter id="pieShadowOp" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.25"/>
-                      </filter>
-                    </defs>
-                    <Pie 
-                      data={protocolosTop} 
-                      dataKey="value" 
-                      cx="50%" cy="60%" 
-                      innerRadius={60} outerRadius={95} 
-                      paddingAngle={5}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      labelLine={false}
-                      filter="url(#pieShadowOp)"
-                    >
-                      {protocolosTop.map((entry, index) => (
-                        <Cell 
-                          key={`cell-prot-${index}`} 
-                          fill={CHART_COLORS[index % CHART_COLORS.length].fill}
-                          stroke={CHART_COLORS[index % CHART_COLORS.length].stroke}
-                          strokeWidth={2}
-                          style={{ filter: `drop-shadow(${CHART_COLORS[index % CHART_COLORS.length].glow})` }}
-                        />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      contentStyle={{ 
-                        borderRadius: '12px', 
-                        border: '1px solid var(--border)', 
-                        boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
-                        background: 'var(--background)',
-                        color: 'hsl(var(--foreground))'
-                      }}
-                      itemStyle={{ color: 'hsl(var(--foreground))' }}
-                    />
-                    <Legend wrapperStyle={{ color: 'hsl(var(--foreground))' }} />
-                  </PieChart>
-                </ResponsiveContainer>
+                {principiosAtivosTop.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <defs>
+                        <filter id="pieShadowOp" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.25"/>
+                        </filter>
+                      </defs>
+                      <Pie 
+                        data={principiosAtivosTop} 
+                        dataKey="value" 
+                        cx="50%" cy="60%" 
+                        innerRadius={60} outerRadius={95} 
+                        paddingAngle={5}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        labelLine={false}
+                        filter="url(#pieShadowOp)"
+                      >
+                        {principiosAtivosTop.map((entry, index) => (
+                          <Cell 
+                            key={`cell-prot-${index}`} 
+                            fill={CHART_COLORS[index % CHART_COLORS.length].fill}
+                            stroke={CHART_COLORS[index % CHART_COLORS.length].stroke}
+                            strokeWidth={2}
+                            style={{ filter: `drop-shadow(${CHART_COLORS[index % CHART_COLORS.length].glow})` }}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip 
+                        contentStyle={{ 
+                          borderRadius: '12px', 
+                          border: '1px solid var(--border)', 
+                          boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
+                          background: 'var(--background)',
+                          color: 'hsl(var(--foreground))'
+                        }}
+                        itemStyle={{ color: 'hsl(var(--foreground))' }}
+                      />
+                      <Legend wrapperStyle={{ color: 'hsl(var(--foreground))' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <div className="text-center">
+                      <ChartPieIcon className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Nenhum princípio ativo encontrado</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </AnimatedSection>
         </div>
 
-        {/* Finanças, princípios ativos e demografia */}
+        {/* Demografia e Performance */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Custos mensais vs. economia */}
-          <AnimatedSection delay={560}>
-            <Card className="lco-card h-[380px] hover-lift group overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <ChartPieIcon className="mr-2 h-5 w-5 text-primary" />
-                  Custos por Mês vs. Economia
-                </CardTitle>
-                <CardDescription>Visão financeira do período</CardDescription>
-              </CardHeader>
-              <CardContent className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={custosPorMes}>
-                    <CartesianGrid strokeDasharray="5 5" opacity={0.08} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="mes" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="total" name="Custo Total (R$)" fill="#6366f1" radius={[8,8,0,0]} />
-                    <Bar dataKey="economias" name="Economia (R$)" fill="#22c55e" radius={[8,8,0,0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </AnimatedSection>
           <AnimatedSection delay={600}>
             <Card className="lco-card h-[380px] hover-lift group overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-primary/0 to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              <CardHeader><CardTitle>Principais Princípios Ativos</CardTitle><CardDescription>Top 5 no período</CardDescription></CardHeader>
+              <div className="absolute inset-0 bg-gradient-to-br from-accent/0 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <Users className="mr-2 h-5 w-5 text-accent" />
+                  Demografia - Sexo
+                </CardTitle>
+                <CardDescription>Distribuição por sexo</CardDescription>
+              </CardHeader>
               <CardContent className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={principiosAtivosTop}>
-                    <defs>
-                      <linearGradient id="barGradientPA" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.85}/>
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.25}/>
-                      </linearGradient>
-                      <filter id="barShadowPA" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.25"/>
-                      </filter>
-                    </defs>
-                    <CartesianGrid strokeDasharray="5 5" opacity={0.08} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-15} textAnchor="end" height={60} />
-                    <YAxis />
-                    <Tooltip 
-                      cursor={{ fill: '#3b82f6', fillOpacity: 0.06 }}
-                      contentStyle={{
-                        borderRadius: '12px',
-                        border: '1px solid var(--border)',
-                        background: 'var(--background)',
-                        color: 'hsl(var(--foreground))',
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.12)'
-                      }}
-                    />
-                    <Bar dataKey="value" name="Solicitações" fill="url(#barGradientPA)" stroke="#3b82f6" strokeWidth={1.5} radius={[8,8,0,0]} filter="url(#barShadowPA)" />
-                  </BarChart>
-                </ResponsiveContainer>
+                {demografiaSexo.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <defs>
+                        <filter id="pieShadowDemo" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.25"/>
+                        </filter>
+                      </defs>
+                      <Pie 
+                        data={demografiaSexo} 
+                        dataKey="value" 
+                        cx="50%" cy="60%" 
+                        innerRadius={55} outerRadius={90} 
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        filter="url(#pieShadowDemo)"
+                      >
+                        {demografiaSexo.map((entry, index) => (
+                          <Cell 
+                            key={`cell-sex-${index}`} 
+                            fill={CHART_COLORS[index % CHART_COLORS.length].fill}
+                            stroke={CHART_COLORS[index % CHART_COLORS.length].stroke}
+                            strokeWidth={2}
+                            style={{ filter: `drop-shadow(${CHART_COLORS[index % CHART_COLORS.length].glow})` }}
+                          />
+                        ))}
+                      </Pie>
+                      <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--background)', color: 'hsl(var(--foreground))' }} />
+                      <Legend wrapperStyle={{ color: 'hsl(var(--foreground))' }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <div className="text-center">
+                      <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Nenhum dado demográfico encontrado</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </AnimatedSection>
@@ -2216,47 +2452,214 @@ const Dashboard = () => {
           <AnimatedSection delay={700}>
             <Card className="lco-card h-[380px] hover-lift group overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-br from-accent/0 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              <CardHeader><CardTitle>Demografia - Sexo</CardTitle><CardDescription>Distribuição por sexo</CardDescription></CardHeader>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <BarChart3 className="mr-2 h-5 w-5 text-accent" />
+                  Demografia - Idade
+                </CardTitle>
+                <CardDescription>Faixas etárias</CardDescription>
+              </CardHeader>
               <CardContent className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <defs>
-                      <filter id="pieShadowDemo" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.25"/>
-                      </filter>
-                    </defs>
-                    <Pie 
-                      data={demografiaSexo} dataKey="value" cx="50%" cy="60%" 
-                      innerRadius={55} outerRadius={90} labelLine={false}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      filter="url(#pieShadowDemo)"
-                    />
-                    <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--background)', color: 'hsl(var(--foreground))' }} />
-                    <Legend wrapperStyle={{ color: 'hsl(var(--foreground))' }} />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </AnimatedSection>
-
-          <AnimatedSection delay={720}>
-            <Card className="lco-card h-[380px] hover-lift group overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-accent/0 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-              <CardHeader><CardTitle>Demografia - Idade</CardTitle><CardDescription>Faixas etárias</CardDescription></CardHeader>
-              <CardContent className="h-[280px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={demografiaIdade}>
-                    <CartesianGrid strokeDasharray="5 5" opacity={0.08} stroke="hsl(var(--border))" />
-                    <XAxis dataKey="faixa" />
-                    <YAxis />
-                    <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--background)', color: 'hsl(var(--foreground))' }} />
-                    <Bar dataKey="qtd" name="Pacientes" fill="#10b981" radius={[8,8,0,0]} />
-                  </BarChart>
-                </ResponsiveContainer>
+                {demografiaIdade.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={demografiaIdade}>
+                      <CartesianGrid strokeDasharray="5 5" opacity={0.08} stroke="hsl(var(--border))" />
+                      <XAxis dataKey="faixa" />
+                      <YAxis />
+                      <Tooltip contentStyle={{ borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--background)', color: 'hsl(var(--foreground))' }} />
+                      <Bar dataKey="qtd" name="Pacientes" fill="#10b981" radius={[8,8,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="flex items-center justify-center h-full text-muted-foreground">
+                    <div className="text-center">
+                      <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p className="text-sm">Nenhum dado demográfico encontrado</p>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </AnimatedSection>
         </div>
+
+        {/* Solicitações por Período */}
+        {solicitacoesPorMes.length > 1 && (
+          <AnimatedSection delay={800}>
+            <Card className="lco-card overflow-hidden group hover:shadow-2xl transition-all duration-500">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <ChartPieIcon className="mr-2 h-5 w-5 text-primary" />
+                  Solicitações por Período
+                </CardTitle>
+                <CardDescription className="text-muted-foreground/80 font-medium">
+                  Evolução das solicitações ao longo do tempo
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6 h-[350px] bg-gradient-to-br from-background via-background to-muted/20">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart 
+                    data={solicitacoesPorMes} 
+                    margin={{ top: 20, right: 40, left: 20, bottom: 20 }}
+                  >
+                    <defs>
+                      <linearGradient id="totalGradientOp" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.8}/>
+                        <stop offset="50%" stopColor="hsl(var(--primary))" stopOpacity={0.4}/>
+                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.05}/>
+                      </linearGradient>
+                      <linearGradient id="aprovadasGradientOp" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(var(--secondary))" stopOpacity={0.8}/>
+                        <stop offset="50%" stopColor="hsl(var(--secondary))" stopOpacity={0.4}/>
+                        <stop offset="100%" stopColor="hsl(var(--secondary))" stopOpacity={0.05}/>
+                      </linearGradient>
+                      <linearGradient id="pendentesGradientOp" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="hsl(var(--accent))" stopOpacity={0.8}/>
+                        <stop offset="50%" stopColor="hsl(var(--accent))" stopOpacity={0.4}/>
+                        <stop offset="100%" stopColor="hsl(var(--accent))" stopOpacity={0.05}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="5 5" opacity={0.08} stroke="hsl(var(--border))" strokeWidth={1} />
+                    <XAxis 
+                      dataKey="mes" 
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 500 }}
+                      axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1, opacity: 0.3 }}
+                      tickLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1, opacity: 0.3 }}
+                      tickMargin={8}
+                    />
+                    <YAxis 
+                      tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11, fontWeight: 500 }}
+                      axisLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1, opacity: 0.3 }}
+                      tickLine={{ stroke: 'hsl(var(--border))', strokeWidth: 1, opacity: 0.3 }}
+                      tickMargin={8}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        borderRadius: '16px', 
+                        border: '1px solid hsl(var(--border))', 
+                        background: 'hsl(var(--background))',
+                        color: 'hsl(var(--foreground))',
+                        boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+                        backdropFilter: 'blur(10px)',
+                        fontSize: '12px',
+                        fontWeight: '500'
+                      }}
+                      cursor={{
+                        fill: 'hsl(var(--primary))',
+                        fillOpacity: 0.1,
+                        stroke: 'hsl(var(--primary))',
+                        strokeWidth: 2,
+                        strokeDasharray: '5 5'
+                      }}
+                    />
+                    <Legend 
+                      wrapperStyle={{
+                        paddingTop: '20px',
+                        fontSize: '12px',
+                        fontWeight: '600'
+                      }}
+                      iconType="circle"
+                      iconSize={8}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="total" 
+                      stackId="1"
+                      stroke="hsl(var(--primary))" 
+                      strokeWidth={3}
+                      fill="url(#totalGradientOp)" 
+                      name="Total de Solicitações"
+                      fillOpacity={0.8}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="aprovadas" 
+                      stackId="2"
+                      stroke="hsl(var(--secondary))" 
+                      strokeWidth={3}
+                      fill="url(#aprovadasGradientOp)" 
+                      name="Autorizadas"
+                      fillOpacity={0.8}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="pendentes" 
+                      stackId="3"
+                      stroke="hsl(var(--accent))" 
+                      strokeWidth={3}
+                      fill="url(#pendentesGradientOp)" 
+                      name="Em Processamento"
+                      fillOpacity={0.8}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+        )}
+
+        {/* Performance por Clínica */}
+        {performanceClinicas.length > 0 && (
+          <AnimatedSection delay={900}>
+            <Card className="lco-card">
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <BarChart3 className="mr-2 h-5 w-5 text-primary" />
+                  Performance por Clínica
+                </CardTitle>
+                <CardDescription>Métricas de aprovação e tempo médio de análise</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-muted/50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          Clínica
+                        </th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          Taxa de Aprovação
+                        </th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          Tempo Médio (dias)
+                        </th>
+                        <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          Total Solicitações
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {performanceClinicas.map((clinica, index) => (
+                        <tr key={index} className="group hover:bg-muted/30 transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="font-medium text-sm text-foreground group-hover:text-primary transition-colors">
+                              {clinica.name}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="text-sm font-bold text-primary">
+                              {Math.round(clinica.aprovacao * 100)}%
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="text-sm text-muted-foreground">
+                              {Math.round(clinica.prazoMedio)} dias
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="text-sm text-muted-foreground">
+                              {clinica.totalSolicitacoes}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+        )}
       </div>
     );
   };

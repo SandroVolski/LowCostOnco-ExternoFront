@@ -2,6 +2,7 @@
 
 import config from '@/config/environment';
 import { authorizedFetch } from '@/services/authService';
+import { operadoraAuthService } from '@/services/operadoraAuthService';
 
 const API_BASE_URL = config.API_BASE_URL;
 
@@ -106,7 +107,7 @@ export interface Especialidade {
 // Classe de serviço para Clínicas
 export class ClinicService {
   
-  // Listar todas as clínicas
+  // Listar todas as clínicas (para admin)
   static async getAllClinicas(): Promise<Clinica[]> {
     try {
       console.log('🔧 ClinicService.getAllClinicas() iniciado');
@@ -138,6 +139,38 @@ export class ClinicService {
     } catch (error) {
       console.error('❌ Erro no ClinicService.getAllClinicas():', error);
       throw new Error('Erro ao buscar clínicas');
+    }
+  }
+
+  // Listar clínicas para operadora (com autenticação de operadora)
+  static async getAllClinicasForOperadora(): Promise<Clinica[]> {
+    try {
+      console.log('🔧 ClinicService.getAllClinicasForOperadora() iniciado');
+      
+      let response = await operadoraAuthService.authorizedFetch('/api/clinicas/por-operadora');
+      // Fallback quando authorizedFetch retorna null (proxy devolveu HTML)
+      if (!response) {
+        const token = localStorage.getItem('operadora_access_token') || '';
+        const apiUrl = `${API_BASE_URL}/clinicas/por-operadora`;
+        response = await fetch(apiUrl, { headers: { Authorization: `Bearer ${token}` } });
+      }
+      
+      if (!response || !response.ok) {
+        throw new Error(`HTTP error! status: ${response?.status}`);
+      }
+      
+      const result: ApiResponse<Clinica[]> = await response.json();
+      console.log('🔧 Dados da resposta:', result);
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Erro ao buscar clínicas');
+      }
+      
+      console.log('✅ Clínicas obtidas com sucesso:', result.data);
+      return result.data || [];
+    } catch (error) {
+      console.error('❌ Erro no ClinicService.getAllClinicasForOperadora():', error);
+      throw new Error('Erro ao buscar clínicas para operadora');
     }
   }
 
@@ -420,6 +453,53 @@ export class ClinicService {
     } catch (error) {
       console.error('❌ Erro no ClinicService.listarEspecialidades():', error);
       return [];
+    }
+  }
+
+  // ===== Corpo Clínico (Responsáveis Técnicos) =====
+  static async addResponsavel(data: any): Promise<any> {
+    try {
+      const response = await authorizedFetch(`${API_BASE_URL}/clinicas/responsaveis`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result: ApiResponse<any> = await response.json();
+      if (!result.success) throw new Error(result.message || 'Erro ao adicionar responsável');
+      return result.data;
+    } catch (error) {
+      console.error('❌ Erro no ClinicService.addResponsavel():', error);
+      throw error;
+    }
+  }
+
+  static async updateResponsavel(id: number, data: any): Promise<any> {
+    try {
+      const response = await authorizedFetch(`${API_BASE_URL}/clinicas/responsaveis/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result: ApiResponse<any> = await response.json();
+      if (!result.success) throw new Error(result.message || 'Erro ao atualizar responsável');
+      return result.data;
+    } catch (error) {
+      console.error('❌ Erro no ClinicService.updateResponsavel():', error);
+      throw error;
+    }
+  }
+
+  static async removeResponsavel(id: number): Promise<void> {
+    try {
+      const response = await authorizedFetch(`${API_BASE_URL}/clinicas/responsaveis/${id}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    } catch (error) {
+      console.error('❌ Erro no ClinicService.removeResponsavel():', error);
+      throw error;
     }
   }
 }

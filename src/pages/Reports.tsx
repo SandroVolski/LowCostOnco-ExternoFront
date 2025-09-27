@@ -366,12 +366,12 @@ const Reports = () => {
       // Preencher automaticamente os dados do paciente
       setFormData(prev => ({
         ...prev,
-        cliente_nome: selectedPatient.name,
-        cliente_codigo: selectedPatient.codigo,
-        sexo: selectedPatient.sexo === 'Masculino' ? 'M' : selectedPatient.sexo === 'Feminino' ? 'F' : selectedPatient.sexo,
-        data_nascimento: convertDateToInput(selectedPatient.dataNascimento),
-        idade: selectedPatient.idade.toString(),
-        diagnostico_cid: selectedPatient.cidDiagnostico,
+        cliente_nome: selectedPatient.name || prev.cliente_nome || '',
+        cliente_codigo: selectedPatient.codigo || prev.cliente_codigo || '',
+        sexo: selectedPatient.sexo === 'Masculino' ? 'M' : selectedPatient.sexo === 'Feminino' ? 'F' : (selectedPatient.sexo || prev.sexo || ''),
+        data_nascimento: convertDateToInput(selectedPatient.dataNascimento || '') || prev.data_nascimento || '',
+        idade: (selectedPatient.idade != null ? String(selectedPatient.idade) : (prev.idade || '')),
+        diagnostico_cid: selectedPatient.cidDiagnostico || prev.diagnostico_cid || '',
       }));
       
       toast.success('Dados do paciente preenchidos automaticamente!');
@@ -564,45 +564,73 @@ const Reports = () => {
     setSubmitting(true);
     try {
       // Converter dados do formulário para o formato da API
-      const solicitacaoData = {
-        clinica_id: 1,
-        paciente_id: selectedPatientId ? parseInt(selectedPatientId) : null,
-        hospital_nome: formData.hospital_nome,
-        hospital_codigo: formData.hospital_codigo,
-        cliente_nome: formData.cliente_nome,
-        cliente_codigo: formData.cliente_codigo,
-        sexo: formData.sexo as 'M' | 'F',
-        data_nascimento: formData.data_nascimento,
-        idade: parseInt(formData.idade) || 0,
-        data_solicitacao: formData.data_solicitacao,
-        diagnostico_cid: formData.diagnostico_cid,
-        diagnostico_descricao: formData.diagnostico_descricao,
-        local_metastases: formData.local_metastases,
-        estagio_t: formData.estagio_t,
-        estagio_n: formData.estagio_n,
-        estagio_m: formData.estagio_m,
-        estagio_clinico: formData.estagio_clinico,
-        tratamento_cirurgia_radio: formData.tratamento_cirurgia_radio,
-        tratamento_quimio_adjuvante: formData.tratamento_quimio_adjuvante,
-        tratamento_quimio_primeira_linha: formData.tratamento_quimio_primeira_linha,
-        tratamento_quimio_segunda_linha: formData.tratamento_quimio_segunda_linha,
+      const solicitacaoDataRaw = {
+        clinica_id: clinicProfile?.clinica?.id ?? 1,
+        paciente_id: selectedPatientId ? parseInt(selectedPatientId) : undefined,
+        hospital_nome: formData.hospital_nome || '',
+        hospital_codigo: formData.hospital_codigo || '',
+        cliente_nome: formData.cliente_nome || '',
+        cliente_codigo: formData.cliente_codigo || undefined,
+        sexo: (formData.sexo as 'M' | 'F') || undefined,
+        data_nascimento: formData.data_nascimento || undefined,
+        idade: formData.idade ? parseInt(formData.idade) : undefined,
+        data_solicitacao: formData.data_solicitacao || undefined,
+        diagnostico_cid: formData.diagnostico_cid || '',
+        diagnostico_descricao: formData.diagnostico_descricao || '',
+        local_metastases: formData.local_metastases || '',
+        estagio_t: formData.estagio_t || '',
+        estagio_n: formData.estagio_n || '',
+        estagio_m: formData.estagio_m || '',
+        estagio_clinico: formData.estagio_clinico || '',
+        tratamento_cirurgia_radio: formData.tratamento_cirurgia_radio || '',
+        tratamento_quimio_adjuvante: formData.tratamento_quimio_adjuvante || '',
+        tratamento_quimio_primeira_linha: formData.tratamento_quimio_primeira_linha || '',
+        tratamento_quimio_segunda_linha: formData.tratamento_quimio_segunda_linha || '',
         finalidade: (formData.finalidade as 'neoadjuvante' | 'adjuvante' | 'curativo' | 'controle' | 'radioterapia' | 'paliativo') || 'curativo',
-        performance_status: formData.performance_status,
-        siglas: formData.siglas,
-        ciclos_previstos: parseInt(formData.ciclos_previstos) || 0,
-        ciclo_atual: parseInt(formData.ciclo_atual) || 0,
-        superficie_corporal: parseFloat(formData.superficie_corporal) || 0,
-        peso: parseFloat(formData.peso) || 0,
-        altura: parseFloat(formData.altura) || 0,
-        medicamentos_antineoplasticos: getMedicamentosString(), // Usar função para converter medicamentos
-        dose_por_m2: formData.dose_por_m2,
-        dose_total: formData.dose_total,
-        via_administracao: formData.via_administracao,
-        dias_aplicacao_intervalo: formData.dias_aplicacao_intervalo,
-        medicacoes_associadas: formData.medicacoes_associadas,
-        medico_assinatura_crm: formData.medico_assinatura_crm,
-        numero_autorizacao: formData.numero_autorizacao,
-      };
+        performance_status: formData.performance_status || '',
+        siglas: formData.siglas || '',
+        ciclos_previstos: formData.ciclos_previstos ? parseInt(formData.ciclos_previstos) : undefined,
+        ciclo_atual: formData.ciclo_atual ? parseInt(formData.ciclo_atual) : undefined,
+        superficie_corporal: formData.superficie_corporal ? parseFloat(formData.superficie_corporal) : undefined,
+        peso: formData.peso ? parseFloat(formData.peso) : undefined,
+        altura: formData.altura ? parseFloat(formData.altura) : undefined,
+        medicamentos_antineoplasticos: getMedicamentosString(),
+        dose_por_m2: formData.dose_por_m2 || '',
+        dose_total: formData.dose_total || '',
+        via_administracao: formData.via_administracao || '',
+        dias_aplicacao_intervalo: formData.dias_aplicacao_intervalo || '',
+        medicacoes_associadas: formData.medicacoes_associadas || '',
+        medico_assinatura_crm: formData.medico_assinatura_crm || '',
+        numero_autorizacao: formData.numero_autorizacao || undefined,
+      } as Record<string, any>;
+
+      // Coagir campos numéricos quando vierem como string
+      const numericFields = [
+        'idade',
+        'ciclos_previstos',
+        'ciclo_atual',
+        'superficie_corporal',
+        'peso',
+        'altura',
+        'dose_por_m2',
+        'dose_total',
+        'via_administracao',
+        'dias_aplicacao_intervalo'
+      ];
+      numericFields.forEach((key) => {
+        const val = solicitacaoDataRaw[key as keyof typeof solicitacaoDataRaw];
+        if (typeof val === 'string' && val.trim() !== '') {
+          const num = Number(val);
+          if (!Number.isNaN(num)) {
+            solicitacaoDataRaw[key] = num;
+          }
+        }
+      });
+
+      // Sanitizar: remover undefined/null para evitar 500 no backend
+      const solicitacaoData = Object.fromEntries(
+        Object.entries(solicitacaoDataRaw).filter(([_, v]) => v !== undefined && v !== null)
+      );
 
       // Log para debug
       console.log('🔧 Dados da solicitação sendo enviados:', {

@@ -21,9 +21,11 @@ import {
   Users,
   ChevronDown
 } from 'lucide-react';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import AnimatedSection from '@/components/AnimatedSection';
 import { ClinicService, Clinica, ClinicaCreateInput, ClinicaUpdateInput } from '@/services/clinicService';
+import { OperadoraService } from '@/services/operadoraService';
 
 const estados = [
   'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'
@@ -36,6 +38,7 @@ const CadastroClinicas = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [operadoras, setOperadoras] = useState<any[]>([]);
   
   // Estados para paginação
   const [clinicasPerPage] = useState(8);
@@ -57,11 +60,14 @@ const CadastroClinicas = () => {
     observacoes: '',
     usuario: '',
     senha: '',
-    status: 'ativo'
+    status: 'ativo',
+    // @ts-ignore
+    operadora_id: undefined
   });
 
   useEffect(() => {
     loadClinicas();
+    OperadoraService.getAllOperadoras().then(setOperadoras).catch(() => setOperadoras([]));
   }, []);
 
   // Resetar paginação quando mudar a busca
@@ -497,9 +503,11 @@ const CadastroClinicas = () => {
       </AnimatedSection>
 
       {/* Modal de Formulário */}
-      {isFormOpen && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <Card className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+      <Dialog open={isFormOpen} onOpenChange={(open) => { setIsFormOpen(open); if (!open) resetForm(); }}>
+        <DialogContent className="max-w-4xl w-[95vw] p-0">
+          <DialogTitle className="sr-only">{editingClinica ? 'Editar Clínica' : 'Nova Clínica'}</DialogTitle>
+          <DialogDescription className="sr-only">Preencha os dados da clínica</DialogDescription>
+          <Card className="w-full max-h-[80vh] overflow-y-auto border-0 shadow-none">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
@@ -510,16 +518,6 @@ const CadastroClinicas = () => {
                     {editingClinica ? 'Atualize as informações da clínica' : 'Preencha os dados para cadastrar uma nova clínica'}
                   </CardDescription>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setIsFormOpen(false);
-                    resetForm();
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
               </div>
             </CardHeader>
             
@@ -709,6 +707,30 @@ const CadastroClinicas = () => {
                   </Button>
                 </div>
 
+                {/* Vínculo Operadora */}
+                <div className="space-y-4">
+                  <h4 className="font-medium flex items-center space-x-2">
+                    <Building2 className="h-4 w-4" />
+                    <span>Vínculo com Operadora</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="operadora">Operadora</Label>
+                      <Select value={(formData as any).operadora_id ? String((formData as any).operadora_id) : 'none'} onValueChange={(value) => handleInputChange('operadora_id' as any, value === 'none' ? undefined : Number(value))}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Sem vínculo" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Sem vínculo</SelectItem>
+                          {operadoras.map((op) => (
+                            <SelectItem key={op.id} value={String(op.id)}>{op.nome} - {op.codigo}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Usuário e Senha */}
                 <div className="space-y-4">
                   <h4 className="font-medium flex items-center space-x-2">
@@ -805,8 +827,8 @@ const CadastroClinicas = () => {
               </form>
             </CardContent>
           </Card>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

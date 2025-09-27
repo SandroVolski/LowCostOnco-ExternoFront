@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "motion/react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Eye, Download } from "lucide-react";
+import { Eye, Download, ThumbsUp, ThumbsDown } from "lucide-react";
 
 export const CardHoverEffect = ({
   items,
@@ -12,6 +12,8 @@ export const CardHoverEffect = ({
   onDownloadPDF,
   loadingPDF,
   downloadingPDF,
+  onApprove,
+  onReject,
 }: {
   items: {
     id: number;
@@ -30,8 +32,16 @@ export const CardHoverEffect = ({
   onDownloadPDF?: (id: number) => void;
   loadingPDF?: number | null;
   downloadingPDF?: number | null;
+  onApprove?: (id: number) => void;
+  onReject?: (id: number) => void;
 }) => {
   let [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const formatDate = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
 
   return (
     <div
@@ -65,7 +75,15 @@ export const CardHoverEffect = ({
               />
             )}
           </AnimatePresence>
-          <Card>
+          <Card
+            className={cn(
+              "border-l-4",
+              (item as any).status === 'aprovada' && "border-l-green-500",
+              (item as any).status === 'rejeitada' && "border-l-red-500",
+              (item as any).status === 'em_analise' && "border-l-yellow-500",
+              ((item as any).status === 'pendente' || !(item as any).status) && "border-l-blue-500",
+            )}
+          >
             {/* Overlay de Loading */}
             {(loadingPDF === item.id || downloadingPDF === item.id) && (
               <div className="absolute inset-0 bg-background/80 backdrop-blur-sm rounded-xl z-50 flex items-center justify-center">
@@ -78,10 +96,18 @@ export const CardHoverEffect = ({
               </div>
             )}
             
-            {/* ID da Solicitação */}
+            {/* ID da Solicitação com cor por status */}
             {item.id && (
               <div className="absolute top-4 right-4">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white bg-primary">
+                <div
+                  className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white",
+                    (item as any).status === 'aprovada' && "bg-green-500",
+                    (item as any).status === 'rejeitada' && "bg-red-500",
+                    (item as any).status === 'em_analise' && "bg-yellow-500 text-black",
+                    ((item as any).status === 'pendente' || !(item as any).status) && "bg-blue-500",
+                  )}
+                >
                   #{item.id}
                 </div>
               </div>
@@ -117,6 +143,24 @@ export const CardHoverEffect = ({
                 </span>
               </div>
             </div>
+
+            {/* Metadados principais (Lista -> Grade) */}
+            {item.data && (
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                <div className="text-center p-2 rounded-lg bg-muted/30">
+                  <div className="text-sm font-medium text-foreground">
+                    {formatDate(item.data?.data_solicitacao)}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Data</div>
+                </div>
+                <div className="text-center p-2 rounded-lg bg-muted/30">
+                  <div className="text-sm font-medium text-foreground">
+                    {item.data?.finalidade || '—'}
+                  </div>
+                  <div className="text-xs text-muted-foreground">Finalidade</div>
+                </div>
+              </div>
+            )}
             
             {/* Stats Grid - Substituindo Superfície Corporal por Peso/Altura */}
             {item.usage && item.data && (
@@ -190,7 +234,7 @@ export const CardHoverEffect = ({
               {item.description}
             </CardDescription>
             
-            {/* Botões de ação */}
+            {/* Botões de ação - Visualizar e Baixar */}
             {onViewPDF && onDownloadPDF && (
               <div className="flex items-center gap-2 mt-4 pt-3 border-t border-border/50">
                 <Button
@@ -233,6 +277,32 @@ export const CardHoverEffect = ({
                 </Button>
               </div>
             )}
+
+            {/* Botões de ação - Aprovar/Rejeitar (apenas pendente) */}
+            {onApprove && onReject && (item as any).status === 'pendente' && (
+              <div className="flex items-center gap-2 mt-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onApprove(item.id)}
+                  className="flex-1 h-8 text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
+                >
+                  <ThumbsUp className="h-3 w-3 mr-1" /> Aprovar
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onReject(item.id)}
+                  className="flex-1 h-8 text-xs text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <ThumbsDown className="h-3 w-3 mr-1" /> Rejeitar
+                </Button>
+              </div>
+            )}
+            {onApprove && onReject && (item as any).status !== 'pendente' && (
+              // Espaço reservado para manter a mesma altura dos cards não pendentes
+              <div className="mt-2 h-8" />
+            )}
           </Card>
         </div>
       ))}
@@ -250,7 +320,8 @@ export const Card = ({
   return (
     <div
       className={cn(
-        "rounded-xl border border-border bg-card relative z-20 group-hover:border-primary/20 transition-colors",
+        "rounded-xl border border-border bg-card relative z-20 transition-shadow",
+        "group-hover:shadow-lg group-hover:shadow-primary/10",
         className
       )}
     >

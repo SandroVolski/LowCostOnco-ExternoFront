@@ -8,50 +8,19 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Building2, Filter, Activity, BarChart3, Users, TrendingUp, AlertCircle, Loader2, FileText } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useOperadoraAuth } from '@/contexts/OperadoraAuthContext';
 import AnimatedSection from '@/components/AnimatedSection';
 import { MouseTilt } from '@/components/MouseTilt';
-import { AnalysisService, AnalysisMetrics } from '@/services/analysisService';
-
-// Mock data for charts
-const medicationData = [
-  { name: 'Trastuzumabe', value: 35 },
-  { name: 'Bevacizumabe', value: 25 },
-  { name: 'Pembrolizumabe', value: 20 },
-  { name: 'Rituximabe', value: 15 },
-  { name: 'Outros', value: 5 },
-];
-
-const monthlyData = [
-  { name: 'Jan', cost: 120000, patients: 35 },
-  { name: 'Fev', cost: 145000, patients: 42 },
-  { name: 'Mar', cost: 132000, patients: 38 },
-  { name: 'Abr', cost: 170000, patients: 55 },
-  { name: 'Mai', cost: 190000, patients: 65 },
-];
-
-const cancerTypeData = [
-  { name: 'Mama', cases: 42 },
-  { name: 'Pulmão', cases: 28 },
-  { name: 'Colorretal', cases: 22 },
-  { name: 'Próstata', cases: 18 },
-  { name: 'Linfomas', cases: 15 },
-  { name: 'Outros', cases: 30 },
-];
-
-const costReductionData = [
-  { name: 'Jan', traditional: 200000, lowCost: 120000 },
-  { name: 'Fev', traditional: 220000, lowCost: 145000 },
-  { name: 'Mar', traditional: 210000, lowCost: 132000 },
-  { name: 'Abr', traditional: 260000, lowCost: 170000 },
-  { name: 'Mai', traditional: 280000, lowCost: 190000 },
-];
+import { AnalysisService, AnalysisMetrics, OperationalKPIs, ChartData } from '@/services/analysisService';
+import { ClinicService, Clinica } from '@/services/clinicService';
+import { operadoraAuthService } from '@/services/operadoraAuthService';
+import config from '@/config/environment';
 
 // Custom colors that match our brand
 const COLORS = ['#79d153', '#8cb369', '#e4a94f', '#f26b6b', '#f7c59f', '#575654'];
 
 const Analysis = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useOperadoraAuth();
   
   console.log('🔧 Analysis - User:', user);
   console.log('🔧 Analysis - IsAuthenticated:', isAuthenticated);
@@ -59,10 +28,13 @@ const Analysis = () => {
   // Estados para dados
   const [metrics, setMetrics] = useState<AnalysisMetrics | null>(null);
   const [organData, setOrganData] = useState<any[]>([]);
+  const [kpis, setKpis] = useState<OperationalKPIs | null>(null);
+  const [chartData, setChartData] = useState<ChartData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedOrgan, setSelectedOrgan] = useState<any>(null);
   const [organKey, setOrganKey] = useState(0);
+  const [clinics, setClinics] = useState<Clinica[]>([]);
   
   // Filtros
   const [clinicId, setClinicId] = useState<number | undefined>(undefined);
@@ -85,7 +57,7 @@ const Analysis = () => {
     }
   }, [selectedOrgan]);
 
-  // Carregar dados de análise
+  // Carregar dados de análise e clínicas reais
   useEffect(() => {
     const loadAnalysisData = async () => {
       try {
@@ -94,85 +66,126 @@ const Analysis = () => {
         
         console.log('🔧 Carregando dados de análise...', filters);
         
-        // Dados mock para operadora (enquanto backend não implementa os endpoints)
-        const mockMetrics: AnalysisMetrics = {
-          totalSolicitacoes: 156,
-          totalPacientes: 89,
-          sistemasMonitorados: 8,
-          protocolosAtivos: 12,
-          cidsCadastrados: 24
-        };
-
-        const mockOrganData = [
-          {
-            organId: 'brain',
-            organName: 'Cérebro',
-            patients: 15,
-            cids: ['C71.0', 'C71.1', 'C71.9'],
-            protocols: ['Protocolo Glioma', 'Protocolo Meningioma'],
-            color: 'medical-purple',
-            description: 'Tumores primários do sistema nervoso central',
-            solicitacoes: []
-          },
-          {
-            organId: 'lungs',
-            organName: 'Pulmões',
-            patients: 28,
-            cids: ['C34.0', 'C34.1', 'C34.9'],
-            protocols: ['Protocolo NSCLC', 'Protocolo SCLC'],
-            color: 'medical-blue',
-            description: 'Carcinomas pulmonares e metástases',
-            solicitacoes: []
-          },
-          {
-            organId: 'breast',
-            organName: 'Mama',
-            patients: 32,
-            cids: ['C50.0', 'C50.1', 'C50.9'],
-            protocols: ['Protocolo HER2+', 'Protocolo TNBC'],
-            color: 'medical-pink',
-            description: 'Carcinomas mamários',
-            solicitacoes: []
-          },
-          {
-            organId: 'liver',
-            organName: 'Fígado',
-            patients: 18,
-            cids: ['C22.0', 'C22.1', 'C22.9'],
-            protocols: ['Protocolo Hepatocarcinoma'],
-            color: 'medical-orange',
-            description: 'Hepatocarcinoma e metástases hepáticas',
-            solicitacoes: []
-          },
-          {
-            organId: 'stomach',
-            organName: 'Estômago',
-            patients: 12,
-            cids: ['C16.0', 'C16.1', 'C16.9'],
-            protocols: ['Protocolo Gástrico'],
-            color: 'medical-teal',
-            description: 'Adenocarcinomas gástricos',
-            solicitacoes: []
-          },
-          {
-            organId: 'kidneys',
-            organName: 'Rins',
-            patients: 8,
-            cids: ['C64', 'C65'],
-            protocols: ['Protocolo Renal'],
-            color: 'medical-red',
-            description: 'Carcinomas renais',
-            solicitacoes: []
-          }
-        ];
+        // Buscar todos os dados reais do backend
+        let [metricsData, organsData, kpisData, chartsData, clinicsData, pacientesResp, solicitacoesResp] = await Promise.all([
+          AnalysisService.getAnalysisMetrics(filters),
+          AnalysisService.getOrganAnalysisData(filters),
+          AnalysisService.getOperationalKPIs(filters),
+          AnalysisService.getChartData(filters),
+          ClinicService.getAllClinicasForOperadora(),
+          // Buscar dados brutos para alinhar contagens com o Dashboard
+          operadoraAuthService.authorizedFetch(`/api/pacientes?page=1&limit=10000`),
+          operadoraAuthService.authorizedFetch(`/api/solicitacoes?page=1&limit=10000`)
+        ]);
         
-        console.log('✅ Dados mock carregados:', {
-          metrics: mockMetrics,
-          organs: mockOrganData.length
+        console.log('✅ Dados reais carregados:', {
+          metrics: metricsData,
+          organs: organsData.length,
+          kpis: kpisData,
+          charts: chartsData,
+          clinics: clinicsData?.length || 0
         });
         
-        setMetrics(mockMetrics);
-        setOrganData(mockOrganData);
+        // Fallback quando authorizedFetch retorna null (HTML)
+        if (!pacientesResp) {
+          const token = localStorage.getItem('operadora_access_token') || '';
+          pacientesResp = await fetch(`${config.API_BASE_URL}/pacientes?page=1&limit=10000`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+        }
+        if (!solicitacoesResp) {
+          const token = localStorage.getItem('operadora_access_token') || '';
+          solicitacoesResp = await fetch(`${config.API_BASE_URL}/solicitacoes?page=1&limit=10000`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+        }
+
+        // Normalizar respostas de pacientes/solicitações, ignorando HTML
+        let pacientes: any[] = [];
+        let solicitacoes: any[] = [];
+        try {
+          const ctp = pacientesResp.headers.get('content-type') || '';
+          if (!ctp.includes('application/json')) throw new Error('HTML pacientes');
+          const pjson = await pacientesResp.json();
+          pacientes = Array.isArray(pjson?.data?.data) ? pjson.data.data : Array.isArray(pjson?.data) ? pjson.data : [];
+        } catch {}
+        try {
+          const cts = solicitacoesResp.headers.get('content-type') || '';
+          if (!cts.includes('application/json')) throw new Error('HTML solicitacoes');
+          const sjson = await solicitacoesResp.json();
+          solicitacoes = Array.isArray(sjson?.data?.data) ? sjson.data.data : Array.isArray(sjson?.data) ? sjson.data : [];
+        } catch {}
+
+        // Aplicar filtros e restringir por clínicas da operadora
+        const hasClinicas = Array.isArray(clinicsData) && clinicsData.length > 0;
+        const clinicIdSet = new Set((clinicsData || []).map(c => c.id));
+
+        const pacientesFiltrados = pacientes.filter(p => {
+          if (!hasClinicas) return false;
+          if (p?.clinica_id && !clinicIdSet.has(p.clinica_id)) return false;
+          if (filters.clinicId && p.clinica_id !== filters.clinicId) return false;
+          if (filters.sex && (p.Sexo || p.sexo) !== filters.sex) return false;
+          if (typeof filters.ageMin === 'number' || typeof filters.ageMax === 'number') {
+            const dob = p.Data_Nascimento || p.data_nascimento;
+            if (dob) {
+              const nascimento = new Date(dob);
+              const hoje = new Date();
+              const idade = Math.floor((hoje.getTime() - nascimento.getTime()) / (1000 * 60 * 60 * 24 * 365.25));
+              if (typeof filters.ageMin === 'number' && idade < filters.ageMin) return false;
+              if (typeof filters.ageMax === 'number' && idade > filters.ageMax) return false;
+            }
+          }
+          return true;
+        });
+
+        const solicitacoesFiltradas = solicitacoes.filter(s => {
+          if (!hasClinicas) return false;
+          if (s?.clinica_id && !clinicIdSet.has(s.clinica_id)) return false;
+          if (filters.clinicId && s.clinica_id !== filters.clinicId) return false;
+          return true;
+        });
+
+        // Pacientes distintos
+        const pacientesUnicosCount = (() => {
+          const ids = new Set<any>();
+          for (const p of pacientesFiltrados) {
+            const pid = p.id || p.paciente_id || p.Codigo || `${p.Paciente_Nome}-${p.Data_Nascimento}`;
+            if (pid) ids.add(pid);
+          }
+          return ids.size;
+        })();
+
+        const metricsAligned: AnalysisMetrics = {
+          totalSolicitacoes: hasClinicas ? solicitacoesFiltradas.length : 0,
+          totalPacientes: hasClinicas ? pacientesUnicosCount : 0,
+          sistemasMonitorados: hasClinicas ? (metricsData?.sistemasMonitorados || 0) : 0,
+          protocolosAtivos: hasClinicas ? (metricsData?.protocolosAtivos || 0) : 0,
+          cidsCadastrados: hasClinicas ? (metricsData?.cidsCadastrados || 0) : 0,
+        };
+
+        // KPIs e Charts: zerar quando não houver clínicas
+        const kpisAligned: OperationalKPIs | null = hasClinicas ? kpisData : {
+          taxaAprovacao: 0,
+          tempoMedioAprovacao: 0,
+          custoMedioPorPaciente: 0,
+          totalSolicitacoes30Dias: 0,
+          pacientesUnicos30Dias: 0,
+        };
+
+        const chartsAligned: ChartData | null = hasClinicas ? chartsData : {
+          medicamentos: [],
+          cancerTypes: [],
+          monthlyData: [],
+        } as any;
+
+        // Organ data: se não houver clínicas, não mostrar órgãos
+        const organsAligned = hasClinicas ? organsData : [];
+
+        setMetrics(metricsAligned);
+        setOrganData(organsAligned);
+        setKpis(kpisAligned);
+        setChartData(chartsAligned);
+        setClinics(clinicsData || []);
         
       } catch (err) {
         console.error('❌ Erro ao carregar dados de análise:', err);
@@ -376,7 +389,7 @@ const Analysis = () => {
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground leading-tight">Clínicas</p>
-                    <p className="text-xl font-bold text-teal-500">4</p>
+                    <p className="text-xl font-bold text-teal-500">{clinics.length}</p>
                     <p className="text-xs text-muted-foreground">parceiras</p>
                   </div>
                 </div>
@@ -400,9 +413,9 @@ const Analysis = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="todas">Todas</SelectItem>
-                <SelectItem value="1">Clínica Onco Vida</SelectItem>
-                <SelectItem value="2">Centro Oncológico Alfa</SelectItem>
-                <SelectItem value="3">Instituto Beta</SelectItem>
+                {clinics.map(c => (
+                  <SelectItem key={c.id} value={String(c.id)}>{c.nome}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -479,37 +492,39 @@ const Analysis = () => {
                 <div className="space-y-3">
                   <h4 className="text-base font-semibold text-foreground">CIDs Principais</h4>
                   <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {selectedOrgan.cids.map((cid: string, index: number) => (
-                      <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
-                        <span className="font-mono text-sm">{cid}</span>
-                        <Badge variant="secondary" className="text-xs">
-                          {Math.floor(Math.random() * 20) + 1} casos
-                        </Badge>
+                    {selectedOrgan.cids && selectedOrgan.cids.length > 0 ? (
+                      selectedOrgan.cids.map((cidData: any, index: number) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-muted/50 rounded-md">
+                          <span className="font-mono text-sm">{cidData.cid}</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {cidData.count} casos
+                          </Badge>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center text-muted-foreground text-sm py-4">
+                        Nenhum CID encontrado
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
 
-                {/* Distribuição por Idade */}
+                {/* Estatísticas do Órgão */}
                 <div className="space-y-3">
-                  <h4 className="text-base font-semibold text-foreground">Distribuição por Idade</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { range: '0-30', count: Math.floor(selectedOrgan.patients * 0.1), color: 'bg-blue-500' },
-                      { range: '31-50', count: Math.floor(selectedOrgan.patients * 0.25), color: 'bg-green-500' },
-                      { range: '51-70', count: Math.floor(selectedOrgan.patients * 0.45), color: 'bg-yellow-500' },
-                      { range: '70+', count: Math.floor(selectedOrgan.patients * 0.2), color: 'bg-red-500' }
-                    ].map((ageGroup, index) => (
-                      <div key={index} className="text-center">
-                        <div className={`h-8 ${ageGroup.color} rounded-lg flex items-center justify-center mb-1`}>
-                          <span className="text-white font-bold text-xs">{ageGroup.count}</span>
-                        </div>
-                        <div className="text-xs font-medium">{ageGroup.range}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {Math.round((ageGroup.count / selectedOrgan.patients) * 100)}%
-                        </div>
-                      </div>
-                    ))}
+                  <h4 className="text-base font-semibold text-foreground">Estatísticas do Órgão</h4>
+                  <div className="space-y-2">
+                    <div className="p-2 bg-muted/20 rounded-lg">
+                      <div className="text-xs font-medium text-muted-foreground">Solicitações Processadas</div>
+                      <div className="text-sm font-semibold">{selectedOrgan.solicitacoes?.length || 0}</div>
+                    </div>
+                    <div className="p-2 bg-muted/20 rounded-lg">
+                      <div className="text-xs font-medium text-muted-foreground">Última Atualização</div>
+                      <div className="text-sm font-semibold">{new Date().toLocaleDateString('pt-BR')}</div>
+                    </div>
+                    <div className="p-2 bg-muted/20 rounded-lg">
+                      <div className="text-xs font-medium text-muted-foreground">Status</div>
+                      <div className="text-sm font-semibold text-support-green">Ativo</div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -520,11 +535,13 @@ const Analysis = () => {
                   <div className="min-w-[600px]">
                     <InteractiveAnatomy 
                       filters={filters} 
-                      TooltipComponent={OperatorAnatomyTooltip}
+                      TooltipComponent={(props) => <OperatorAnatomyTooltip {...props} hasSelection={!!selectedOrgan} />}
                       onOrganSelect={(organ) => {
-                        console.log('🔧 Órgão selecionado:', organ);
+                        console.log('🔧 onOrganSelect chamado com:', organ);
+                        console.log('🔧 organ é null?', organ === null);
                         setSelectedOrgan(organ);
                         setOrganKey(prev => prev + 1); // Forçar re-renderização
+                        console.log('🔧 selectedOrgan atualizado para:', organ);
                       }}
                     />
                   </div>
@@ -537,17 +554,23 @@ const Analysis = () => {
                 <div className="space-y-3">
                   <h4 className="text-base font-semibold text-foreground">Protocolos de Tratamento</h4>
                   <div className="space-y-2 max-h-40 overflow-y-auto">
-                    {selectedOrgan.protocols.map((protocol: string, index: number) => (
-                      <div key={index} className="p-3 bg-muted/30 rounded-lg border border-border/50">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Activity className="h-4 w-4 text-primary" />
-                          <span className="font-medium text-sm">{protocol}</span>
+                    {selectedOrgan.protocols && selectedOrgan.protocols.length > 0 ? (
+                      selectedOrgan.protocols.map((protocolData: any, index: number) => (
+                        <div key={index} className="p-3 bg-muted/30 rounded-lg border border-border/50">
+                          <div className="flex items-center gap-2 mb-1">
+                            <Activity className="h-4 w-4 text-primary" />
+                            <span className="font-medium text-sm">{protocolData.protocol}</span>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {protocolData.count} solicitações
+                          </div>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          {Math.floor(Math.random() * 15) + 5} pacientes ativos
-                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center text-muted-foreground text-sm py-4">
+                        Nenhum protocolo encontrado
                       </div>
-                    ))}
+                    )}
                   </div>
                 </div>
 
@@ -558,23 +581,23 @@ const Analysis = () => {
                     <div className="p-3 bg-muted/30 rounded-lg">
                       <h5 className="font-semibold text-sm mb-2">Taxa de Aprovação</h5>
                       <div className="text-2xl font-bold text-support-green">
-                        {Math.floor(Math.random() * 20) + 75}%
+                        {kpis?.taxaAprovacao || 0}%
                       </div>
                       <div className="text-xs text-muted-foreground">Últimos 30 dias</div>
                     </div>
                     <div className="p-3 bg-muted/30 rounded-lg">
                       <h5 className="font-semibold text-sm mb-2">Tempo Médio de Aprovação</h5>
                       <div className="text-2xl font-bold text-primary">
-                        {Math.floor(Math.random() * 48) + 12}h
+                        {kpis?.tempoMedioAprovacao || 0}h
                       </div>
                       <div className="text-xs text-muted-foreground">SLA atual</div>
                     </div>
                     <div className="p-3 bg-muted/30 rounded-lg">
-                      <h5 className="font-semibold text-sm mb-2">Custo Médio por Paciente</h5>
+                      <h5 className="font-semibold text-sm mb-2">Solicitações (30d)</h5>
                       <div className="text-2xl font-bold text-highlight-peach">
-                        R$ {Math.floor(Math.random() * 5000) + 2000}
+                        {kpis?.totalSolicitacoes30Dias || 0}
                       </div>
-                      <div className="text-xs text-muted-foreground">Tratamento completo</div>
+                      <div className="text-xs text-muted-foreground">Últimos 30 dias</div>
                     </div>
                   </div>
                 </div>
@@ -585,52 +608,40 @@ const Analysis = () => {
                   <div className="space-y-2">
                     <div className="p-2 bg-muted/20 rounded-lg">
                       <div className="text-xs font-medium text-muted-foreground">Última Atualização</div>
-                      <div className="text-sm font-semibold">Hoje, 14:30</div>
+                      <div className="text-sm font-semibold">{new Date().toLocaleString('pt-BR')}</div>
                     </div>
                     <div className="p-2 bg-muted/20 rounded-lg">
                       <div className="text-xs font-medium text-muted-foreground">Status do Sistema</div>
                       <div className="text-sm font-semibold text-support-green">Ativo</div>
                     </div>
                     <div className="p-2 bg-muted/20 rounded-lg">
-                      <div className="text-xs font-medium text-muted-foreground">Próxima Revisão</div>
-                      <div className="text-sm font-semibold">Em 7 dias</div>
+                      <div className="text-xs font-medium text-muted-foreground">Solicitações (30d)</div>
+                      <div className="text-sm font-semibold">{kpis?.totalSolicitacoes30Dias || 0}</div>
+                    </div>
+                    <div className="p-2 bg-muted/20 rounded-lg">
+                      <div className="text-xs font-medium text-muted-foreground">Pacientes Únicos (30d)</div>
+                      <div className="text-sm font-semibold">{kpis?.pacientesUnicos30Dias || 0}</div>
                     </div>
                   </div>
                 </div>
               </div>
             </div>
           ) : (
-            /* Layout sem seleção - Corpo humano centralizado com instruções */
+            /* Layout sem seleção - Corpo humano centralizado */
             <div className="flex flex-col items-center justify-center space-y-6">
               <div className="w-full overflow-x-auto">
                 <div className="min-w-[600px]">
                   <InteractiveAnatomy 
                     filters={filters} 
-                    TooltipComponent={OperatorAnatomyTooltip}
+                    TooltipComponent={(props) => <OperatorAnatomyTooltip {...props} hasSelection={!!selectedOrgan} />}
                     onOrganSelect={(organ) => {
-                      console.log('🔧 Órgão selecionado:', organ);
+                      console.log('🔧 onOrganSelect chamado com:', organ);
+                      console.log('🔧 organ é null?', organ === null);
                       setSelectedOrgan(organ);
                       setOrganKey(prev => prev + 1); // Forçar re-renderização
+                      console.log('🔧 selectedOrgan atualizado para:', organ);
                     }}
                   />
-                </div>
-              </div>
-              
-              {/* Card de Instruções */}
-              <div className="max-w-md mx-auto">
-                <div className="text-center space-y-3 text-muted-foreground p-6 bg-muted/30 rounded-lg">
-                  <Activity className="h-12 w-12 mx-auto text-primary/50" />
-                  <div>
-                    <p className="text-lg font-medium">Selecione um órgão</p>
-                    <p className="text-sm">Clique em um órgão no mapa para ver os detalhes dos pacientes</p>
-                  </div>
-                  <ul className="text-xs space-y-1 text-left">
-                    <li>• Número de pacientes</li>
-                    <li>• CIDs principais</li>
-                    <li>• Protocolos ativos</li>
-                    <li>• Estatísticas detalhadas</li>
-                    <li>• KPIs operacionais</li>
-                  </ul>
                 </div>
               </div>
             </div>
@@ -648,22 +659,43 @@ const Analysis = () => {
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
+                <defs>
+                  <linearGradient id="gradMed" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="#79d153" stopOpacity={0.95} />
+                    <stop offset="100%" stopColor="#8cb369" stopOpacity={0.95} />
+                  </linearGradient>
+                </defs>
                 <Pie
-                  data={medicationData}
+                  data={chartData?.medicamentos || []}
                   cx="50%"
-                  cy="60%"
+                  cy="50%"
                   labelLine={false}
-                  outerRadius={80}
-                  fill="#8884d8"
+                  outerRadius={70}
+                  fill="url(#gradMed)"
                   dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  label={({ name, percent }) => {
+                    // Mostrar apenas percentual para evitar sobreposição
+                    return percent > 0.05 ? `${(percent * 100).toFixed(0)}%` : '';
+                  }}
                 >
-                  {medicationData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  {(chartData?.medicamentos || []).map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="#0f172a" strokeWidth={1} />
                   ))}
                 </Pie>
-                <Tooltip />
-                <Legend />
+                <Tooltip 
+                  formatter={(value: any, name: any) => [
+                    `${value} solicitações`,
+                    name
+                  ]}
+                />
+                <Legend 
+                  verticalAlign="bottom" 
+                  height={36}
+                  formatter={(value: any) => {
+                    // Truncar nomes longos
+                    return value.length > 20 ? value.substring(0, 20) + '...' : value;
+                  }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </CardContent>
@@ -676,7 +708,7 @@ const Analysis = () => {
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
-                data={cancerTypeData}
+                data={chartData?.cancerTypes || []}
                 margin={{
                   top: 5,
                   right: 30,
@@ -684,12 +716,18 @@ const Analysis = () => {
                   bottom: 5,
                 }}
               >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
+                <defs>
+                  <linearGradient id="gradBar" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#79d153" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#79d153" stopOpacity={0.3} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                <XAxis dataKey="tipo_cancer" tick={{ fill: '#9CA3AF', fontSize: 12 }} axisLine={{ stroke: '#374151' }} tickLine={{ stroke: '#374151' }} />
+                <YAxis tick={{ fill: '#9CA3AF', fontSize: 12 }} axisLine={{ stroke: '#374151' }} tickLine={{ stroke: '#374151' }} />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="cases" fill="#79d153" name="Número de Casos" />
+                <Bar dataKey="casos" fill="url(#gradBar)" stroke="#79d153" name="Número de Casos" radius={[6,6,0,0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -697,12 +735,12 @@ const Analysis = () => {
         
         <Card className="lco-card">
           <CardHeader>
-            <CardTitle>Custos e Pacientes por Mês</CardTitle>
+            <CardTitle>Solicitações e Pacientes por Mês</CardTitle>
           </CardHeader>
           <CardContent className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart
-                data={monthlyData}
+                data={chartData?.monthlyData || []}
                 margin={{
                   top: 5,
                   right: 30,
@@ -710,45 +748,29 @@ const Analysis = () => {
                   bottom: 5,
                 }}
               >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis yAxisId="left" orientation="left" stroke="#79d153" />
-                <YAxis yAxisId="right" orientation="right" stroke="#8cb369" />
+                <defs>
+                  <linearGradient id="gradLineA" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#79d153" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#79d153" stopOpacity={0.2} />
+                  </linearGradient>
+                  <linearGradient id="gradLineB" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#8cb369" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#8cb369" stopOpacity={0.2} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
+                <XAxis dataKey="name" tick={{ fill: '#9CA3AF', fontSize: 12 }} axisLine={{ stroke: '#374151' }} tickLine={{ stroke: '#374151' }} />
+                <YAxis yAxisId="left" orientation="left" stroke="#79d153" tick={{ fill: '#9CA3AF' }} />
+                <YAxis yAxisId="right" orientation="right" stroke="#8cb369" tick={{ fill: '#9CA3AF' }} />
                 <Tooltip />
                 <Legend />
-                <Line yAxisId="left" type="monotone" dataKey="cost" stroke="#79d153" name="Custos (R$)" />
-                <Line yAxisId="right" type="monotone" dataKey="patients" stroke="#8cb369" name="Pacientes" />
+                <Line yAxisId="left" type="monotone" dataKey="solicitacoes" stroke="#79d153" strokeWidth={2} dot={false} name="Solicitações" />
+                <Line yAxisId="right" type="monotone" dataKey="patients" stroke="#8cb369" strokeWidth={2} dot={false} name="Pacientes" />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
         
-        <Card className="lco-card">
-          <CardHeader>
-            <CardTitle>Economia vs. Modelo Tradicional</CardTitle>
-          </CardHeader>
-          <CardContent className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart
-                data={costReductionData}
-                margin={{
-                  top: 5,
-                  right: 30,
-                  left: 20,
-                  bottom: 5,
-                }}
-              >
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip />
-                <Legend />
-                <Bar dataKey="traditional" fill="#f26b6b" name="Modelo Tradicional (R$)" />
-                <Bar dataKey="lowCost" fill="#8cb369" name="Low Cost Onco (R$)" />
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
       </div>
       
       <Card className="lco-card">
@@ -758,21 +780,21 @@ const Analysis = () => {
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center p-6 border rounded-lg">
-              <h3 className="text-lg font-medium mb-2">Economia Total</h3>
-              <p className="text-3xl font-bold text-support-green">R$ 523.000</p>
-              <p className="text-sm text-muted-foreground mt-2">vs. modelo tradicional</p>
+              <h3 className="text-lg font-medium mb-2">Taxa de Aprovação</h3>
+              <p className="text-3xl font-bold text-support-green">{kpis?.taxaAprovacao || 0}%</p>
+              <p className="text-sm text-muted-foreground mt-2">últimos 30 dias</p>
             </div>
             
             <div className="text-center p-6 border rounded-lg">
-              <h3 className="text-lg font-medium mb-2">Eficiência de Tratamento</h3>
-              <p className="text-3xl font-bold text-primary-green">87%</p>
-              <p className="text-sm text-muted-foreground mt-2">taxa de resposta positiva</p>
+              <h3 className="text-lg font-medium mb-2">Tempo Médio de Aprovação</h3>
+              <p className="text-3xl font-bold text-primary">{kpis?.tempoMedioAprovacao || 0}h</p>
+              <p className="text-sm text-muted-foreground mt-2">SLA atual</p>
             </div>
             
             <div className="text-center p-6 border rounded-lg">
-              <h3 className="text-lg font-medium mb-2">Satisfação do Paciente</h3>
-              <p className="text-3xl font-bold text-highlight-peach">9.2/10</p>
-              <p className="text-sm text-muted-foreground mt-2">baseado em pesquisas</p>
+              <h3 className="text-lg font-medium mb-2">Pacientes Únicos (30d)</h3>
+              <p className="text-3xl font-bold text-highlight-peach">{kpis?.pacientesUnicos30Dias || 0}</p>
+              <p className="text-sm text-muted-foreground mt-2">últimos 30 dias</p>
             </div>
           </div>
         </CardContent>

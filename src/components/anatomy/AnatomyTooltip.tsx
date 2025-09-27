@@ -6,12 +6,13 @@ import { Users, FileText, Activity, Calendar, User, Pill } from "lucide-react";
 interface AnatomyTooltipProps {
   data: OrganData;
   position: { x: number; y: number };
+  hasSelection?: boolean;
 }
 
-export const AnatomyTooltip = ({ data, position }: AnatomyTooltipProps) => {
+export const AnatomyTooltip = ({ data, position, hasSelection = false }: AnatomyTooltipProps) => {
   // Calculate tooltip position to stay close to body but within viewport
-  const tooltipWidth = 280;
-  const tooltipHeight = 400;
+  const tooltipWidth = hasSelection ? 220 : 280;
+  const tooltipHeight = hasSelection ? 120 : 400;
   const padding = 16;
   
   // Preferir dados reais vindos das solicitações quando disponíveis
@@ -81,6 +82,45 @@ export const AnatomyTooltip = ({ data, position }: AnatomyTooltipProps) => {
     top = window.innerHeight - tooltipHeight - padding;
   }
 
+  // Card simples quando há seleção
+  if (hasSelection) {
+    return (
+      <Card 
+        className="absolute z-40 border-0 bg-gradient-to-br from-card/98 to-card/95 backdrop-blur-md shadow-xl animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200 overflow-hidden"
+        style={{
+          left,
+          top,
+          width: tooltipWidth,
+          maxHeight: tooltipHeight,
+          boxShadow: '0 12px 40px -8px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        <div className="relative p-4 text-center">
+          {/* Background gradient */}
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-highlight-peach/5 rounded-lg" />
+          
+          {/* Content */}
+          <div className="relative">
+            <div className="flex items-center justify-center gap-3 mb-3">
+              <div 
+                className="w-4 h-4 rounded-full shadow-lg ring-2 ring-white/20" 
+                style={{ backgroundColor: `hsl(var(--medical-${data.color}))` }} 
+              />
+              <h3 className="text-base font-bold text-foreground/95 bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
+                {data.name}
+              </h3>
+            </div>
+            <div className="px-3 py-2 bg-primary/10 rounded-full border border-primary/20">
+              <span className="text-sm font-bold text-primary">{data.patients.toLocaleString()}</span>
+              <span className="text-xs text-muted-foreground/80 ml-1">pacientes</span>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  // Card completo quando não há seleção
   return (
     <Card 
       className="absolute z-50 border-0 bg-gradient-to-br from-card/98 to-card/95 backdrop-blur-xl shadow-2xl animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-300 overflow-hidden"

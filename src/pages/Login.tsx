@@ -8,7 +8,7 @@ import Logo from '@/components/Logo';
 import AnimatedText from '@/components/AnimatedText';
 import LoginTransition from '@/components/LoginTransition';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Sun, Moon, Building2, Shield } from 'lucide-react';
+import { Sun, Moon, Shield, AlertCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { AuthService } from '@/services/api';
 
@@ -27,11 +27,6 @@ const Login = () => {
   const [forgotMessage, setForgotMessage] = useState<string | null>(null);
   const [forgotError, setForgotError] = useState<string | null>(null);
 
-  // Estados para login administrativo discreto
-  const [adminMode, setAdminMode] = useState(false);
-  const [adminEmail, setAdminEmail] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
-  const [adminLoading, setAdminLoading] = useState(false);
 
   // Estados para login da operadora
   const [operadoraMode, setOperadoraMode] = useState(false);
@@ -40,18 +35,6 @@ const Login = () => {
   const [operadoraLoading, setOperadoraLoading] = useState(false);
   const [operadoraError, setOperadoraError] = useState('');
 
-  // Acesso administrativo via teclas de atalho (Ctrl + Shift + A)
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.ctrlKey && e.shiftKey && e.key === 'A') {
-        e.preventDefault();
-        setAdminMode(true);
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,49 +66,6 @@ const Login = () => {
     }
   };
 
-  const handleAdminLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAdminLoading(true);
-    
-    try {
-      // Login administrativo via endpoint existente
-      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || '/api'}/clinicas/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ 
-          username: adminEmail, // Usar username em vez de email
-          password: adminPassword 
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log('Login admin result:', result);
-        
-        // Verificar se o usuário tem role admin
-        if (result.user?.role === 'admin') {
-          // Armazenar token e dados do usuário
-          localStorage.setItem('adminToken', result.token || '');
-          localStorage.setItem('adminUser', JSON.stringify(result.user));
-          
-          // Redirecionar para dashboard administrativo
-          window.location.href = '/admin/dashboard';
-        } else {
-          alert('Acesso negado. Apenas administradores podem acessar esta área.');
-        }
-      } else {
-        const error = await response.json();
-        console.error('Erro no login admin:', error);
-        alert(error.message || 'Erro no login administrativo');
-      }
-    } catch (error) {
-      console.error('Erro no login administrativo:', error);
-      alert('Erro no login administrativo');
-    } finally {
-      setAdminLoading(false);
-    }
-  };
 
   const handleOperadoraLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -188,7 +128,7 @@ const Login = () => {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-background transition-colors duration-300 p-4 overflow-hidden">
+    <div className="h-screen flex flex-col items-center justify-center bg-background transition-colors duration-300 p-4 overflow-hidden">
       {/* Floating particles */}
       <div className="particles">
         {particles.map((particle) => (
@@ -232,22 +172,24 @@ const Login = () => {
       </Button>
 
       <div className="w-full max-w-md z-10">
-        <div className="flex justify-center mb-8">
-          <Logo size="lg" className="animate-float" />
+        <div className="flex justify-center mb-6">
+          <Logo size="md" className="animate-float" />
         </div>
         
-        <Card className="w-full animate-scale-in border-border/50 bg-card/70 backdrop-blur-md">
-          <CardHeader>
-            <CardTitle className="text-2xl text-center">Acesso ao Sistema</CardTitle>
-            <CardDescription className="text-center">
+        <Card className="w-full animate-scale-in border-border/50 bg-card/80 backdrop-blur-lg shadow-2xl">
+          <CardHeader className="text-center pb-4">
+            <CardTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
+              Acesso ao Sistema
+            </CardTitle>
+            <CardDescription className="text-sm text-muted-foreground mt-1">
               Entre com suas credenciais para acessar o painel
             </CardDescription>
           </CardHeader>
           
-          <CardContent>
+          <CardContent className="space-y-4">
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <label htmlFor="username" className="text-sm font-medium">
+                <label htmlFor="username" className="text-sm font-semibold text-foreground">
                   Usuário
                 </label>
                 <Input
@@ -256,12 +198,12 @@ const Login = () => {
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Digite seu usuário"
                   required
-                  className="lco-input"
+                  className="h-10 text-sm border-2 focus:border-primary/50 transition-colors"
                 />
               </div>
               
               <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium">
+                <label htmlFor="password" className="text-sm font-semibold text-foreground">
                   Senha
                 </label>
                 <Input
@@ -271,7 +213,7 @@ const Login = () => {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Digite sua senha"
                   required
-                  className="lco-input"
+                  className="h-10 text-sm border-2 focus:border-primary/50 transition-colors"
                 />
               </div>
 
@@ -318,136 +260,76 @@ const Login = () => {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full lco-btn-primary"
+                className="w-full h-10 text-sm font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg hover:shadow-xl transition-all duration-200"
               >
-                {isLoading ? 'Autenticando...' : 'Entrar'}
+                {isLoading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-foreground border-t-transparent" />
+                    Autenticando...
+                  </div>
+                ) : (
+                  'Entrar no Sistema'
+                )}
               </Button>
             </form>
 
-            {/* Botões de acesso alternativo */}
-            <div className="mt-6 space-y-3">
+            {/* Botão de acesso da Operadora */}
+            <div className="space-y-3">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
+                  <span className="w-full border-t border-border/50" />
                 </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-card px-2 text-muted-foreground">Acesso Especial</span>
+                <div className="relative flex justify-center text-xs uppercase tracking-wider">
+                  <span className="bg-card px-2 text-muted-foreground font-medium">Acesso Operadora</span>
                 </div>
               </div>
               
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setOperadoraMode(true)}
-                  className="flex items-center gap-2"
-                >
-                  <Shield className="h-4 w-4" />
-                  Operadora
-                </Button>
-                
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setAdminMode(true)}
-                  className="flex items-center gap-2"
-                >
-                  <Building2 className="h-4 w-4" />
-                  Admin
-                </Button>
-              </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setOperadoraMode(true)}
+                className="w-full h-9 flex items-center justify-center gap-2 text-sm font-medium border-2 hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all duration-200"
+              >
+                <Shield className="h-4 w-4" />
+                Acesso para Operadoras
+              </Button>
             </div>
 
           </CardContent>
           
-          <CardFooter className="flex justify-center pt-4">
+          <CardFooter className="flex justify-center pt-2">
             <AnimatedText />
           </CardFooter>
         </Card>
       </div>
 
-      {/* Modal de Login Administrativo (Discreto) */}
-      <Dialog open={adminMode} onOpenChange={setAdminMode}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-center">🔐 Acesso Restrito</DialogTitle>
-            <DialogDescription className="text-center">
-              Área administrativa - Apenas usuários autorizados
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleAdminLogin} className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="adminEmail" className="text-sm font-medium">
-                Usuário Administrativo
-              </label>
-              <Input
-                id="adminEmail"
-                value={adminEmail}
-                onChange={(e) => setAdminEmail(e.target.value)}
-                placeholder="Digite o usuário admin"
-                required
-                className="lco-input"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <label htmlFor="adminPassword" className="text-sm font-medium">
-                Senha
-              </label>
-              <Input
-                id="adminPassword"
-                type="password"
-                value={adminPassword}
-                onChange={(e) => setAdminPassword(e.target.value)}
-                placeholder="Digite sua senha"
-                required
-                className="lco-input"
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={() => setAdminMode(false)}
-              >
-                Cancelar
-              </Button>
-              <Button 
-                type="submit"
-                disabled={adminLoading || !adminEmail || !adminPassword}
-                className="lco-btn-primary"
-              >
-                {adminLoading ? 'Autenticando...' : 'Acessar'}
-              </Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
 
       {/* Modal de Login da Operadora */}
       <Dialog open={operadoraMode} onOpenChange={setOperadoraMode}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-center flex items-center gap-2">
-              <Shield className="h-5 w-5 text-primary" />
+        <DialogContent className="sm:max-w-md border-primary/20 shadow-2xl">
+          <DialogHeader className="text-center pb-4">
+            <div className="flex justify-center mb-3">
+              <div className="p-2 bg-primary/10 rounded-full">
+                <Shield className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+            <DialogTitle className="text-xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
               Login da Operadora
             </DialogTitle>
-            <DialogDescription className="text-center">
-              Acesso para operadoras de planos de saúde
+            <DialogDescription className="text-sm text-muted-foreground mt-1">
+              Acesso exclusivo para operadoras
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleOperadoraLogin} className="space-y-4">
             {operadoraError && (
-              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+              <div className="p-3 text-sm text-red-600 bg-red-50 border-2 border-red-200 rounded-lg flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
                 {operadoraError}
               </div>
             )}
             
             <div className="space-y-2">
-              <label htmlFor="operadoraEmail" className="text-sm font-medium">
+              <label htmlFor="operadoraEmail" className="text-sm font-semibold text-foreground">
                 Email
               </label>
               <Input
@@ -457,12 +339,12 @@ const Login = () => {
                 onChange={(e) => setOperadoraEmail(e.target.value)}
                 placeholder="seu@email.com"
                 required
-                className="lco-input"
+                className="h-10 text-sm border-2 focus:border-primary/50 transition-colors"
               />
             </div>
             
             <div className="space-y-2">
-              <label htmlFor="operadoraPassword" className="text-sm font-medium">
+              <label htmlFor="operadoraPassword" className="text-sm font-semibold text-foreground">
                 Senha
               </label>
               <Input
@@ -472,11 +354,11 @@ const Login = () => {
                 onChange={(e) => setOperadoraPassword(e.target.value)}
                 placeholder="Digite sua senha"
                 required
-                className="lco-input"
+                className="h-10 text-sm border-2 focus:border-primary/50 transition-colors"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex gap-3 pt-1">
               <Button 
                 type="button" 
                 variant="outline" 
@@ -484,15 +366,23 @@ const Login = () => {
                   setOperadoraMode(false);
                   setOperadoraError('');
                 }}
+                className="flex-1 h-9"
               >
                 Cancelar
               </Button>
               <Button 
                 type="submit"
                 disabled={operadoraLoading || !operadoraEmail || !operadoraPassword}
-                className="lco-btn-primary"
+                className="flex-1 h-9 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
               >
-                {operadoraLoading ? 'Autenticando...' : 'Entrar'}
+                {operadoraLoading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-foreground border-t-transparent" />
+                    Autenticando...
+                  </div>
+                ) : (
+                  'Entrar'
+                )}
               </Button>
             </div>
           </form>

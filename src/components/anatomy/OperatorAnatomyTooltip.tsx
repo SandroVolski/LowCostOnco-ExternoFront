@@ -6,26 +6,67 @@ import { Users, FileText, Activity, TrendingUp, Clock, DollarSign, Building2 } f
 interface OperatorAnatomyTooltipProps {
   data: OrganData;
   position: { x: number; y: number };
+  hasSelection?: boolean;
 }
 
-export const OperatorAnatomyTooltip = ({ data, position }: OperatorAnatomyTooltipProps) => {
-  const tooltipWidth = 320;
-  const tooltipHeight = 420;
+export const OperatorAnatomyTooltip = ({ data, position, hasSelection = false }: OperatorAnatomyTooltipProps) => {
+  // Dimensões diferentes baseadas na seleção
+  const tooltipWidth = hasSelection ? 220 : 320;
+  const tooltipHeight = hasSelection ? 120 : 420;
   const padding = 16;
 
   // Posição próxima ao cursor, com limites da viewport
-  let left = position.x + 20;
+  let left = position.x - 450; // Reduzido de 20 para 10
   let top = position.y - tooltipHeight / 2;
-  if (left + tooltipWidth > window.innerWidth - padding) left = position.x - tooltipWidth - 20;
+  if (left + tooltipWidth > window.innerWidth - padding) left = position.x - tooltipWidth - 10; // Reduzido de 20 para 10
   if (left < padding) left = padding;
   if (top < padding) top = padding;
   if (top + tooltipHeight > window.innerHeight - padding) top = window.innerHeight - tooltipHeight - padding;
 
-  // KPIs específicos para operadora (mock com base nos dados disponíveis)
-  const denialRate = Math.max(3, Math.min(35, Math.round((data.patients % 17) + 8))); // %
-  const avgApprovalTime = Math.max(12, Math.min(96, (data.patients % 72) + 18)); // horas
-  const avgCost = Math.max(1500, Math.min(12000, (data.patients % 8000) + 2500)); // R$
+  // Card simples quando há seleção
+  if (hasSelection) {
+    return (
+      <Card 
+        className="absolute z-40 border-0 bg-gradient-to-br from-card/98 to-card/95 backdrop-blur-md shadow-xl animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-200 overflow-hidden"
+        style={{ 
+          left, 
+          top, 
+          width: tooltipWidth, 
+          maxHeight: tooltipHeight, 
+          boxShadow: '0 12px 40px -8px rgba(0, 0, 0, 0.2), 0 0 0 1px rgba(255, 255, 255, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1)' 
+        }}
+      >
+        <div className="relative p-4 text-center">
+          {/* Background gradient */}
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-highlight-peach/5 rounded-lg" />
+          
+          {/* Content */}
+          <div className="relative">
+            <div className="flex items-center justify-center gap-3 mb-3">
+              <div 
+                className="w-4 h-4 rounded-full shadow-lg ring-2 ring-white/20" 
+                style={{ backgroundColor: `hsl(var(--medical-${data.color}))` }} 
+              />
+              <h3 className="text-base font-bold text-foreground/95 bg-gradient-to-r from-foreground to-foreground/80 bg-clip-text text-transparent">
+                {data.name}
+              </h3>
+            </div>
+            <div className="px-3 py-2 bg-primary/10 rounded-full border border-primary/20">
+              <span className="text-sm font-bold text-primary">{data.patients.toLocaleString()}</span>
+              <span className="text-xs text-muted-foreground/80 ml-1">pacientes</span>
+            </div>
+          </div>
+        </div>
+      </Card>
+    );
+  }
 
+  // KPIs específicos para operadora - sem mock: exibir placeholders neutros quando não houver dados reais
+  const denialRate = 0; // percentual real virá de endpoints específicos no futuro
+  const avgApprovalTime = 0; // horas
+  const avgCost = 0; // R$
+
+  // Card completo quando não há seleção
   return (
     <Card 
       className="absolute z-50 border-0 bg-gradient-to-br from-card/98 to-card/95 backdrop-blur-xl shadow-2xl animate-in fade-in-0 zoom-in-95 slide-in-from-bottom-2 duration-300 overflow-hidden"
@@ -86,9 +127,9 @@ export const OperatorAnatomyTooltip = ({ data, position }: OperatorAnatomyToolti
               <span className="text-xs font-semibold text-foreground/90">CIDs Principais</span>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {data.cids.slice(0, 6).map((cid, index) => (
+              {data.cids.slice(0, 6).map((cidData: any, index: number) => (
                 <Badge key={index} variant="secondary" className="text-[11px] px-2 py-0.5">
-                  {cid}
+                  {typeof cidData === 'string' ? cidData : (cidData?.cid ?? '')}
                 </Badge>
               ))}
             </div>
@@ -99,8 +140,10 @@ export const OperatorAnatomyTooltip = ({ data, position }: OperatorAnatomyToolti
               <span className="text-xs font-semibold text-foreground/90">Protocolos</span>
             </div>
             <div className="space-y-1.5">
-              {data.protocols.slice(0, 3).map((p, i) => (
-                <div key={i} className="text-xs bg-muted/50 px-2 py-1 rounded-md border border-muted-foreground/10 truncate">{p}</div>
+              {data.protocols.slice(0, 3).map((protocolData: any, i: number) => (
+                <div key={i} className="text-xs bg-muted/50 px-2 py-1 rounded-md border border-muted-foreground/10 truncate">
+                  {typeof protocolData === 'string' ? protocolData : (protocolData?.protocol ?? '')}
+                </div>
               ))}
             </div>
           </div>

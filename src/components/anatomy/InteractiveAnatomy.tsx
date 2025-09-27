@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
-import { organData, OrganData, convertAnalysisToOrganData } from "./AnatomyData";
+import { organData, OrganData, convertAnalysisToOrganData, defaultOrganData } from "./AnatomyData";
 import { AnatomyTooltip } from "./AnatomyTooltip";
 import { AnalysisService, OrganAnalysisData, AnalysisFilters } from "@/services/analysisService";
 import { Loader2 } from "lucide-react";
 
 export interface InteractiveAnatomyProps {
   filters?: AnalysisFilters;
-  TooltipComponent?: (props: { data: OrganData; position: { x: number; y: number } }) => JSX.Element;
-  onOrganSelect?: (organ: OrganData) => void;
+  TooltipComponent?: (props: { data: OrganData; position: { x: number; y: number }; hasSelection?: boolean }) => JSX.Element;
+  onOrganSelect?: (organ: OrganData | null) => void;
 }
 
 export const InteractiveAnatomy = ({ filters, TooltipComponent, onOrganSelect }: InteractiveAnatomyProps) => {
@@ -28,123 +28,16 @@ export const InteractiveAnatomy = ({ filters, TooltipComponent, onOrganSelect }:
         
         console.log('🔧 Carregando dados de análise por órgão...', filters);
         
-        // Tentar buscar dados reais, mas usar mock se falhar
-        try {
-          const analysisData = await AnalysisService.getOrganAnalysisData(filters);
-          console.log('✅ Dados de análise carregados:', analysisData.length, 'órgãos');
-          
-          // Converter dados de análise para formato de órgão
-          const convertedData = convertAnalysisToOrganData(analysisData);
-          setOrganDataState(convertedData);
-        } catch (apiError) {
-          console.warn('⚠️ API falhou, usando dados mock:', apiError);
-          
-          // Dados mock para operadora
-          const mockOrganData = {
-            brain: {
-              id: 'brain',
-              name: 'Cérebro',
-              patients: 15,
-              cids: ['C71.0', 'C71.1', 'C71.9'],
-              protocols: ['Protocolo Glioma', 'Protocolo Meningioma'],
-              color: 'medical-purple',
-              description: 'Tumores primários do sistema nervoso central',
-              solicitacoes: []
-            },
-            lungs: {
-              id: 'lungs',
-              name: 'Pulmões',
-              patients: 28,
-              cids: ['C34.0', 'C34.1', 'C34.9'],
-              protocols: ['Protocolo NSCLC', 'Protocolo SCLC'],
-              color: 'medical-blue',
-              description: 'Carcinomas pulmonares e metástases',
-              solicitacoes: []
-            },
-            heart: {
-              id: 'heart',
-              name: 'Coração',
-              patients: 5,
-              cids: ['C38.0', 'C38.1'],
-              protocols: ['Protocolo Cardíaco'],
-              color: 'medical-red',
-              description: 'Tumores cardíacos raros',
-              solicitacoes: []
-            },
-            liver: {
-              id: 'liver',
-              name: 'Fígado',
-              patients: 18,
-              cids: ['C22.0', 'C22.1', 'C22.9'],
-              protocols: ['Protocolo Hepatocarcinoma'],
-              color: 'medical-orange',
-              description: 'Hepatocarcinoma e metástases hepáticas',
-              solicitacoes: []
-            },
-            stomach: {
-              id: 'stomach',
-              name: 'Estômago',
-              patients: 12,
-              cids: ['C16.0', 'C16.1', 'C16.9'],
-              protocols: ['Protocolo Gástrico'],
-              color: 'medical-teal',
-              description: 'Adenocarcinomas gástricos',
-              solicitacoes: []
-            },
-            kidneys: {
-              id: 'kidneys',
-              name: 'Rins',
-              patients: 8,
-              cids: ['C64', 'C65'],
-              protocols: ['Protocolo Renal'],
-              color: 'medical-red',
-              description: 'Carcinomas renais',
-              solicitacoes: []
-            },
-            bladder: {
-              id: 'bladder',
-              name: 'Bexiga',
-              patients: 6,
-              cids: ['C67.0', 'C67.1'],
-              protocols: ['Protocolo Urotelial'],
-              color: 'medical-blue',
-              description: 'Carcinomas uroteliais',
-              solicitacoes: []
-            },
-            prostate: {
-              id: 'prostate',
-              name: 'Próstata',
-              patients: 14,
-              cids: ['C61'],
-              protocols: ['Protocolo Prostático'],
-              color: 'medical-green',
-              description: 'Adenocarcinoma de próstata',
-              solicitacoes: []
-            },
-            breast: {
-              id: 'breast',
-              name: 'Mama',
-              patients: 32,
-              cids: ['C50.0', 'C50.1', 'C50.9'],
-              protocols: ['Protocolo HER2+', 'Protocolo TNBC'],
-              color: 'medical-pink',
-              description: 'Carcinomas mamários',
-              solicitacoes: []
-            },
-            colon: {
-              id: 'colon',
-              name: 'Intestino',
-              patients: 22,
-              cids: ['C18.0', 'C18.1', 'C18.9', 'C19', 'C20'],
-              protocols: ['Protocolo Colorretal', 'Protocolo Adenocarcinoma'],
-              color: 'medical-green',
-              description: 'Carcinomas colorretais e intestinais',
-              solicitacoes: []
-            }
-          };
-          
-          setOrganDataState(mockOrganData);
-        }
+        const analysisData = await AnalysisService.getOrganAnalysisData(filters);
+        console.log('✅ Dados de análise carregados:', analysisData.length, 'órgãos');
+        console.log('🔧 Dados brutos do backend:', analysisData);
+        
+        // Converter dados de análise para formato de órgão
+        const convertedData = convertAnalysisToOrganData(analysisData);
+        
+        // Sem fallback: se não houver dados, manter vazio (defaultOrganData com zeros)
+        const mergedData = { ...defaultOrganData, ...convertedData };
+        setOrganDataState(mergedData);
         
       } catch (err) {
         console.error('❌ Erro ao carregar dados de análise:', err);
@@ -160,11 +53,7 @@ export const InteractiveAnatomy = ({ filters, TooltipComponent, onOrganSelect }:
   }, [filters?.clinicId, filters?.sex, filters?.ageMin, filters?.ageMax]);
 
   const handleMouseEnter = (organId: string, event: React.MouseEvent) => {
-    // Quando há um órgão selecionado, passar o mouse em outro transfere a seleção
-    if (selectedOrganId) {
-      setSelectedOrganId(organId);
-      setSelectedPosition({ x: event.clientX, y: event.clientY });
-    }
+    // Sempre mostrar tooltip ao fazer hover, independente da seleção
     setHoveredOrgan(organDataState[organId]);
     setMousePosition({ x: event.clientX, y: event.clientY });
   };
@@ -179,6 +68,7 @@ export const InteractiveAnatomy = ({ filters, TooltipComponent, onOrganSelect }:
       setHoveredOrgan(organDataState[selectedOrganId]);
       return;
     }
+    // Se não houver seleção, esconder o tooltip
     setHoveredOrgan(null);
   };
 
@@ -189,9 +79,12 @@ export const InteractiveAnatomy = ({ filters, TooltipComponent, onOrganSelect }:
     console.log('🔧 onOrganSelect disponível:', !!onOrganSelect);
     
     if (selectedOrganId === organId) {
-      // Clicar novamente poderia desfixar, mas pela solicitação manteremos fixo
-      // Até passar/clicar em outro órgão. Portanto, não desfazemos aqui.
-      console.log('🔧 Mesmo órgão clicado, mantendo seleção');
+      // Clicar novamente no mesmo órgão deseleciona
+      console.log('🔧 Mesmo órgão clicado, deselecionando');
+      setSelectedOrganId(null);
+      setSelectedPosition(null);
+      setHoveredOrgan(null);
+      onOrganSelect?.(null); // Passar null para deselecionar
       return;
     }
     
@@ -420,11 +313,16 @@ export const InteractiveAnatomy = ({ filters, TooltipComponent, onOrganSelect }:
         
         {activeOrgan && (
           TooltipComponent ? (
-            <TooltipComponent data={activeOrgan} position={activePosition} />
+            <TooltipComponent 
+              data={activeOrgan} 
+              position={activePosition} 
+              hasSelection={!!selectedOrganId}
+            />
           ) : (
             <AnatomyTooltip 
               data={activeOrgan} 
               position={activePosition}
+              hasSelection={!!selectedOrganId}
             />
           )
         )}

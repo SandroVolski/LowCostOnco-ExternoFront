@@ -1,6 +1,7 @@
 // src/services/dashboardService.ts
 
 import config from '@/config/environment';
+import { operadoraAuthService } from './operadoraAuthService';
 
 const API_BASE_URL = config.API_BASE_URL;
 
@@ -70,12 +71,27 @@ interface ApiResponse<T = any> {
 export class DashboardService {
   
   // Buscar métricas principais do sistema
-  static async getMetrics(): Promise<SystemMetrics> {
+  static async getMetrics(clinicId?: number | string, periodo?: string): Promise<SystemMetrics> {
     try {
       console.log('🔧 DashboardService.getMetrics() iniciado');
-      console.log('🔧 URL completa:', `${API_BASE_URL}/dashboard/metrics`);
       
-      const response = await fetch(`${API_BASE_URL}/dashboard/metrics`);
+      // Construir query parameters
+      const queryParams = new URLSearchParams();
+      if (clinicId && clinicId !== 'todas') {
+        queryParams.append('clinicId', clinicId.toString());
+      }
+      if (periodo) {
+        queryParams.append('periodo', periodo);
+      }
+      
+      const url = `/api/dashboard/metrics${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      console.log('🔧 URL completa:', url);
+      
+      const response = await operadoraAuthService.authorizedFetch(url);
+      
+      if (!response) {
+        throw new Error('Backend não disponível');
+      }
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -100,12 +116,27 @@ export class DashboardService {
   }
 
   // Buscar dados para gráficos
-  static async getChartsData(): Promise<ChartsData> {
+  static async getChartsData(clinicId?: number | string, periodo?: string): Promise<ChartsData> {
     try {
       console.log('🔧 DashboardService.getChartsData() iniciado');
-      console.log('🔧 URL completa:', `${API_BASE_URL}/dashboard/charts`);
       
-      const response = await fetch(`${API_BASE_URL}/dashboard/charts`);
+      // Construir query parameters
+      const queryParams = new URLSearchParams();
+      if (clinicId && clinicId !== 'todas') {
+        queryParams.append('clinicId', clinicId.toString());
+      }
+      if (periodo) {
+        queryParams.append('periodo', periodo);
+      }
+      
+      const url = `/api/dashboard/charts${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      console.log('🔧 URL completa:', url);
+      
+      const response = await operadoraAuthService.authorizedFetch(url);
+      
+      if (!response) {
+        throw new Error('Backend não disponível');
+      }
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -130,12 +161,24 @@ export class DashboardService {
   }
 
   // Buscar performance das clínicas
-  static async getClinicasPerformance(): Promise<ClinicaPerformance[]> {
+  static async getClinicasPerformance(periodo?: string): Promise<ClinicaPerformance[]> {
     try {
       console.log('🔧 DashboardService.getClinicasPerformance() iniciado');
-      console.log('🔧 URL completa:', `${API_BASE_URL}/dashboard/performance`);
       
-      const response = await fetch(`${API_BASE_URL}/dashboard/performance`);
+      // Construir query parameters
+      const queryParams = new URLSearchParams();
+      if (periodo) {
+        queryParams.append('periodo', periodo);
+      }
+      
+      const url = `/api/dashboard/performance${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      console.log('🔧 URL completa:', url);
+      
+      const response = await operadoraAuthService.authorizedFetch(url);
+      
+      if (!response) {
+        throw new Error('Backend não disponível');
+      }
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -160,7 +203,7 @@ export class DashboardService {
   }
 
   // Buscar todos os dados do dashboard de uma vez
-  static async getAllDashboardData(): Promise<{
+  static async getAllDashboardData(clinicId?: number | string, periodo?: string): Promise<{
     metrics: SystemMetrics;
     chartsData: ChartsData;
     performance: ClinicaPerformance[];
@@ -169,9 +212,9 @@ export class DashboardService {
       console.log('🔧 DashboardService.getAllDashboardData() iniciado');
       
       const [metrics, chartsData, performance] = await Promise.all([
-        this.getMetrics(),
-        this.getChartsData(),
-        this.getClinicasPerformance()
+        this.getMetrics(clinicId, periodo),
+        this.getChartsData(clinicId, periodo),
+        this.getClinicasPerformance(periodo)
       ]);
       
       console.log('✅ Todos os dados do dashboard obtidos com sucesso');
