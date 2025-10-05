@@ -97,8 +97,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = async () => {
-    await AuthService.logout();
+    try {
+      await AuthService.logout();
+    } catch (error) {
+      console.error('Erro no logout do AuthService:', error);
+    }
+    
+    // Limpeza completa do cache da clínica
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('user');
+    
+    // Limpeza adicional de possíveis dados residuais
+    localStorage.removeItem('operadora_access_token');
+    localStorage.removeItem('operadora_refresh_token');
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminUser');
+    
+    // Limpar sessionStorage também
+    sessionStorage.clear();
+    
+    // Resetar estado
     setUser(null);
+    
+    // Navegar para login
     navigate('/');
     toast.success('Logout realizado com sucesso!');
   };

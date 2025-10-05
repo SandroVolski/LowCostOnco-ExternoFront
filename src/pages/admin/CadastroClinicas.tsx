@@ -47,14 +47,23 @@ const CadastroClinicas = () => {
 
   const [formData, setFormData] = useState<ClinicaCreateInput>({
     nome: '',
+    razao_social: '',
     codigo: '',
     cnpj: '',
-    endereco: '',
+    endereco_rua: '',
+    endereco_numero: '',
+    endereco_bairro: '',
+    endereco_complemento: '',
     cidade: '',
     estado: '',
     cep: '',
     telefones: [''],
     emails: [''],
+    contatos_pacientes: { telefones: [''], emails: [''] },
+    contatos_administrativos: { telefones: [''], emails: [''] },
+    contatos_legais: { telefones: [''], emails: [''] },
+    contatos_faturamento: { telefones: [''], emails: [''] },
+    contatos_financeiro: { telefones: [''], emails: [''] },
     website: '',
     logo_url: '',
     observacoes: '',
@@ -146,6 +155,51 @@ const CadastroClinicas = () => {
       ...prev,
       [field]: prev[field].filter((_, i) => i !== index)
     }));
+  };
+
+  // Funções para gerenciar contatos por setores
+  const handleContatoSetorChange = (setor: string, tipo: 'telefones' | 'emails', index: number, value: string) => {
+    setFormData(prev => {
+      const setorKey = `contatos_${setor}` as keyof ClinicaCreateInput;
+      const contatosSetor = prev[setorKey] as { telefones?: string[]; emails?: string[] } || { telefones: [''], emails: [''] };
+      return {
+        ...prev,
+        [setorKey]: {
+          ...contatosSetor,
+          [tipo]: (contatosSetor[tipo] || ['']).map((item, i) => i === index ? value : item),
+        },
+      };
+    });
+  };
+
+  const addContatoSetor = (setor: string, tipo: 'telefones' | 'emails') => {
+    setFormData(prev => {
+      const setorKey = `contatos_${setor}` as keyof ClinicaCreateInput;
+      const contatosSetor = prev[setorKey] as { telefones?: string[]; emails?: string[] } || { telefones: [''], emails: [''] };
+      return {
+        ...prev,
+        [setorKey]: {
+          ...contatosSetor,
+          [tipo]: [...(contatosSetor[tipo] || ['']), ''],
+        },
+      };
+    });
+  };
+
+  const removeContatoSetor = (setor: string, tipo: 'telefones' | 'emails', index: number) => {
+    setFormData(prev => {
+      const setorKey = `contatos_${setor}` as keyof ClinicaCreateInput;
+      const contatosSetor = prev[setorKey] as { telefones?: string[]; emails?: string[] } || { telefones: [''], emails: [''] };
+      const lista = contatosSetor[tipo] || [''];
+      if (lista.length <= 1) return prev; // Mantém pelo menos um campo
+      return {
+        ...prev,
+        [setorKey]: {
+          ...contatosSetor,
+          [tipo]: lista.filter((_, i) => i !== index),
+        },
+      };
+    });
   };
 
   const validateForm = (): boolean => {
@@ -311,9 +365,31 @@ const CadastroClinicas = () => {
     setEditingClinica(null);
   };
 
-  const filteredClinicas = clinicas.filter(clinica =>
-    clinica.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    clinica.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  // Normalização defensiva: garantir arrays para telefones/emails e strings seguras para filtros
+  const normalizedClinicas = clinicas.map((c) => ({
+    ...c,
+    telefones: Array.isArray(c.telefones)
+      ? c.telefones
+      : c.telefones
+        ? [String(c.telefones)]
+        : c.telefone
+          ? [String((c as any).telefone)]
+          : [],
+    emails: Array.isArray(c.emails)
+      ? c.emails
+      : c.emails
+        ? [String(c.emails)]
+        : c.email
+          ? [String((c as any).email)]
+          : [],
+    nome: c.nome || '',
+    codigo: c.codigo || '',
+    cnpj: c.cnpj || ''
+  }));
+
+  const filteredClinicas = normalizedClinicas.filter(clinica =>
+    (clinica.nome || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (clinica.codigo || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (clinica.cnpj && clinica.cnpj.includes(searchTerm))
   );
 
@@ -410,13 +486,13 @@ const CadastroClinicas = () => {
                           <div>
                             <p><strong>Telefones:</strong></p>
                             <ul className="ml-4">
-                              {clinica.telefones.map((tel, index) => (
+                              {(Array.isArray(clinica.telefones) ? clinica.telefones : []).map((tel, index) => (
                                 <li key={index}>{tel}</li>
                               ))}
                             </ul>
                             <p><strong>E-mails:</strong></p>
                             <ul className="ml-4">
-                              {clinica.emails.map((email, index) => (
+                              {(Array.isArray(clinica.emails) ? clinica.emails : []).map((email, index) => (
                                 <li key={index}>{email}</li>
                               ))}
                             </ul>
@@ -526,15 +602,28 @@ const CadastroClinicas = () => {
                 {/* Informações Básicas */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="nome">Nome da Clínica *</Label>
+                    <Label htmlFor="nome">Nome Fantasia *</Label>
                     <Input
                       id="nome"
                       value={formData.nome}
                       onChange={(e) => handleInputChange('nome', e.target.value)}
+                      placeholder="Ex: Clínica Oncológica São Paulo"
                       required
                     />
                   </div>
                   
+                  <div className="space-y-2">
+                    <Label htmlFor="razao_social">Razão Social</Label>
+                    <Input
+                      id="razao_social"
+                      value={formData.razao_social}
+                      onChange={(e) => handleInputChange('razao_social', e.target.value)}
+                      placeholder="Ex: Clínica Oncológica São Paulo LTDA"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="codigo">Código *</Label>
                     <Input
@@ -543,6 +632,20 @@ const CadastroClinicas = () => {
                       onChange={(e) => handleInputChange('codigo', e.target.value)}
                       required
                     />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="operadora">Operadora</Label>
+                    <Select value={String(formData.operadora_id || '')} onValueChange={(value) => handleInputChange('operadora_id', value ? parseInt(value) : undefined)}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione a operadora" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {operadoras.map(op => (
+                          <SelectItem key={op.id} value={String(op.id)}>{op.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
@@ -579,42 +682,64 @@ const CadastroClinicas = () => {
                     <span>Endereço</span>
                   </h4>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="sm:col-span-2 space-y-2">
-                      <Label htmlFor="endereco">Endereço</Label>
+                      <Label htmlFor="endereco_rua">Rua/Avenida *</Label>
                       <Input
-                        id="endereco"
-                        value={formData.endereco}
-                        onChange={(e) => handleInputChange('endereco', e.target.value)}
+                        id="endereco_rua"
+                        value={formData.endereco_rua}
+                        onChange={(e) => handleInputChange('endereco_rua', e.target.value)}
+                        placeholder="Ex: Rua das Flores"
                       />
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="cep">CEP</Label>
+                      <Label htmlFor="endereco_numero">Número *</Label>
                       <Input
-                        id="cep"
-                        value={formData.cep}
-                        onChange={(e) => handleInputChange('cep', e.target.value)}
-                        placeholder="00000-000"
+                        id="endereco_numero"
+                        value={formData.endereco_numero}
+                        onChange={(e) => handleInputChange('endereco_numero', e.target.value)}
+                        placeholder="123"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="endereco_complemento">Complemento</Label>
+                      <Input
+                        id="endereco_complemento"
+                        value={formData.endereco_complemento}
+                        onChange={(e) => handleInputChange('endereco_complemento', e.target.value)}
+                        placeholder="Sala 10"
                       />
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="cidade">Cidade</Label>
+                      <Label htmlFor="endereco_bairro">Bairro *</Label>
                       <Input
-                        id="cidade"
-                        value={formData.cidade}
-                        onChange={(e) => handleInputChange('cidade', e.target.value)}
+                        id="endereco_bairro"
+                        value={formData.endereco_bairro}
+                        onChange={(e) => handleInputChange('endereco_bairro', e.target.value)}
+                        placeholder="Centro"
                       />
                     </div>
                     
                     <div className="space-y-2">
-                      <Label htmlFor="estado">Estado</Label>
+                      <Label htmlFor="cidade">Cidade *</Label>
+                      <Input
+                        id="cidade"
+                        value={formData.cidade}
+                        onChange={(e) => handleInputChange('cidade', e.target.value)}
+                        placeholder="São Paulo"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="estado">Estado *</Label>
                       <Select value={formData.estado} onValueChange={(value) => handleInputChange('estado', value)}>
                         <SelectTrigger>
-                          <SelectValue placeholder="Selecione o estado" />
+                          <SelectValue placeholder="UF" />
                         </SelectTrigger>
                         <SelectContent>
                           {estados.map(estado => (
@@ -622,6 +747,16 @@ const CadastroClinicas = () => {
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="cep">CEP *</Label>
+                      <Input
+                        id="cep"
+                        value={formData.cep}
+                        onChange={(e) => handleInputChange('cep', e.target.value)}
+                        placeholder="00000-000"
+                      />
                     </div>
                   </div>
                 </div>

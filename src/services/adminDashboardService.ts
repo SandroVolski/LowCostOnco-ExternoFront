@@ -1,9 +1,28 @@
 // src/services/adminDashboardService.ts
 
 import config from '@/config/environment';
-import { operadoraAuthService } from './operadoraAuthService';
+import { authorizedFetch } from './authService';
 
 const API_BASE_URL = config.API_BASE_URL;
+
+// Função específica para admin que usa o token correto
+async function adminAuthorizedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const adminToken = localStorage.getItem('adminToken');
+  const operadoraToken = localStorage.getItem('operadora_access_token');
+  const clinicToken = localStorage.getItem('authAccessToken');
+  
+  const token = adminToken || operadoraToken || clinicToken;
+  
+  const initWithAuth = {
+    ...init,
+    headers: {
+      ...init?.headers,
+      'Authorization': `Bearer ${token || ''}`,
+    },
+  };
+
+  return fetch(input, initWithAuth);
+}
 
 // Interfaces para o Dashboard Administrativo
 export interface AdminSystemMetrics {
@@ -88,7 +107,7 @@ export class AdminDashboardService {
     try {
       console.log('🔧 AdminDashboardService.getSystemMetrics() iniciado');
       
-      let response = await operadoraAuthService.authorizedFetch('/api/admin/metrics');
+      let response = await adminAuthorizedFetch(`${API_BASE_URL}/admin/metrics`);
       // Se authorizedFetch retornar null (HTML pelo proxy), tenta fallback direto na API_BASE_URL
       if (!response) {
         const adminToken = localStorage.getItem('admin_access_token');
@@ -123,7 +142,7 @@ export class AdminDashboardService {
     try {
       console.log('🔧 AdminDashboardService.getOperadorasInfo() iniciado');
       
-      let response = await operadoraAuthService.authorizedFetch('/api/admin/operadoras');
+      let response = await adminAuthorizedFetch(`${API_BASE_URL}/admin/operadoras`);
       if (!response) {
         const adminToken = localStorage.getItem('admin_access_token');
         const fallbackToken = localStorage.getItem('operadora_access_token');
@@ -157,7 +176,7 @@ export class AdminDashboardService {
     try {
       console.log('🔧 AdminDashboardService.getClinicasInfo() iniciado');
       
-      let response = await operadoraAuthService.authorizedFetch('/api/admin/clinicas');
+      let response = await adminAuthorizedFetch(`${API_BASE_URL}/admin/clinicas`);
       if (!response) {
         const adminToken = localStorage.getItem('admin_access_token');
         const fallbackToken = localStorage.getItem('operadora_access_token');
@@ -191,7 +210,7 @@ export class AdminDashboardService {
     try {
       console.log('🔧 AdminDashboardService.getChartsData() iniciado');
       
-      let response = await operadoraAuthService.authorizedFetch('/api/admin/charts');
+      let response = await adminAuthorizedFetch(`${API_BASE_URL}/admin/charts`);
       if (!response) {
         const adminToken = localStorage.getItem('admin_access_token');
         const fallbackToken = localStorage.getItem('operadora_access_token');

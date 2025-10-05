@@ -1,7 +1,26 @@
 // src/services/analysisService.ts
 
 import { operadoraAuthService } from './operadoraAuthService';
+import { authorizedFetch } from './authService';
 import config from '@/config/environment';
+
+// Helper para detectar tipo de usuário e usar o serviço correto
+function getAuthorizedFetch(): typeof authorizedFetch {
+  try {
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      const userData = JSON.parse(storedUser);
+      // Se é operadora, usar operadoraAuthService
+      if (userData.role === 'operator' || userData.role === 'operadora_admin' || userData.role === 'operadora_user') {
+        return (url: string) => operadoraAuthService.authorizedFetch(url);
+      }
+    }
+  } catch (error) {
+    console.error('Erro ao detectar tipo de usuário:', error);
+  }
+  // Por padrão, usar authService (clínica)
+  return authorizedFetch;
+}
 
 export interface OrganAnalysisData {
   organId: string;
@@ -211,13 +230,9 @@ export class AnalysisService {
       const qs = params.toString();
       const url = `${config.API_BASE_URL}/analysis/organs${qs ? `?${qs}` : ''}`;
 
-      // Usar endpoint otimizado de análise
-      let response = await operadoraAuthService.authorizedFetch(url);
-      // Fallback se o proxy devolver HTML (authorizedFetch retorna null)
-      if (!response) {
-        const token = localStorage.getItem('operadora_access_token') || '';
-        response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      }
+      // Detectar automaticamente o tipo de usuário e usar o serviço correto
+      const fetchFn = getAuthorizedFetch();
+      const response = await fetchFn(url);
       
       if (!response || !response.ok) {
         throw new Error('Erro ao buscar dados de análise');
@@ -253,12 +268,9 @@ export class AnalysisService {
       const qs = params.toString();
       const url = `${config.API_BASE_URL}/analysis/metrics${qs ? `?${qs}` : ''}`;
 
-      // Usar endpoint otimizado de métricas
-      let response = await operadoraAuthService.authorizedFetch(url);
-      if (!response) {
-        const token = localStorage.getItem('operadora_access_token') || '';
-        response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
-      }
+      // Detectar automaticamente o tipo de usuário e usar o serviço correto
+      const fetchFn = getAuthorizedFetch();
+      const response = await fetchFn(url);
       
       if (!response || !response.ok) {
         throw new Error('Erro ao buscar métricas de análise');
@@ -303,16 +315,13 @@ export class AnalysisService {
       if (filters?.ageMin !== undefined) queryParams.append('ageMin', filters.ageMin.toString());
       if (filters?.ageMax !== undefined) queryParams.append('ageMax', filters.ageMax.toString());
       
-      const url = `/api/analysis/kpis${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const qs = queryParams.toString();
+      const url = `${config.API_BASE_URL}/analysis/kpis${qs ? `?${qs}` : ''}`;
       console.log('🔧 URL:', url);
       
-      let response = await operadoraAuthService.authorizedFetch(url);
-      if (!response) {
-        const token = localStorage.getItem('operadora_access_token') || '';
-        response = await fetch(`${config.API_BASE_URL}/analysis/kpis${queryParams.toString() ? `?${queryParams.toString()}` : ''}` , {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-      }
+      // Detectar automaticamente o tipo de usuário e usar o serviço correto
+      const fetchFn = getAuthorizedFetch();
+      const response = await fetchFn(url);
       
       if (!response || !response.ok) {
         throw new Error(`Erro ao buscar KPIs operacionais: ${response.status}`);
@@ -339,16 +348,13 @@ export class AnalysisService {
       if (filters?.ageMin !== undefined) queryParams.append('ageMin', filters.ageMin.toString());
       if (filters?.ageMax !== undefined) queryParams.append('ageMax', filters.ageMax.toString());
       
-      const url = `/api/analysis/charts${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const qs = queryParams.toString();
+      const url = `${config.API_BASE_URL}/analysis/charts${qs ? `?${qs}` : ''}`;
       console.log('🔧 URL:', url);
       
-      let response = await operadoraAuthService.authorizedFetch(url);
-      if (!response) {
-        const token = localStorage.getItem('operadora_access_token') || '';
-        response = await fetch(`${config.API_BASE_URL}/analysis/charts${queryParams.toString() ? `?${queryParams.toString()}` : ''}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-      }
+      // Detectar automaticamente o tipo de usuário e usar o serviço correto
+      const fetchFn = getAuthorizedFetch();
+      const response = await fetchFn(url);
       
       if (!response || !response.ok) {
         throw new Error(`Erro ao buscar dados de gráficos: ${response.status}`);

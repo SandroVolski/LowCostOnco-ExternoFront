@@ -170,10 +170,11 @@ export const operadoraAuthService = {
       return null;
     }
 
-    // Se receber 500, retornar null para permitir fallback
+    // Se receber 500, lançar erro para mostrar mensagem correta
     if (response.status === 500) {
-      console.log('ℹ️ Backend com erro 500, usando fallback');
-      return null;
+      console.log('❌ Backend com erro 500');
+      const errorText = await response.text().catch(() => 'Erro interno do servidor');
+      throw new Error(`Erro 500: ${errorText}`);
     }
 
     // Se receber 401 ou 403, tentar renovar o token

@@ -344,12 +344,12 @@ const Header = () => {
       return [
         {
           label: 'Dashboards',
-          path: '/dashboard',
-          icon: <DashboardGifIcon hovered={dashboardHover} active={isMenuActive('/dashboard', ['/dashboard', '/patient-dashboard', '/patients', '/analyses'])} />, 
+          path: '/dashboard-clinica',
+          icon: <DashboardGifIcon hovered={dashboardHover} active={isMenuActive('/dashboard-clinica', ['/dashboard-clinica', '/patient-dashboard', '/patients', '/analyses'])} />, 
           submenu: [
             {
               label: 'Clínica',
-              path: '/dashboard',
+              path: '/dashboard-clinica',
               icon: <Hospital className="h-5 w-5" />,
             },
             {
@@ -425,7 +425,7 @@ const Header = () => {
       ];
     } else if (user?.role === 'operator') {
       return [
-        { label: 'Dashboard', path: '/dashboard', icon: <Database className="w-5 h-5" /> },
+        { label: 'Dashboard', path: '/dashboard-operadora', icon: <Database className="w-5 h-5" /> },
         { label: 'Análises', path: '/analysis', icon: <PieChart className="w-5 h-5" /> },
         { label: 'Solicitações', path: '/operator-solicitacoes', icon: <FileText className="w-5 h-5" /> },
         { label: 'Ajustes', path: '/operator-ajustes', icon: <Database className="w-5 h-5" /> },
@@ -884,8 +884,18 @@ const Header = () => {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56 animate-scale-in">
-            <div className="px-2 py-1.5 text-sm font-medium">{user?.username || (user as any)?.nome || 'Operadora'}</div>
-            <div className="px-2 pb-1.5 text-xs text-muted-foreground">{roleLabel}</div>
+            <div className="px-2 py-1.5 text-sm font-medium">
+              {user?.role === 'operator' 
+                ? ((user as any)?.nome || (user as any)?.operadora?.nome || 'Operadora')
+                : (user?.username || (user as any)?.nome || 'Usuário')
+              }
+            </div>
+            <div className="px-2 pb-1.5 text-xs text-muted-foreground">
+              {user?.role === 'operator' 
+                ? ((user as any)?.operadora?.codigo || 'Código da Operadora')
+                : roleLabel
+              }
+            </div>
             <DropdownMenuSeparator />
 
             {user?.role === 'clinic' && (
@@ -914,7 +924,7 @@ const Header = () => {
                   onClick={() => navigateWithTransition('/corpo-clinico')}
                 >
                   <Users className="h-4 w-4" />
-                  <span className="flex-1">Corpo Clínico</span>
+                  <span className="flex-1">Profissionais</span>
                   <div className={cn(
                     "transition-all duration-200",
                     location.pathname === '/corpo-clinico' ? "opacity-100 scale-100" : "opacity-0 scale-75"

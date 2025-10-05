@@ -345,15 +345,16 @@ const OperatorSolicitations = () => {
         body: JSON.stringify({ status: 'aprovada' })
       });
       
-      if (response.ok) {
+      if (response && response.ok) {
         toast.success('Solicitação aprovada com sucesso!');
         loadSolicitacoes();
       } else {
-        throw new Error('Erro ao aprovar solicitação');
+        const errorText = response ? await response.text().catch(() => 'Erro desconhecido') : 'Sem resposta do servidor';
+        throw new Error(`Erro ao aprovar solicitação: ${errorText}`);
       }
     } catch (error) {
       console.error('❌ Erro ao aprovar solicitação:', error);
-      toast.error('Erro ao aprovar solicitação');
+      toast.error(error instanceof Error ? error.message : 'Erro ao aprovar solicitação');
     }
   };
 
@@ -368,15 +369,16 @@ const OperatorSolicitations = () => {
         body: JSON.stringify({ status: 'rejeitada' })
       });
       
-      if (response.ok) {
+      if (response && response.ok) {
         toast.success('Solicitação rejeitada com sucesso!');
         loadSolicitacoes();
       } else {
-        throw new Error('Erro ao rejeitar solicitação');
+        const errorText = response ? await response.text().catch(() => 'Erro desconhecido') : 'Sem resposta do servidor';
+        throw new Error(`Erro ao rejeitar solicitação: ${errorText}`);
       }
     } catch (error) {
       console.error('❌ Erro ao rejeitar solicitação:', error);
-      toast.error('Erro ao rejeitar solicitação');
+      toast.error(error instanceof Error ? error.message : 'Erro ao rejeitar solicitação');
     }
   };
 

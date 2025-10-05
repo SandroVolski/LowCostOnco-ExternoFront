@@ -75,14 +75,22 @@ export interface SolicitacaoFromAPI {
 export interface PatientFromAPI {
   id: number;
   clinica_id: number;
-  Paciente_Nome: string;
-  Operadora: number;
-  Prestador: number;
-  Codigo: string;
-  Data_Nascimento: string;
-  Sexo: string;
-  Cid_Diagnostico: string;
-  Data_Primeira_Solicitacao: string;
+  // Campos do modelo antigo
+  Paciente_Nome?: string;
+  Operadora?: number;
+  Prestador?: number;
+  Codigo?: string;
+  Data_Nascimento?: string;
+  Sexo?: string;
+  Cid_Diagnostico?: string;
+  Data_Primeira_Solicitacao?: string;
+  // Campos do modelo novo
+  nome?: string;
+  codigo?: string;
+  data_nascimento?: string;
+  sexo?: string;
+  cid_diagnostico?: string;
+  data_primeira_solicitacao?: string;
   cpf?: string;
   rg?: string;
   telefone?: string;
@@ -177,35 +185,75 @@ const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
     'obito': 'Óbito'
   };
 
+  // Fallbacks para suportar ambos os esquemas
+  const name = (apiPatient.Paciente_Nome || (apiPatient as any).nome || '').toString();
+  const code = (apiPatient.Codigo || (apiPatient as any).codigo || '').toString();
+  const sexo = apiPatient.Sexo || (apiPatient as any).sexo || '';
+  const nasc = apiPatient.Data_Nascimento || (apiPatient as any).data_nascimento || '';
+  const cid = apiPatient.Cid_Diagnostico || (apiPatient as any).cid_diagnostico || '';
+  const dataPrimeira = apiPatient.Data_Primeira_Solicitacao || (apiPatient as any).data_primeira_solicitacao || '';
+
+  // Extrair contatos/endereço (novo schema) se existirem
+  const parseJson = (v: any) => {
+    try { return typeof v === 'string' ? JSON.parse(v) : v; } catch { return undefined; }
+  };
+  const contatos = parseJson((apiPatient as any).contatos) || {};
+  const enderecoJson = parseJson((apiPatient as any).endereco) || {};
+
+  // Médico assistente (se backend enviar em algum dos formatos abaixo)
+  const medicoAssistenteNome = (apiPatient as any).medico_nome || (apiPatient as any).medicoAssistenteNome || (apiPatient as any).medico_assistente_nome || '';
+  const medicoAssistenteEmail = (apiPatient as any).medico_email || (apiPatient as any).medicoAssistenteEmail || (apiPatient as any).medico_assistente_email || '';
+  const medicoAssistenteTelefone = (apiPatient as any).medico_telefone || (apiPatient as any).medicoAssistenteTelefone || (apiPatient as any).medico_assistente_telefone || '';
+  const medicoAssistenteEspecialidade = (apiPatient as any).medico_especialidade || (apiPatient as any).medicoAssistenteEspecialidade || (apiPatient as any).medico_assistente_especialidade || '';
+
   return {
     id: apiPatient.id ? apiPatient.id.toString() : '',
-    name: apiPatient.Paciente_Nome,
-    age: calculateAge(apiPatient.Data_Nascimento || null),
-    gender: apiPatient.Sexo,
-    diagnosis: apiPatient.Cid_Diagnostico,
+    name,
+    age: calculateAge(nasc || null),
+    gender: sexo,
+    diagnosis: cid,
     stage: 'II', // Você pode adaptar isso conforme sua necessidade
     treatment: 'Quimioterapia', // Você pode adaptar isso conforme sua necessidade
-    startDate: convertDateFromISO(apiPatient.Data_Primeira_Solicitacao || null),
+    startDate: convertDateFromISO(dataPrimeira || null),
     status: statusMap[apiPatient.status] || apiPatient.status,
     authorizations: [], // Você pode adaptar isso quando implementar as autorizações
     
     // Dados adicionais do backend
-    Paciente_Nome: apiPatient.Paciente_Nome,
-    Codigo: apiPatient.Codigo,
+    Paciente_Nome: name,
+    Codigo: code,
     cpf: apiPatient.cpf || '',
     rg: apiPatient.rg || '',
-    Data_Nascimento: convertDateFromISO(apiPatient.Data_Nascimento || null), // Converter para exibição
-    Sexo: apiPatient.Sexo,
+    Data_Nascimento: convertDateFromISO(nasc || null), // Converter para exibição
+    Sexo: sexo,
     Operadora: apiPatient.operadora_nome || (apiPatient.Operadora ? apiPatient.Operadora.toString() : ''),
     Prestador: apiPatient.prestador_nome || (apiPatient.Prestador ? apiPatient.Prestador.toString() : ''),
     plano_saude: apiPatient.plano_saude || '',
     numero_carteirinha: apiPatient.numero_carteirinha || '',
-    Cid_Diagnostico: apiPatient.Cid_Diagnostico,
-    Data_Primeira_Solicitacao: convertDateFromISO(apiPatient.Data_Primeira_Solicitacao || null), // Converter para exibição
+    Cid_Diagnostico: cid,
+    Data_Primeira_Solicitacao: convertDateFromISO(dataPrimeira || null), // Converter para exibição
     telefone: apiPatient.telefone || '',
     email: apiPatient.email || '',
     endereco: apiPatient.endereco || '',
     observacoes: apiPatient.observacoes || '',
+
+    // Dados de contato (novos campos JSON)
+    contato_telefone: contatos.telefone || contatos.celular || apiPatient.telefone || '',
+    contato_celular: contatos.celular || '',
+    contato_email: contatos.email || apiPatient.email || '',
+
+    // Endereço detalhado se disponível
+    endereco_rua: enderecoJson.rua || enderecoJson.logradouro || (apiPatient as any).endereco_rua || '',
+    endereco_numero: enderecoJson.numero || (apiPatient as any).endereco_numero || '',
+    endereco_bairro: enderecoJson.bairro || (apiPatient as any).endereco_bairro || '',
+    endereco_cidade: enderecoJson.cidade || (apiPatient as any).endereco_cidade || '',
+    endereco_estado: enderecoJson.estado || enderecoJson.uf || (apiPatient as any).endereco_estado || '',
+    endereco_cep: enderecoJson.cep || (apiPatient as any).endereco_cep || '',
+
+    // Médico assistente (fallbacks)
+    medico_assistente_nome: medicoAssistenteNome,
+    medico_assistente_email: medicoAssistenteEmail,
+    medico_assistente_telefone: medicoAssistenteTelefone,
+    medico_assistente_especialidade: medicoAssistenteEspecialidade,
   };
 };
 
@@ -1020,7 +1068,7 @@ export class NotificationService {
       const query = new URLSearchParams();
       if (params?.clinica_id) query.append('clinica_id', String(params.clinica_id));
       if (params?.limit) query.append('limit', String(params.limit));
-      const response = await fetch(`${API_BASE_URL}/notificacoes?${query.toString()}`);
+      const response = await authorizedFetch(`${API_BASE_URL}/notificacoes?${query.toString()}`);
       if (response.status === 404) {
         // Backend remoto ainda não publicou notificações: retornar vazio
         return [];
@@ -1040,7 +1088,7 @@ export class NotificationService {
 
   static async marcarComoLida(id: number): Promise<boolean> {
     try {
-      const response = await fetch(`${API_BASE_URL}/notificacoes/${id}/lida`, { method: 'POST' });
+      const response = await authorizedFetch(`${API_BASE_URL}/notificacoes/${id}/lida`, { method: 'POST' });
       if (!response.ok) return false;
       const result: ApiResponse = await response.json();
       return !!result.success;
@@ -1051,7 +1099,7 @@ export class NotificationService {
 
   static async marcarTodasComoLidas(params?: { clinica_id?: number }): Promise<boolean> {
     try {
-      const response = await fetch(`${API_BASE_URL}/notificacoes/lidas`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/notificacoes/lidas`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params || {}),

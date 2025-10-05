@@ -16,14 +16,24 @@ import ProtocolsSection from '@/components/ProtocolsSection';
 
 const emptyProfile: ClinicProfile = {
   nome: '',
+  razao_social: '',
   codigo: '',
   cnpj: '',
   endereco: '',
+  endereco_rua: '',
+  endereco_numero: '',
+  endereco_bairro: '',
+  endereco_complemento: '',
   cidade: '',
   estado: '',
   cep: '',
   telefones: [''],
   emails: [''],
+  contatos_pacientes: { telefones: [''], emails: [''] },
+  contatos_administrativos: { telefones: [''], emails: [''] },
+  contatos_legais: { telefones: [''], emails: [''] },
+  contatos_faturamento: { telefones: [''], emails: [''] },
+  contatos_financeiro: { telefones: [''], emails: [''] },
   website: '',
   logo_url: '',
   observacoes: '',
@@ -42,6 +52,92 @@ const AnimatedSection = ({ children, delay = 0, className = "" }: {
     style={{ animationDelay: `${delay}ms` }}
   >
     {children}
+  </div>
+);
+
+// Componente helper para renderizar seção de contatos por setor
+const ContatoSetorSection = ({ 
+  setor, 
+  label, 
+  color, 
+  telefones, 
+  emails, 
+  onAddTelefone, 
+  onRemoveTelefone, 
+  onUpdateTelefone, 
+  onAddEmail, 
+  onRemoveEmail, 
+  onUpdateEmail 
+}: { 
+  setor: string; 
+  label: string; 
+  color: string; 
+  telefones: string[]; 
+  emails: string[]; 
+  onAddTelefone: () => void; 
+  onRemoveTelefone: (index: number) => void; 
+  onUpdateTelefone: (index: number, value: string) => void; 
+  onAddEmail: () => void; 
+  onRemoveEmail: (index: number) => void; 
+  onUpdateEmail: (index: number, value: string) => void; 
+}) => (
+  <div className="border border-border rounded-lg p-4 space-y-4">
+    <div className="flex items-center gap-2 mb-3">
+      <div className={`h-2 w-2 rounded-full ${color}`}></div>
+      <Label className={`text-base font-semibold ${color.replace('bg-', 'text-')}`}>{label}</Label>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Telefones */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm">Telefones</Label>
+          <Button type="button" variant="ghost" size="sm" onClick={onAddTelefone} className="h-7 px-2">
+            <Plus className="h-3 w-3 mr-1" />
+            Adicionar
+          </Button>
+        </div>
+        {telefones?.map((tel, idx) => (
+          <div key={idx} className="flex items-center gap-2">
+            <Input 
+              value={tel || ''} 
+              placeholder="(11) 99999-9999" 
+              className="lco-input flex-1"
+              onChange={(e) => onUpdateTelefone(idx, e.target.value)}
+            />
+            {telefones.length > 1 && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => onRemoveTelefone(idx)} className="h-10 w-10 p-0 text-red-500 hover:text-red-700">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        ))}
+      </div>
+      {/* E-mails */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm">E-mails</Label>
+          <Button type="button" variant="ghost" size="sm" onClick={onAddEmail} className="h-7 px-2">
+            <Plus className="h-3 w-3 mr-1" />
+            Adicionar
+          </Button>
+        </div>
+        {emails?.map((email, idx) => (
+          <div key={idx} className="flex items-center gap-2">
+            <Input 
+              value={email || ''} 
+              placeholder={`${setor}@clinica.com`} 
+              className="lco-input flex-1"
+              onChange={(e) => onUpdateEmail(idx, e.target.value)}
+            />
+            {emails.length > 1 && (
+              <Button type="button" variant="ghost" size="sm" onClick={() => onRemoveEmail(idx)} className="h-10 w-10 p-0 text-red-500 hover:text-red-700">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   </div>
 );
 
@@ -444,7 +540,50 @@ const ClinicProfileComponent = () => {
     }));
   }, []);
 
+  // Funções para gerenciar contatos por setor
+  const addContatoSetor = useCallback((setor: string, tipo: 'telefones' | 'emails') => {
+    setProfile(prevProfile => {
+      const setorKey = `contatos_${setor}` as keyof ClinicProfile;
+      const contatosSetor = prevProfile[setorKey] as { telefones?: string[]; emails?: string[] } || { telefones: [''], emails: [''] };
+      return {
+        ...prevProfile,
+        [setorKey]: {
+          ...contatosSetor,
+          [tipo]: [...(contatosSetor[tipo] || ['']), ''],
+        },
+      };
+    });
+  }, []);
 
+  const removeContatoSetor = useCallback((setor: string, tipo: 'telefones' | 'emails', index: number) => {
+    setProfile(prevProfile => {
+      const setorKey = `contatos_${setor}` as keyof ClinicProfile;
+      const contatosSetor = prevProfile[setorKey] as { telefones?: string[]; emails?: string[] } || { telefones: [''], emails: [''] };
+      const lista = contatosSetor[tipo] || [''];
+      if (lista.length <= 1) return prevProfile; // Mantém pelo menos um campo
+      return {
+        ...prevProfile,
+        [setorKey]: {
+          ...contatosSetor,
+          [tipo]: lista.filter((_, i) => i !== index),
+        },
+      };
+    });
+  }, []);
+
+  const updateContatoSetor = useCallback((setor: string, tipo: 'telefones' | 'emails', index: number, value: string) => {
+    setProfile(prevProfile => {
+      const setorKey = `contatos_${setor}` as keyof ClinicProfile;
+      const contatosSetor = prevProfile[setorKey] as { telefones?: string[]; emails?: string[] } || { telefones: [''], emails: [''] };
+      return {
+        ...prevProfile,
+        [setorKey]: {
+          ...contatosSetor,
+          [tipo]: (contatosSetor[tipo] || ['']).map((item, i) => i === index ? value : item),
+        },
+      };
+    });
+  }, []);
 
   // Memoizar elementos que não mudam frequentemente
   const logoUploadButton = useMemo(() => (
@@ -477,7 +616,7 @@ const ClinicProfileComponent = () => {
               Perfil da Clínica
             </h1>
             <p className="text-muted-foreground mt-2">
-              Configure as informações da sua clínica para uso nos documentos e solicitações
+              Ajuste os dados cadastrais
             </p>
             {!apiConnected && (
               <p className="text-orange-600 text-sm mt-1">
@@ -492,7 +631,7 @@ const ClinicProfileComponent = () => {
               className="text-primary border-primary hover:bg-primary/10 transition-all duration-300"
             >
               <Users className="w-4 h-4 mr-2" />
-              Corpo Clínico
+              Profissionais
             </Button>
             <Button
               onClick={() => navigateWithTransition('/cadastro-documentos')}
@@ -578,13 +717,13 @@ const ClinicProfileComponent = () => {
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Building2 className="h-5 w-5 mr-2 text-primary" />
-                Informações Básicas
+                Informações Cadastrais
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="nome">Nome da Clínica *</Label>
+                  <Label htmlFor="nome">Nome Fantasia *</Label>
                   <Input
                     id="nome"
                     name="nome"
@@ -595,7 +734,19 @@ const ClinicProfileComponent = () => {
                     disabled
                     required
                   />
-                  <p className="text-xs text-muted-foreground">Para alterar, abra um chamado solicitando a atualização pela Operadora.</p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="razao_social">Razão Social</Label>
+                  <Input
+                    id="razao_social"
+                    name="razao_social"
+                    value={profile.razao_social || ''}
+                    onChange={handleInputChange}
+                    placeholder="Ex: Clínica Oncológica São Paulo LTDA"
+                    className="lco-input bg-muted/30 cursor-not-allowed"
+                    disabled
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -610,7 +761,6 @@ const ClinicProfileComponent = () => {
                     disabled
                     required
                   />
-                  <p className="text-xs text-muted-foreground">Para alterar, abra um chamado solicitando a atualização pela Operadora.</p>
                 </div>
 
                 <div className="space-y-2">
@@ -625,7 +775,6 @@ const ClinicProfileComponent = () => {
                     disabled
                     maxLength={18}
                   />
-                  <p className="text-xs text-muted-foreground">Para alterar, abra um chamado solicitando a atualização pela Operadora.</p>
                 </div>
 
                 <div className="space-y-2">
@@ -699,33 +848,56 @@ const ClinicProfileComponent = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="space-y-2 md:col-span-2 lg:col-span-3">
-                <Label htmlFor="endereco">Endereço Completo</Label>
+              <div className="space-y-2 md:col-span-2 lg:col-span-2">
+                <Label htmlFor="endereco_rua">Rua/Avenida *</Label>
                 <Input
-                  id="endereco"
-                  name="endereco"
-                  value={profile.endereco}
+                  id="endereco_rua"
+                  name="endereco_rua"
+                  value={profile.endereco_rua || ''}
                   onChange={handleInputChange}
-                  placeholder="Rua, número, complemento"
+                  placeholder="Ex: Rua das Flores"
                   className="lco-input"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="cep">CEP</Label>
+                <Label htmlFor="endereco_numero">Número *</Label>
                 <Input
-                  id="cep"
-                  name="cep"
-                  value={profile.cep}
-                  onChange={handleCEPChange}
-                  placeholder="00000-000"
+                  id="endereco_numero"
+                  name="endereco_numero"
+                  value={profile.endereco_numero || ''}
+                  onChange={handleInputChange}
+                  placeholder="123"
                   className="lco-input"
-                  maxLength={9}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="cidade">Cidade</Label>
+                <Label htmlFor="endereco_complemento">Complemento</Label>
+                <Input
+                  id="endereco_complemento"
+                  name="endereco_complemento"
+                  value={profile.endereco_complemento || ''}
+                  onChange={handleInputChange}
+                  placeholder="Sala 10, Andar 2"
+                  className="lco-input"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="endereco_bairro">Bairro *</Label>
+                <Input
+                  id="endereco_bairro"
+                  name="endereco_bairro"
+                  value={profile.endereco_bairro || ''}
+                  onChange={handleInputChange}
+                  placeholder="Centro"
+                  className="lco-input"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cidade">Cidade *</Label>
                 <Input
                   id="cidade"
                   name="cidade"
@@ -737,7 +909,7 @@ const ClinicProfileComponent = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="estado">Estado</Label>
+                <Label htmlFor="estado">Estado *</Label>
                 <Input
                   id="estado"
                   name="estado"
@@ -748,113 +920,106 @@ const ClinicProfileComponent = () => {
                   maxLength={2}
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="cep">CEP *</Label>
+                <Input
+                  id="cep"
+                  name="cep"
+                  value={profile.cep}
+                  onChange={handleCEPChange}
+                  placeholder="00000-000"
+                  className="lco-input"
+                  maxLength={9}
+                />
+              </div>
             </div>
           </CardContent>
         </Card>
       </AnimatedSection>
 
-      {/* Contato */}
+      {/* Contato - Organizado por Setores */}
       <AnimatedSection delay={400}>
         <Card className="lco-card">
           <CardHeader>
             <CardTitle className="flex items-center">
               <Phone className="h-5 w-5 mr-2 text-primary" />
-              Informações de Contato
+              Informações de Contato por Setor
             </CardTitle>
+            <p className="text-sm text-muted-foreground mt-2">
+              Organize os contatos da clínica por áreas de atuação
+            </p>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Telefones e Emails lado a lado */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Telefones */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-medium">Telefones</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addTelefone}
-                    className="flex items-center gap-1"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Adicionar Telefone
-                  </Button>
-                </div>
-                
-                <div className="space-y-3">
-                  {profile.telefones?.map((telefone, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <div className="relative flex-1">
-                        <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          value={telefone || ''}
-                          onChange={(e) => updateTelefone(index, e.target.value)}
-                          placeholder="(11) 99999-9999"
-                          className="lco-input pl-10"
-                          maxLength={15}
-                        />
-                      </div>
-                      {profile.telefones && profile.telefones.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeTelefone(index)}
-                          className="h-10 w-10 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Emails */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-medium">E-mails</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addEmail}
-                    className="flex items-center gap-1"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Adicionar E-mail
-                  </Button>
-                </div>
-                
-                <div className="space-y-3">
-                  {profile.emails?.map((email, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <div className="relative flex-1">
-                        <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                          type="email"
-                          value={email || ''}
-                          onChange={(e) => updateEmail(index, e.target.value)}
-                          placeholder="contato@suaclinica.com.br"
-                          className="lco-input pl-10"
-                        />
-                      </div>
-                      {profile.emails && profile.emails.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeEmail(index)}
-                          className="h-10 w-10 p-0 text-red-500 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            <ContatoSetorSection
+              setor="pacientes"
+              label="Atendimento ao Paciente"
+              color="bg-blue-500"
+              telefones={profile.contatos_pacientes?.telefones || ['']}
+              emails={profile.contatos_pacientes?.emails || ['']}
+              onAddTelefone={() => addContatoSetor('pacientes', 'telefones')}
+              onRemoveTelefone={(idx) => removeContatoSetor('pacientes', 'telefones', idx)}
+              onUpdateTelefone={(idx, value) => updateContatoSetor('pacientes', 'telefones', idx, value)}
+              onAddEmail={() => addContatoSetor('pacientes', 'emails')}
+              onRemoveEmail={(idx) => removeContatoSetor('pacientes', 'emails', idx)}
+              onUpdateEmail={(idx, value) => updateContatoSetor('pacientes', 'emails', idx, value)}
+            />
+            
+            <ContatoSetorSection
+              setor="administrativos"
+              label="Administrativo"
+              color="bg-green-500"
+              telefones={profile.contatos_administrativos?.telefones || ['']}
+              emails={profile.contatos_administrativos?.emails || ['']}
+              onAddTelefone={() => addContatoSetor('administrativos', 'telefones')}
+              onRemoveTelefone={(idx) => removeContatoSetor('administrativos', 'telefones', idx)}
+              onUpdateTelefone={(idx, value) => updateContatoSetor('administrativos', 'telefones', idx, value)}
+              onAddEmail={() => addContatoSetor('administrativos', 'emails')}
+              onRemoveEmail={(idx) => removeContatoSetor('administrativos', 'emails', idx)}
+              onUpdateEmail={(idx, value) => updateContatoSetor('administrativos', 'emails', idx, value)}
+            />
+            
+            <ContatoSetorSection
+              setor="legais"
+              label="Jurídico / Legal"
+              color="bg-purple-500"
+              telefones={profile.contatos_legais?.telefones || ['']}
+              emails={profile.contatos_legais?.emails || ['']}
+              onAddTelefone={() => addContatoSetor('legais', 'telefones')}
+              onRemoveTelefone={(idx) => removeContatoSetor('legais', 'telefones', idx)}
+              onUpdateTelefone={(idx, value) => updateContatoSetor('legais', 'telefones', idx, value)}
+              onAddEmail={() => addContatoSetor('legais', 'emails')}
+              onRemoveEmail={(idx) => removeContatoSetor('legais', 'emails', idx)}
+              onUpdateEmail={(idx, value) => updateContatoSetor('legais', 'emails', idx, value)}
+            />
+            
+            <ContatoSetorSection
+              setor="faturamento"
+              label="Faturamento"
+              color="bg-orange-500"
+              telefones={profile.contatos_faturamento?.telefones || ['']}
+              emails={profile.contatos_faturamento?.emails || ['']}
+              onAddTelefone={() => addContatoSetor('faturamento', 'telefones')}
+              onRemoveTelefone={(idx) => removeContatoSetor('faturamento', 'telefones', idx)}
+              onUpdateTelefone={(idx, value) => updateContatoSetor('faturamento', 'telefones', idx, value)}
+              onAddEmail={() => addContatoSetor('faturamento', 'emails')}
+              onRemoveEmail={(idx) => removeContatoSetor('faturamento', 'emails', idx)}
+              onUpdateEmail={(idx, value) => updateContatoSetor('faturamento', 'emails', idx, value)}
+            />
+            
+            <ContatoSetorSection
+              setor="financeiro"
+              label="Financeiro"
+              color="bg-red-500"
+              telefones={profile.contatos_financeiro?.telefones || ['']}
+              emails={profile.contatos_financeiro?.emails || ['']}
+              onAddTelefone={() => addContatoSetor('financeiro', 'telefones')}
+              onRemoveTelefone={(idx) => removeContatoSetor('financeiro', 'telefones', idx)}
+              onUpdateTelefone={(idx, value) => updateContatoSetor('financeiro', 'telefones', idx, value)}
+              onAddEmail={() => addContatoSetor('financeiro', 'emails')}
+              onRemoveEmail={(idx) => removeContatoSetor('financeiro', 'emails', idx)}
+              onUpdateEmail={(idx, value) => updateContatoSetor('financeiro', 'emails', idx, value)}
+            />
           </CardContent>
         </Card>
       </AnimatedSection>

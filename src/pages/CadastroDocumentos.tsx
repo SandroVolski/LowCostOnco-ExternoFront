@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { FolderOpen, Upload, Save, Calendar, FileText, Edit, Trash2, Download, AlertTriangle, CheckCircle, Clock, Archive, Plus, Filter, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -60,7 +60,8 @@ const CadastroDocumentos = () => {
   const [currentDocumento, setCurrentDocumento] = useState<Documento>(emptyDocumento);
   const [isEditingDocumento, setIsEditingDocumento] = useState(false);
   const [filterType, setFilterType] = useState<string>('todos');
-  const [filteredDocumentos, setFilteredDocumentos] = useState<Documento[]>([]);
+  // Lista filtrada derivada (useMemo evita loops de atualização)
+  // Removemos setState em efeito para impedir "Maximum update depth exceeded"
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -76,7 +77,7 @@ const CadastroDocumentos = () => {
     refetch,
     isBackendAvailable
   } = useDataLoader({
-    key: `documentos:${refreshKey}`, // Chave dinâmica para forçar refresh
+    key: `documentos:${user?.clinica_id || 1}:${refreshKey}`, // Inclui clinica_id para chave estável por clínica
     loader: async () => {
       return await ClinicService.listarDocumentos({ clinica_id: user?.clinica_id || 1 });
     },
@@ -119,20 +120,20 @@ const CadastroDocumentos = () => {
     return 'ativo';
   }, []);
 
-  // Atualizar status dos documentos (RESPEITANDO o status do banco)
-  useEffect(() => {
-    const documentosComStatus = documentos.map(doc => ({
+  // Atualizar status e filtrar documentos sem setState (evita re-renders em loop)
+  const documentosComStatus = useMemo(() => {
+    return documentos.map(doc => ({
       ...doc,
-      // Só recalcula status se for necessário
       status: calcularStatus(doc)
     }));
-    
-    const filtered = applyFilter(documentosComStatus, filterType);
-    setFilteredDocumentos(filtered);
-  }, [documentos, filterType, calcularStatus]);
+  }, [documentos, calcularStatus]);
 
-  // Função para aplicar filtros
-  const applyFilter = useCallback((documentos: Documento[], filter: string) => {
+  const filteredDocumentos = useMemo(() => {
+    return applyFilter(documentosComStatus, filterType);
+  }, [documentosComStatus, filterType]);
+
+  // Função para aplicar filtros (declaração normal evita ordem de inicialização)
+  function applyFilter(documentos: Documento[], filter: string) {
     let filtered = [...documentos];
     
     switch (filter) {
@@ -160,7 +161,7 @@ const CadastroDocumentos = () => {
       if (!b.data_vencimento) return -1;
       return new Date(a.data_vencimento).getTime() - new Date(b.data_vencimento).getTime();
     });
-  }, []);
+  }
 
   // Funções para documentos
   const handleAddDocumento = useCallback(() => {

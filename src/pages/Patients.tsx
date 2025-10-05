@@ -1832,7 +1832,22 @@ const Patients = () => {
                     )}
                   </div>
                   
-                  
+                  <div className="space-y-2">
+                    <Label htmlFor="Codigo">Código do Paciente</Label>
+                    <Input
+                      id="Codigo"
+                      name="Codigo"
+                      value={currentPatient.Codigo}
+                      onChange={handleInputChange}
+                      placeholder="Código interno do paciente"
+                      className={`transition-all duration-300 focus:border-primary ${
+                        validationErrors.Codigo ? 'border-red-500' : ''
+                      }`}
+                    />
+                    {validationErrors.Codigo && (
+                      <p className="text-sm text-red-500 mt-1">{validationErrors.Codigo}</p>
+                    )}
+                  </div>
                   
                   <div className="space-y-2">
                     <Label htmlFor="cpf">CPF</Label>

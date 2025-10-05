@@ -32,7 +32,7 @@ export function AutoResizeTextarea({
       ref={textareaRef}
       value={value}
       onChange={onChange}
-      className={cn("min-h-[100px] overflow-hidden", className)}
+      className={cn("min-h-[140px] overflow-hidden", className)}
       {...props}
     />
   );

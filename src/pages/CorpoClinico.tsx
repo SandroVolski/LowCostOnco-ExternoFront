@@ -13,13 +13,24 @@ import { LoadingState, ConnectionStatus } from '@/components/ui/loading-states';
 
 const emptyResponsavel: ResponsavelTecnico = {
   nome: '',
-  crm: '',
-  especialidade: '',
-  especialidade1: '',
-  especialidade2: '',
+  tipo_profissional: 'medico',
+  registro_conselho: '',
+  uf_registro: '',
+  especialidade_principal: '',
+  rqe_principal: '',
+  especialidade_secundaria: '',
+  rqe_secundaria: '',
+  cnes: '',
   telefone: '',
   email: '',
-  cnes: '',
+  responsavel_tecnico: false,
+  operadoras_habilitadas: [],
+  documentos: {
+    carteira_conselho: '',
+    diploma: '',
+    comprovante_especializacao: ''
+  },
+  status: 'ativo',
 };
 
 // Componente AnimatedSection
@@ -41,7 +52,8 @@ const CorpoClinico = () => {
   const [currentResponsavel, setCurrentResponsavel] = useState<ResponsavelTecnico>(emptyResponsavel);
   const [isEditingResponsavel, setIsEditingResponsavel] = useState(false);
   const [filterType, setFilterType] = useState<string>('recent');
-  const [filteredResponsaveis, setFilteredResponsaveis] = useState<ResponsavelTecnico[]>([]);
+  const [togglingId, setTogglingId] = useState<number | null>(null);
+  // Lista derivada memoizada para evitar setState em efeito
 
   // Usar o novo sistema de carregamento
   const {
@@ -53,13 +65,18 @@ const CorpoClinico = () => {
   } = useDataLoader({
     key: 'corpo-clinico',
     loader: async () => {
+      console.log('🔧 Carregando perfil da clínica...');
       const data = await ClinicService.getProfile();
+      console.log('📋 Dados do perfil recebidos:', data);
+      console.log('👨‍⚕️ Responsáveis técnicos encontrados:', data.responsaveis_tecnicos?.length || 0);
       return data.responsaveis_tecnicos || [];
     },
     fallback: () => {
+      console.log('🔧 Usando fallback do localStorage...');
       const savedProfile = localStorage.getItem('clinic_profile');
       if (savedProfile) {
         const data = JSON.parse(savedProfile);
+        console.log('📋 Dados do localStorage:', data);
         return data.responsaveis_tecnicos || [];
       }
       return null;
@@ -68,10 +85,19 @@ const CorpoClinico = () => {
     showToast: false
   });
 
-  const responsaveis = profileData || [];
+  const [localResponsaveis, setLocalResponsaveis] = useState<ResponsavelTecnico[]>([]);
+  
+  // Atualizar responsáveis locais quando profileData mudar
+  useEffect(() => {
+    if (profileData && Array.isArray(profileData)) {
+      setLocalResponsaveis(profileData);
+    }
+  }, [profileData]);
+  
+  const responsaveis = localResponsaveis;
 
-  // Função para aplicar filtros
-  const applyFilter = useCallback((responsaveis: ResponsavelTecnico[], filter: string) => {
+  // Função para aplicar filtros (sem depender de hooks para não recriar em cada render)
+  function applyFilter(responsaveis: ResponsavelTecnico[], filter: string) {
     const sorted = [...responsaveis];
     
     switch (filter) {
@@ -84,16 +110,16 @@ const CorpoClinico = () => {
       case 'za':
         return sorted.sort((a, b) => b.nome.localeCompare(a.nome));
       case 'specialty':
-        return sorted.sort((a, b) => a.especialidade.localeCompare(b.especialidade));
+        return sorted.sort((a, b) => a.especialidade_principal.localeCompare(b.especialidade_principal));
       default:
         return sorted;
     }
-  }, []);
+  }
 
-  // Aplicar filtro quando responsaveis ou filterType mudar
-  useEffect(() => {
-    setFilteredResponsaveis(applyFilter(responsaveis, filterType));
-  }, [responsaveis, filterType, applyFilter]);
+  // Responsáveis filtrados (derivado)
+  const filteredResponsaveis = useMemo(() => {
+    return applyFilter(responsaveis, filterType);
+  }, [responsaveis, filterType]);
 
   // Funções para responsáveis técnicos
   const handleAddResponsavel = useCallback(() => {
@@ -139,8 +165,8 @@ const CorpoClinico = () => {
   }, [isBackendAvailable, responsaveis, refetch]);
 
   const handleSaveResponsavel = useCallback(async () => {
-    if (!currentResponsavel.nome || !currentResponsavel.crm || !currentResponsavel.especialidade) {
-      toast.error('Nome, CRM e especialidade são obrigatórios');
+    if (!currentResponsavel.nome || !currentResponsavel.registro_conselho || !currentResponsavel.especialidade_principal) {
+      toast.error('Nome, Registro do Conselho e especialidade principal são obrigatórios');
       return;
     }
 
@@ -155,7 +181,9 @@ const CorpoClinico = () => {
           );
           toast.success('Responsável atualizado com sucesso!');
         } else {
+          console.log('🔧 Salvando responsável no backend:', cleanResponsavel);
           await ClinicService.addResponsavel(cleanResponsavel);
+          console.log('✅ Responsável salvo no backend com sucesso');
           toast.success('Responsável adicionado com sucesso!');
         }
       } else {
@@ -185,7 +213,17 @@ const CorpoClinico = () => {
         }
       }
       
-      refetch(); // Recarregar dados
+      console.log('🔄 Chamando refetch para recarregar dados...');
+      await refetch(); // Recarregar dados
+      console.log('✅ Refetch concluído');
+      
+      // Forçar recarregamento após um pequeno delay para garantir que o backend processou
+      setTimeout(async () => {
+        console.log('🔄 Refetch adicional após delay...');
+        await refetch();
+        console.log('✅ Refetch adicional concluído');
+      }, 500);
+      
       setIsResponsavelDialogOpen(false);
     } catch (error) {
       console.error('Erro ao salvar responsável:', error);
@@ -195,7 +233,7 @@ const CorpoClinico = () => {
     }
   }, [currentResponsavel, isEditingResponsavel, isBackendAvailable, responsaveis, refetch]);
 
-  const handleResponsavelInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleResponsavelInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement> | { target: { name: string; value: any } }) => {
     const { name, value } = e.target;
     setCurrentResponsavel(prevResponsavel => ({
       ...prevResponsavel,
@@ -203,6 +241,85 @@ const CorpoClinico = () => {
     }));
   }, []);
 
+  const handleToggleStatus = useCallback(async (responsavel: ResponsavelTecnico, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    if (togglingId) return; // Previne cliques múltiplos
+    
+    try {
+      setTogglingId(responsavel.id || null);
+      const newStatus = responsavel.status === 'ativo' ? 'inativo' : 'ativo';
+      
+      // Atualizar UI imediatamente (otimistic update)
+      setLocalResponsaveis(prev => 
+        prev.map(r => 
+          r.id === responsavel.id 
+            ? { ...r, status: newStatus }
+            : r
+        )
+      );
+      
+      if (isBackendAvailable) {
+        if (!responsavel.id) {
+          throw new Error('ID do profissional não encontrado');
+        }
+        
+        await ClinicService.updateResponsavel(responsavel.id, {
+          ...responsavel,
+          status: newStatus
+        });
+        
+        toast.success(`Profissional ${newStatus === 'ativo' ? 'ativado' : 'desativado'} com sucesso!`);
+      } else {
+        const savedProfile = localStorage.getItem('clinic_profile');
+        if (savedProfile) {
+          const data = JSON.parse(savedProfile);
+          if (data.responsaveis_tecnicos) {
+            const updatedResponsaveis = data.responsaveis_tecnicos.map((r: any) => 
+              r.id === responsavel.id ? { ...r, status: newStatus } : r
+            );
+            data.responsaveis_tecnicos = updatedResponsaveis;
+            localStorage.setItem('clinic_profile', JSON.stringify(data));
+          }
+        }
+        toast.success(`Profissional ${newStatus === 'ativo' ? 'ativado' : 'desativado'} localmente!`);
+      }
+      
+      // Limpar cache do localStorage antes de refetch
+      const cacheKey = 'corpo-clinico';
+      const cacheData = localStorage.getItem('dataLoader_cache');
+      if (cacheData) {
+        try {
+          const cache = JSON.parse(cacheData);
+          if (cache[cacheKey]) {
+            delete cache[cacheKey];
+            localStorage.setItem('dataLoader_cache', JSON.stringify(cache));
+          }
+        } catch (e) {
+          console.error('Erro ao limpar cache:', e);
+        }
+      }
+      
+      // Recarregar dados com cache limpo para confirmar
+      await refetch();
+    } catch (error) {
+      console.error('Erro ao alterar status do profissional:', error);
+      toast.error('Erro ao alterar status do profissional');
+      
+      // Reverter mudança otimista em caso de erro
+      const originalStatus = responsavel.status;
+      setLocalResponsaveis(prev => 
+        prev.map(r => 
+          r.id === responsavel.id 
+            ? { ...r, status: originalStatus }
+            : r
+        )
+      );
+    } finally {
+      setTogglingId(null);
+    }
+  }, [isBackendAvailable, refetch, togglingId]);
+  
   return (
     <LoadingState
       loading={loading}
@@ -218,10 +335,10 @@ const CorpoClinico = () => {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
-              Corpo Clínico
+              Profissionais
             </h1>
             <p className="text-muted-foreground mt-2">
-              Gerencie os médicos responsáveis pela clínica para uso nas solicitações de autorização
+              Gerencie os profissionais de saúde da clínica
             </p>
             {!isBackendAvailable && (
               <p className="text-orange-600 text-sm mt-1">
@@ -234,7 +351,7 @@ const CorpoClinico = () => {
             className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 transition-all duration-300 hover:scale-105 hover:shadow-lg"
           >
             <Plus className="w-4 h-4 mr-2" />
-            Adicionar Responsável
+            Adicionar Profissional
           </Button>
         </div>
       </AnimatedSection>
@@ -248,7 +365,7 @@ const CorpoClinico = () => {
                 <div className="p-2 bg-primary/10 rounded-lg mr-3">
                   <Users className="h-6 w-6 text-primary" />
                 </div>
-                Responsáveis Técnicos
+                Equipe Assistencial
               </CardTitle>
               <div className="flex items-center gap-2">
                 <div className="flex items-center gap-2">
@@ -274,28 +391,102 @@ const CorpoClinico = () => {
               <div className="text-center py-12 border-2 border-dashed border-border rounded-xl">
                 <UserPlus className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-xl font-medium text-muted-foreground mb-2">
-                  Nenhum responsável técnico cadastrado
+                  Nenhum profissional cadastrado
                 </h3>
                 <p className="text-sm text-muted-foreground mb-6 max-w-md mx-auto">
-                  Adicione os médicos responsáveis pela clínica para usar nas solicitações de autorização
+                  Adicione os profissionais de saúde da clínica
                 </p>
                 <Button
                   onClick={handleAddResponsavel}
                   className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium px-6 py-2 shadow-lg hover:shadow-xl transition-all"
                 >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Adicionar Primeiro Responsável
+                  <Plus className="w-4 w-4 mr-2" />
+                  Adicionar Primeiro Profissional
                 </Button>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredResponsaveis.map((responsavel, index) => (
-                  <Card key={responsavel.id || index} className="border border-border hover:border-primary/30 transition-all duration-300 hover:shadow-lg">
+                  <Card 
+                    key={responsavel.id || index} 
+                    className={`border border-border hover:border-primary/30 transition-all duration-500 ease-in-out hover:shadow-lg hover:scale-[1.02] ${
+                      responsavel.status === 'inativo' ? 'opacity-50 blur-[0.5px]' : 'opacity-100'
+                    }`}
+                    style={{
+                      transition: 'opacity 0.5s ease-in-out, filter 0.5s ease-in-out, transform 0.3s ease-in-out'
+                    }}
+                  >
                     <CardContent className="p-6">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
-                          <h4 className="font-semibold text-primary text-lg">{responsavel.nome}</h4>
-                          <p className="text-sm text-muted-foreground font-medium">{responsavel.crm}</p>
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="font-semibold text-primary text-lg">{responsavel.nome}</h4>
+                            {/* Toggle Switch */}
+                            <button
+                              onClick={(e) => handleToggleStatus(responsavel, e)}
+                              disabled={togglingId === responsavel.id}
+                              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 border-transparent transition-all duration-300 ease-in-out focus:outline-none focus-visible:ring-4 focus-visible:ring-primary/30 focus-visible:ring-offset-2 ${
+                                togglingId === responsavel.id
+                                  ? 'cursor-wait opacity-70 animate-pulse'
+                                  : 'cursor-pointer hover:scale-110 active:scale-95'
+                              } ${
+                                responsavel.status === 'ativo' 
+                                  ? 'bg-gradient-to-r from-green-500 to-green-600 shadow-lg shadow-green-500/50' 
+                                  : 'bg-gradient-to-r from-gray-300 to-gray-400 shadow-md'
+                              }`}
+                              type="button"
+                              title={
+                                togglingId === responsavel.id 
+                                  ? 'Atualizando...' 
+                                  : responsavel.status === 'ativo' 
+                                    ? 'Desativar profissional' 
+                                    : 'Ativar profissional'
+                              }
+                              style={{
+                                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                              }}
+                            >
+                              <span
+                                className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-lg ring-0 transition-all duration-300 ease-in-out ${
+                                  togglingId === responsavel.id
+                                    ? 'animate-spin'
+                                    : responsavel.status === 'ativo' 
+                                      ? 'translate-x-5 scale-110' 
+                                      : 'translate-x-0 scale-100'
+                                }`}
+                                style={{
+                                  boxShadow: responsavel.status === 'ativo' 
+                                    ? '0 4px 6px -1px rgba(34, 197, 94, 0.3), 0 2px 4px -1px rgba(34, 197, 94, 0.2)'
+                                    : '0 2px 4px -1px rgba(0, 0, 0, 0.1)'
+                                }}
+                              >
+                                {togglingId === responsavel.id && (
+                                  <svg className="w-3 h-3 absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"/>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+                                  </svg>
+                                )}
+                              </span>
+                            </button>
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-sm text-muted-foreground font-medium">
+                              {responsavel.tipo_profissional === 'medico' ? 'Médico' :
+                               responsavel.tipo_profissional === 'nutricionista' ? 'Nutricionista' :
+                               responsavel.tipo_profissional === 'enfermeiro' ? 'Enfermeiro' :
+                               responsavel.tipo_profissional === 'farmaceutico' ? 'Farmacêutico' :
+                               responsavel.tipo_profissional === 'terapeuta_ocupacional' ? 'Terapeuta Ocupacional' :
+                               responsavel.tipo_profissional}
+                            </span>
+                            {responsavel.responsavel_tecnico && (
+                              <span className="px-2 py-1 text-xs bg-primary/10 text-primary rounded-full font-medium">
+                                Responsável Técnico
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            {responsavel.registro_conselho} - {responsavel.uf_registro}
+                          </p>
                         </div>
                         <div className="flex gap-1">
                           <Button
@@ -319,26 +510,24 @@ const CorpoClinico = () => {
                       <div className="space-y-2 text-sm">
                         <div className="p-2 bg-muted/30 rounded-lg">
                           <span className="font-medium text-primary">Especialidade Principal:</span>
-                          <p className="text-foreground">{responsavel.especialidade}</p>
-                          {responsavel.especialidade1 && (
-                            <div className="mt-2">
-                              <span className="font-medium text-muted-foreground">Especialidade 1:</span>
-                              <p className="text-foreground">{responsavel.especialidade1}</p>
-                            </div>
+                          <p className="text-foreground">{responsavel.especialidade_principal}</p>
+                          {responsavel.rqe_principal && (
+                            <p className="text-xs text-muted-foreground">RQE: {responsavel.rqe_principal}</p>
                           )}
-                          {responsavel.especialidade2 && (
+                          {responsavel.especialidade_secundaria && (
                             <div className="mt-2">
-                              <span className="font-medium text-muted-foreground">Especialidade 2:</span>
-                              <p className="text-foreground">{responsavel.especialidade2}</p>
+                              <span className="font-medium text-muted-foreground">Especialidade Secundária:</span>
+                              <p className="text-foreground">{responsavel.especialidade_secundaria}</p>
+                              {responsavel.rqe_secundaria && (
+                                <p className="text-xs text-muted-foreground">RQE: {responsavel.rqe_secundaria}</p>
+                              )}
                             </div>
                           )}
                         </div>
-                        {responsavel.cnes && (
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-muted-foreground">CNES:</span>
-                            <span className="text-foreground">{responsavel.cnes}</span>
-                          </div>
-                        )}
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-muted-foreground">CNES:</span>
+                          <span className="text-foreground">{responsavel.cnes}</span>
+                        </div>
                         {responsavel.telefone && (
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-muted-foreground">Telefone:</span>
@@ -363,14 +552,16 @@ const CorpoClinico = () => {
 
       {/* Modal para Adicionar/Editar Responsável */}
       <Dialog open={isResponsavelDialogOpen} onOpenChange={setIsResponsavelDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto" aria-describedby="corpo-clinico-dialog-desc">
           <DialogHeader>
             <DialogTitle className="flex items-center">
               <FileText className="h-5 w-5 mr-2 text-primary" />
-              {isEditingResponsavel ? 'Editar Responsável' : 'Adicionar Responsável'}
+              {isEditingResponsavel ? 'Editar Profissional' : 'Adicionar Profissional'}
             </DialogTitle>
+            <p id="corpo-clinico-dialog-desc" className="sr-only">Preencha os campos obrigatórios para salvar o profissional de saúde da clínica.</p>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Nome Completo */}
             <div className="space-y-2">
               <Label htmlFor="nome" className="text-sm font-medium">
                 Nome Completo *
@@ -380,82 +571,189 @@ const CorpoClinico = () => {
                 name="nome"
                 value={currentResponsavel.nome}
                 onChange={handleResponsavelInputChange}
-                placeholder="Nome do médico"
+                placeholder="Nome do profissional"
                 className="h-11 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                 required
               />
             </div>
+
+            {/* Tipo de Profissional e Registro */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="crm" className="text-sm font-medium">
-                  CRM *
+                <Label htmlFor="tipo_profissional" className="text-sm font-medium">
+                  Tipo de Profissional *
+                </Label>
+                <Select 
+                  value={currentResponsavel.tipo_profissional} 
+                  onValueChange={(value) => handleResponsavelInputChange({ target: { name: 'tipo_profissional', value } })}
+                >
+                  <SelectTrigger className="h-11">
+                    <SelectValue placeholder="Selecione o tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="medico">Médico</SelectItem>
+                    <SelectItem value="nutricionista">Nutricionista</SelectItem>
+                    <SelectItem value="enfermeiro">Enfermeiro</SelectItem>
+                    <SelectItem value="farmaceutico">Farmacêutico</SelectItem>
+                    <SelectItem value="terapeuta_ocupacional">Terapeuta Ocupacional</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="registro_conselho" className="text-sm font-medium">
+                  Registro Conselho *
                 </Label>
                 <Input
-                  id="crm"
-                  name="crm"
-                  value={currentResponsavel.crm}
+                  id="registro_conselho"
+                  name="registro_conselho"
+                  value={currentResponsavel.registro_conselho}
                   onChange={handleResponsavelInputChange}
-                  placeholder="Número do CRM"
+                  placeholder="Número do registro"
                   className="h-11 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                   required
                 />
               </div>
+            </div>
+
+            {/* UF do Registro */}
+            <div className="space-y-2">
+              <Label htmlFor="uf_registro" className="text-sm font-medium">
+                UF do Registro *
+              </Label>
+              <Select 
+                value={currentResponsavel.uf_registro} 
+                onValueChange={(value) => handleResponsavelInputChange({ target: { name: 'uf_registro', value } })}
+              >
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Selecione a UF" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="AC">AC</SelectItem>
+                  <SelectItem value="AL">AL</SelectItem>
+                  <SelectItem value="AP">AP</SelectItem>
+                  <SelectItem value="AM">AM</SelectItem>
+                  <SelectItem value="BA">BA</SelectItem>
+                  <SelectItem value="CE">CE</SelectItem>
+                  <SelectItem value="DF">DF</SelectItem>
+                  <SelectItem value="ES">ES</SelectItem>
+                  <SelectItem value="GO">GO</SelectItem>
+                  <SelectItem value="MA">MA</SelectItem>
+                  <SelectItem value="MT">MT</SelectItem>
+                  <SelectItem value="MS">MS</SelectItem>
+                  <SelectItem value="MG">MG</SelectItem>
+                  <SelectItem value="PA">PA</SelectItem>
+                  <SelectItem value="PB">PB</SelectItem>
+                  <SelectItem value="PR">PR</SelectItem>
+                  <SelectItem value="PE">PE</SelectItem>
+                  <SelectItem value="PI">PI</SelectItem>
+                  <SelectItem value="RJ">RJ</SelectItem>
+                  <SelectItem value="RN">RN</SelectItem>
+                  <SelectItem value="RS">RS</SelectItem>
+                  <SelectItem value="RO">RO</SelectItem>
+                  <SelectItem value="RR">RR</SelectItem>
+                  <SelectItem value="SC">SC</SelectItem>
+                  <SelectItem value="SP">SP</SelectItem>
+                  <SelectItem value="SE">SE</SelectItem>
+                  <SelectItem value="TO">TO</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Especialidade Principal + RQE */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="especialidade" className="text-sm font-medium">
+                <Label htmlFor="especialidade_principal" className="text-sm font-medium">
                   Especialidade Principal *
                 </Label>
                 <Input
-                  id="especialidade"
-                  name="especialidade"
-                  value={currentResponsavel.especialidade}
+                  id="especialidade_principal"
+                  name="especialidade_principal"
+                  value={currentResponsavel.especialidade_principal}
                   onChange={handleResponsavelInputChange}
                   placeholder="Especialidade principal"
                   className="h-11 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                   required
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="rqe_principal" className="text-sm font-medium">
+                  RQE Principal
+                </Label>
+                <Input
+                  id="rqe_principal"
+                  name="rqe_principal"
+                  value={currentResponsavel.rqe_principal || ''}
+                  onChange={handleResponsavelInputChange}
+                  placeholder="Número do RQE"
+                  className="h-11 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                />
+              </div>
             </div>
+
+            {/* Especialidade Secundária + RQE */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="especialidade1" className="text-sm font-medium">
-                  Especialidade 1
+                <Label htmlFor="especialidade_secundaria" className="text-sm font-medium">
+                  Especialidade Secundária
                 </Label>
                 <Input
-                  id="especialidade1"
-                  name="especialidade1"
-                  value={currentResponsavel.especialidade1 || ''}
+                  id="especialidade_secundaria"
+                  name="especialidade_secundaria"
+                  value={currentResponsavel.especialidade_secundaria || ''}
                   onChange={handleResponsavelInputChange}
-                  placeholder="Especialidade adicional"
+                  placeholder="Especialidade secundária"
                   className="h-11 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="especialidade2" className="text-sm font-medium">
-                  Especialidade 2
+                <Label htmlFor="rqe_secundaria" className="text-sm font-medium">
+                  RQE Secundária
                 </Label>
                 <Input
-                  id="especialidade2"
-                  name="especialidade2"
-                  value={currentResponsavel.especialidade2 || ''}
+                  id="rqe_secundaria"
+                  name="rqe_secundaria"
+                  value={currentResponsavel.rqe_secundaria || ''}
                   onChange={handleResponsavelInputChange}
-                  placeholder="Outra especialidade"
+                  placeholder="Número do RQE"
                   className="h-11 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                 />
               </div>
             </div>
+
+            {/* CNES */}
             <div className="space-y-2">
               <Label htmlFor="cnes" className="text-sm font-medium">
-                CNES
+                CNES *
               </Label>
               <Input
                 id="cnes"
                 name="cnes"
                 value={currentResponsavel.cnes}
                 onChange={handleResponsavelInputChange}
-                placeholder="Código CNES do estabelecimento"
+                placeholder="CNES do Profissional no Estabelecimento"
                 className="h-11 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                required
               />
             </div>
+
+            {/* Responsável Técnico */}
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="responsavel_tecnico"
+                  name="responsavel_tecnico"
+                  checked={currentResponsavel.responsavel_tecnico}
+                  onChange={(e) => handleResponsavelInputChange({ target: { name: 'responsavel_tecnico', value: e.target.checked } })}
+                  className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                />
+                <Label htmlFor="responsavel_tecnico" className="text-sm font-medium">
+                  Responsável Técnico
+                </Label>
+              </div>
+            </div>
+
+            {/* Contatos */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="telefone" className="text-sm font-medium">
@@ -464,7 +762,7 @@ const CorpoClinico = () => {
                 <Input
                   id="telefone"
                   name="telefone"
-                  value={currentResponsavel.telefone}
+                  value={currentResponsavel.telefone || ''}
                   onChange={handleResponsavelInputChange}
                   placeholder="(11) 99999-9999"
                   className="h-11 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
@@ -478,11 +776,161 @@ const CorpoClinico = () => {
                   id="email"
                   name="email"
                   type="email"
-                  value={currentResponsavel.email}
+                  value={currentResponsavel.email || ''}
                   onChange={handleResponsavelInputChange}
-                  placeholder="medico@clinica.com"
+                  placeholder="profissional@clinica.com"
                   className="h-11 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
                 />
+              </div>
+            </div>
+
+            {/* Status */}
+            <div className="space-y-2">
+              <Label htmlFor="status" className="text-sm font-medium">
+                Status *
+              </Label>
+              <Select 
+                value={currentResponsavel.status} 
+                onValueChange={(value) => handleResponsavelInputChange({ target: { name: 'status', value } })}
+              >
+                <SelectTrigger className="h-11">
+                  <SelectValue placeholder="Selecione o status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ativo">Ativo</SelectItem>
+                  <SelectItem value="inativo">Inativo</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Operadoras Habilitadas */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm">Operadoras Habilitadas</h4>
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground">
+                  Selecione as operadoras para as quais este profissional está habilitado a prescrever:
+                </Label>
+                <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto border rounded-md p-3">
+                  {/* Mock operadoras - em produção viria do backend */}
+                  {[
+                    { id: 1, nome: 'Unimed' },
+                    { id: 2, nome: 'Bradesco Saúde' },
+                    { id: 3, nome: 'Amil' },
+                    { id: 4, nome: 'SulAmérica' },
+                    { id: 5, nome: 'NotreDame Intermédica' }
+                  ].map((operadora) => (
+                    <div key={operadora.id} className="flex items-center space-x-2">
+                      <input
+                        type="checkbox"
+                        id={`operadora_${operadora.id}`}
+                        checked={currentResponsavel.operadoras_habilitadas?.includes(operadora.id) || false}
+                        onChange={(e) => {
+                          const isChecked = e.target.checked;
+                          const currentOperadoras = currentResponsavel.operadoras_habilitadas || [];
+                          const newOperadoras = isChecked
+                            ? [...currentOperadoras, operadora.id]
+                            : currentOperadoras.filter(id => id !== operadora.id);
+                          
+                          handleResponsavelInputChange({ 
+                            target: { 
+                              name: 'operadoras_habilitadas', 
+                              value: newOperadoras 
+                            } 
+                          });
+                        }}
+                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                      />
+                      <Label htmlFor={`operadora_${operadora.id}`} className="text-sm">
+                        {operadora.nome}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Upload de Documentos */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm">Documentos</h4>
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="carteira_conselho" className="text-sm font-medium">
+                    Carteira do Conselho Profissional
+                  </Label>
+                  <Input
+                    id="carteira_conselho"
+                    name="carteira_conselho"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleResponsavelInputChange({ 
+                          target: { 
+                            name: 'documentos', 
+                            value: { 
+                              ...currentResponsavel.documentos, 
+                              carteira_conselho: file.name 
+                            } 
+                          } 
+                        });
+                      }
+                    }}
+                    className="h-11 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="diploma" className="text-sm font-medium">
+                    Diploma
+                  </Label>
+                  <Input
+                    id="diploma"
+                    name="diploma"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleResponsavelInputChange({ 
+                          target: { 
+                            name: 'documentos', 
+                            value: { 
+                              ...currentResponsavel.documentos, 
+                              diploma: file.name 
+                            } 
+                          } 
+                        });
+                      }
+                    }}
+                    className="h-11 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="comprovante_especializacao" className="text-sm font-medium">
+                    Comprovante de Especialização
+                  </Label>
+                  <Input
+                    id="comprovante_especializacao"
+                    name="comprovante_especializacao"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleResponsavelInputChange({ 
+                          target: { 
+                            name: 'documentos', 
+                            value: { 
+                              ...currentResponsavel.documentos, 
+                              comprovante_especializacao: file.name 
+                            } 
+                          } 
+                        });
+                      }
+                    }}
+                    className="h-11 border-border focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                  />
+                </div>
               </div>
             </div>
           </div>

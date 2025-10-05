@@ -22,8 +22,10 @@ import {
   Edit,
   Trash2,
   Download,
-  Eye
+  Eye,
+  Info
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { toast } from 'sonner';
 import { AjustesService, type SolicitacaoCorpoClinico, type Anexo, type HistoricoItem } from '@/services/ajustesService';
@@ -152,21 +154,31 @@ const AjustesCorpoClinico = () => {
         anexosCount: s.anexos?.length || 0
       })));
       
-      // Carregar anexos apenas se necessário e com retry inteligente
+      // Carregar anexos automaticamente para todas as solicitações
       const solicitacoesComAnexos = [];
       for (let i = 0; i < response.items.length; i++) {
         const solicitacao = response.items[i];
         
-        // Se já tem anexos, usar os existentes
-        if (solicitacao.anexos && solicitacao.anexos.length > 0) {
-          solicitacoesComAnexos.push(solicitacao);
-          continue;
+        try {
+          console.log('🔍 Carregando anexos para solicitação:', solicitacao.id);
+          const anexos = await AjustesService.listarAnexos(solicitacao.id!);
+          
+          if (anexos && Array.isArray(anexos)) {
+            solicitacoesComAnexos.push({ ...solicitacao, anexos: anexos });
+            console.log('✅ Anexos carregados:', anexos.length, 'para solicitação', solicitacao.id);
+          } else {
+            solicitacoesComAnexos.push({ ...solicitacao, anexos: [] });
+            console.log('📋 Nenhum anexo encontrado para solicitação:', solicitacao.id);
+          }
+          
+          // Delay pequeno entre carregamentos para evitar rate limiting
+          if (i < response.items.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        } catch (error) {
+          console.error('❌ Erro ao carregar anexos para solicitação:', solicitacao.id, error);
+          solicitacoesComAnexos.push({ ...solicitacao, anexos: [] });
         }
-        
-        // Por enquanto, não carregar anexos automaticamente para evitar rate limiting
-        // Os anexos serão carregados sob demanda quando o usuário clicar para visualizar
-        console.log('📋 Adicionando solicitação sem anexos (serão carregados sob demanda):', solicitacao.id);
-        solicitacoesComAnexos.push({ ...solicitacao, anexos: [] });
       }
       
       console.log('📋 Solicitações com anexos carregados:', solicitacoesComAnexos);
@@ -559,102 +571,82 @@ const AjustesCorpoClinico = () => {
 
 
 
-        <div className="space-y-8">
-          {/* Grid Superior com Estatísticas e Nova Solicitação */}
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
-            {/* Sidebar com Estatísticas */}
-            <div className="md:col-span-2 space-y-4">
-              {/* Cards de Estatísticas */}
-              <div className="grid grid-cols-2 md:grid-cols-1 gap-4">
-                <Card className="bg-primary/5 border-primary/10">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-sm text-muted-foreground">Médicos</p>
-                        <div className="flex items-baseline gap-2">
-                          <h3 className="text-2xl font-bold">{estatisticas.totalMedicos}</h3>
-                          <span className="text-xs text-muted-foreground">ativos</span>
-                        </div>
-                      </div>
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <Stethoscope className="h-4 w-4 text-primary" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-card border-border/50">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-sm text-muted-foreground">Especialidades</p>
-                        <div className="flex items-baseline gap-2">
-                          <h3 className="text-2xl font-bold">{estatisticas.totalEspecialidades}</h3>
-                          <span className="text-xs text-muted-foreground">áreas</span>
-                        </div>
-                      </div>
-                      <div className="p-2 bg-muted rounded-lg">
-                        <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                              <Card className="md:col-span-1 bg-card border-border/50">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">Unidades</p>
-                      <div className="flex items-baseline gap-2">
-                        <h3 className="text-2xl font-bold">3</h3>
-                        <span className="text-xs text-muted-foreground">locais</span>
-                      </div>
-                    </div>
-                    <div className="p-2 bg-muted rounded-lg">
-                      <Building2 className="h-4 w-4 text-muted-foreground" />
-                    </div>
+        {/* Componentes de Estatísticas - Nova Seção Superior */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {/* Componente Profissionais */}
+          <Card className="bg-primary/5 border-primary/10 hover:shadow-lg transition-all duration-300 hover:scale-105">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground font-medium">Profissionais</p>
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="text-3xl font-bold text-primary">{estatisticas.totalMedicos}</h3>
+                    <span className="text-xs text-muted-foreground">ativos</span>
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card border-border/50">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">Tempo Médio</p>
-                      <div className="flex items-baseline gap-2">
-                          <h3 className="text-2xl font-bold">{estatisticas.tempoMedioAprovacao}</h3>
-                        <span className="text-xs text-muted-foreground">dias p/ aprovação</span>
-                      </div>
-                    </div>
-                    <div className="p-2 bg-muted rounded-lg">
-                      <Clock className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-primary/5 border-primary/10">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">Taxa de Renovação</p>
-                      <div className="flex items-baseline gap-2">
-                          <h3 className="text-2xl font-bold">{estatisticas.taxaRenovacao}%</h3>
-                        <span className="text-xs text-muted-foreground">últimos 12m</span>
-                      </div>
-                    </div>
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <RefreshCw className="h-4 w-4 text-primary" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  <p className="text-xs text-muted-foreground">
+                    Médicos cadastrados no sistema
+                  </p>
+                </div>
+                <div className="p-3 bg-primary/10 rounded-xl">
+                  <Stethoscope className="h-6 w-6 text-primary" />
+                </div>
               </div>
-            </div>
+            </CardContent>
+          </Card>
 
-            {/* Form de Nova Solicitação */}
-            <div className="md:col-span-4">
+          {/* Componente Especialidades */}
+          <Card className="bg-card border-border/50 hover:shadow-lg transition-all duration-300 hover:scale-105">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground font-medium">Especialidades</p>
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="text-3xl font-bold">{estatisticas.totalEspecialidades}</h3>
+                    <span className="text-xs text-muted-foreground">áreas</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Especialidades médicas disponíveis
+                  </p>
+                </div>
+                <div className="p-3 bg-muted rounded-xl">
+                  <GraduationCap className="h-6 w-6 text-muted-foreground" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Componente Aprovadas/Rejeitadas */}
+          <Card className="bg-card border-border/50 hover:shadow-lg transition-all duration-300 hover:scale-105">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground font-medium">Aprovadas/Rejeitadas</p>
+                  <div className="flex items-baseline gap-3">
+                    <div className="flex items-center gap-1">
+                      <CheckCircle className="h-4 w-4 text-green-600" />
+                      <span className="text-xl font-bold text-green-600">{estatisticas.solicitacoesPorStatus.aprovado}</span>
+                    </div>
+                    <span className="text-muted-foreground">/</span>
+                    <div className="flex items-center gap-1">
+                      <XCircle className="h-4 w-4 text-red-600" />
+                      <span className="text-xl font-bold text-red-600">{estatisticas.solicitacoesPorStatus.rejeitado}</span>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Solicitações processadas
+                  </p>
+                </div>
+                <div className="p-3 bg-muted rounded-xl">
+                  <CheckCircle className="h-6 w-6 text-muted-foreground" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-8">
+          {/* Form de Nova Solicitação */}
+          <div>
               <Card className="border-primary/10 shadow-md">
                 <CardHeader className="space-y-1 bg-primary/5 border-b border-primary/10">
                   <CardTitle className="text-xl font-semibold text-primary">Nova Solicitação</CardTitle>
@@ -669,9 +661,9 @@ const AjustesCorpoClinico = () => {
                   }}>
                     <div className="space-y-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Nome do Médico</label>
+                        <label className="text-sm font-medium">Nome do Profissional</label>
                         <Input
-                          placeholder="Digite o nome completo do médico"
+                          placeholder="Digite o nome completo do profissional"
                           value={novaSolicitacao.medico}
                           onChange={(e) => setNovaSolicitacao(prev => ({ ...prev, medico: e.target.value }))}
                           className="border-primary/20 focus:border-primary"
@@ -709,13 +701,52 @@ const AjustesCorpoClinico = () => {
                       </div>
                       
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Descrição</label>
-                        <AutoResizeTextarea
-                          placeholder="Descreva detalhadamente sua solicitação"
-                          value={novaSolicitacao.descricao}
-                          onChange={(e) => setNovaSolicitacao(prev => ({ ...prev, descricao: e.target.value }))}
-                          className="border-primary/20 focus:border-primary"
-                        />
+                        <div className="flex items-center gap-2">
+                          <label className="text-sm font-medium">Descrição</label>
+                          <TooltipProvider delayDuration={0}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 w-6 p-0 hover:bg-primary/10"
+                                >
+                                  <Info className="h-4 w-4 text-primary" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="max-w-xs">
+                                <div className="text-sm">
+                                  <p className="font-medium mb-2">Documentos necessários:</p>
+                                  <ul className="space-y-1 text-xs">
+                                    <li>• Identidade Profissional</li>
+                                    <li>• Diploma (Frente e Verso)</li>
+                                    <li>• Comprovantes de Especializações</li>
+                                    <li>• Comprovante de Vínculo no CNES</li>
+                                  </ul>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </div>
+                        <div className="relative">
+                          <AutoResizeTextarea
+                            placeholder=" "
+                            value={novaSolicitacao.descricao}
+                            onChange={(e) => setNovaSolicitacao(prev => ({ ...prev, descricao: e.target.value }))}
+                            className="border-primary/20 focus:border-primary min-h-[180px] resize-none"
+                          />
+                          {!novaSolicitacao.descricao && (
+                            <div className="absolute inset-0 p-3 text-sm text-muted-foreground pointer-events-none whitespace-pre font-sans leading-relaxed">
+{`Descreva detalhadamente sua solicitação.
+Documentos necessários:
+• Identidade Profissional
+• Diploma (Frente e Verso)
+• Comprovantes de Especializações
+• Comprovante de Vínculo no CNES`}
+                            </div>
+                          )}
+                        </div>
                       </div>
 
                       <div className="space-y-2">
@@ -819,31 +850,11 @@ const AjustesCorpoClinico = () => {
                           )}
                         </Button>
                         
-                        <Button
-                          type="button"
-                          onClick={async () => {
-                            console.log('🧪 Testando endpoint de email...');
-                            const existe = await EmailService.testarEndpoint();
-                            if (existe) {
-                              toast.success('✅ Endpoint de email está funcionando!');
-                            } else {
-                              toast.error('❌ Endpoint de email não está disponível');
-                            }
-                          }}
-                          variant="outline"
-                          size="sm"
-                          className="text-xs px-3"
-                          title="Testar endpoint de email"
-                          disabled={loading}
-                        >
-                          🧪 Testar Email
-                        </Button>
                       </div>
                     </div>
                   </form>
                 </CardContent>
               </Card>
-            </div>
           </div>
 
           {/* Lista de Solicitações */}
@@ -886,9 +897,9 @@ const AjustesCorpoClinico = () => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Médico</label>
+                  <label className="block text-sm font-medium mb-2">Profissional</label>
                   <Input
-                    placeholder="Nome do médico"
+                    placeholder="Nome do profissional"
                     value={filtros.medico}
                     onChange={(e) => setFiltros(prev => ({ ...prev, medico: e.target.value }))}
                   />
@@ -1061,17 +1072,6 @@ const AjustesCorpoClinico = () => {
                             ) : (
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <span>Nenhum anexo</span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={async () => {
-                                    await carregarAnexosSobDemanda(solicitacao.id!);
-                                  }}
-                                  className="text-xs hover:text-primary hover:bg-primary/10 px-2 py-1 rounded"
-                                  title="Carregar anexos"
-                                >
-                                  🔄 Carregar
-                                </Button>
                               </div>
                             )}
                           </div>
@@ -1174,11 +1174,11 @@ const AjustesCorpoClinico = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Médico</label>
+                  <label className="block text-sm font-medium mb-2">Profissional</label>
                   <Input
                     value={novaSolicitacao.medico}
                     onChange={(e) => setNovaSolicitacao(prev => ({ ...prev, medico: e.target.value }))}
-                    placeholder="Nome do médico"
+                    placeholder="Nome do profissional"
                   />
                 </div>
                 <div>
@@ -1235,11 +1235,11 @@ const AjustesCorpoClinico = () => {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Médico</label>
+                  <label className="block text-sm font-medium mb-2">Profissional</label>
                   <Input
                     value={editingSolicitacao.medico}
                     onChange={(e) => setEditingSolicitacao(prev => prev ? { ...prev, medico: e.target.value } : null)}
-                    placeholder="Nome do médico"
+                    placeholder="Nome do profissional"
                   />
                 </div>
                 <div>

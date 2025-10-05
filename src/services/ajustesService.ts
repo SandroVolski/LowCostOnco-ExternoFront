@@ -465,10 +465,10 @@ export class AjustesService {
     }
   }
 
-  // Criar solicitação de negociação
+  // Criar solicitação de negociação (autenticado)
   static async criarSolicitacaoNegociacao(dados: NovaSolicitacaoNegociacao): Promise<SolicitacaoNegociacao> {
     try {
-      const response = await fetch(`${API_BASE_URL}/ajustes/solicitacoes`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/ajustes/solicitacoes`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -494,10 +494,10 @@ export class AjustesService {
     }
   }
 
-  // Atualizar solicitação de negociação
+  // Atualizar solicitação de negociação (autenticado)
   static async atualizarSolicitacaoNegociacao(id: number, dados: AtualizacaoNegociacao): Promise<SolicitacaoNegociacao> {
     try {
-      const response = await fetch(`${API_BASE_URL}/ajustes/solicitacoes/${id}`, {
+      const response = await authorizedFetch(`${API_BASE_URL}/ajustes/solicitacoes/${id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

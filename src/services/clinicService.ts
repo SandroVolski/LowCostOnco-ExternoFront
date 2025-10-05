@@ -6,18 +6,48 @@ import { operadoraAuthService } from '@/services/operadoraAuthService';
 
 const API_BASE_URL = config.API_BASE_URL;
 
+// ===== Tipos de Documentos da Clínica =====
+export interface Documento {
+  id?: number;
+  clinica_id: number;
+  nome: string;
+  tipo: string;
+  descricao?: string;
+  data_envio: string; // yyyy-mm-dd
+  data_vencimento?: string;
+  status: 'ativo' | 'vencendo' | 'vencido' | 'arquivado';
+  arquivo_nome?: string;
+  arquivo_tamanho?: number;
+  arquivo_url?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // Interfaces para Clínicas
 export interface Clinica {
   id?: number;
   nome: string;
+  razao_social?: string;
   codigo: string;
   cnpj?: string;
+  // Endereço (campo legado)
   endereco?: string;
+  // Novos campos de endereço desmembrados
+  endereco_rua?: string;
+  endereco_numero?: string;
+  endereco_bairro?: string;
+  endereco_complemento?: string;
   cidade?: string;
   estado?: string;
   cep?: string;
   telefones: string[];
   emails: string[];
+  // Contatos organizados por setor
+  contatos_pacientes?: { telefones?: string[]; emails?: string[] };
+  contatos_administrativos?: { telefones?: string[]; emails?: string[] };
+  contatos_legais?: { telefones?: string[]; emails?: string[] };
+  contatos_faturamento?: { telefones?: string[]; emails?: string[] };
+  contatos_financeiro?: { telefones?: string[]; emails?: string[] };
   website?: string;
   logo_url?: string;
   observacoes?: string;
@@ -30,14 +60,24 @@ export interface Clinica {
 
 export interface ClinicaCreateInput {
   nome: string;
+  razao_social?: string;
   codigo: string;
   cnpj?: string;
   endereco?: string;
+  endereco_rua?: string;
+  endereco_numero?: string;
+  endereco_bairro?: string;
+  endereco_complemento?: string;
   cidade?: string;
   estado?: string;
   cep?: string;
   telefones?: string[];
   emails?: string[];
+  contatos_pacientes?: { telefones?: string[]; emails?: string[] };
+  contatos_administrativos?: { telefones?: string[]; emails?: string[] };
+  contatos_legais?: { telefones?: string[]; emails?: string[] };
+  contatos_faturamento?: { telefones?: string[]; emails?: string[] };
+  contatos_financeiro?: { telefones?: string[]; emails?: string[] };
   website?: string;
   logo_url?: string;
   observacoes?: string;
@@ -48,14 +88,24 @@ export interface ClinicaCreateInput {
 
 export interface ClinicaUpdateInput {
   nome?: string;
+  razao_social?: string;
   codigo?: string;
   cnpj?: string;
   endereco?: string;
+  endereco_rua?: string;
+  endereco_numero?: string;
+  endereco_bairro?: string;
+  endereco_complemento?: string;
   cidade?: string;
   estado?: string;
   cep?: string;
   telefones?: string[];
   emails?: string[];
+  contatos_pacientes?: { telefones?: string[]; emails?: string[] };
+  contatos_administrativos?: { telefones?: string[]; emails?: string[] };
+  contatos_legais?: { telefones?: string[]; emails?: string[] };
+  contatos_faturamento?: { telefones?: string[]; emails?: string[] };
+  contatos_financeiro?: { telefones?: string[]; emails?: string[] };
   website?: string;
   logo_url?: string;
   observacoes?: string;
@@ -75,14 +125,24 @@ interface ApiResponse<T = any> {
 // Interfaces para perfil da clínica
 export interface ClinicProfile {
   nome: string;
+  razao_social?: string;
   codigo: string;
   cnpj?: string;
   endereco?: string;
+  endereco_rua?: string;
+  endereco_numero?: string;
+  endereco_bairro?: string;
+  endereco_complemento?: string;
   cidade?: string;
   estado?: string;
   cep?: string;
   telefones: string[];
   emails: string[];
+  contatos_pacientes?: { telefones?: string[]; emails?: string[] };
+  contatos_administrativos?: { telefones?: string[]; emails?: string[] };
+  contatos_legais?: { telefones?: string[]; emails?: string[] };
+  contatos_faturamento?: { telefones?: string[]; emails?: string[] };
+  contatos_financeiro?: { telefones?: string[]; emails?: string[] };
   website?: string;
   logo_url?: string;
   observacoes?: string;
@@ -102,6 +162,32 @@ export interface Especialidade {
   id?: number;
   nome: string;
   cbo?: string;
+}
+
+// Interface para Responsáveis Técnicos/Profissionais
+export interface ResponsavelTecnico {
+  id?: number;
+  nome: string;
+  tipo_profissional: 'medico' | 'nutricionista' | 'enfermeiro' | 'farmaceutico' | 'terapeuta_ocupacional';
+  registro_conselho: string; // Substitui CRM
+  uf_registro: string;
+  especialidade_principal: string;
+  rqe_principal?: string;
+  especialidade_secundaria?: string;
+  rqe_secundaria?: string;
+  cnes: string;
+  telefone?: string;
+  email?: string;
+  responsavel_tecnico: boolean;
+  operadoras_habilitadas?: number[]; // IDs das operadoras
+  documentos?: {
+    carteira_conselho?: string;
+    diploma?: string;
+    comprovante_especializacao?: string;
+  };
+  status: 'ativo' | 'inativo';
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Classe de serviço para Clínicas
@@ -464,7 +550,14 @@ export class ClinicService {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      if (!response.ok) {
+        let errMsg = `HTTP ${response.status}`;
+        try {
+          const errBody = await response.json();
+          if (errBody?.message) errMsg = errBody.message;
+        } catch {}
+        throw new Error(errMsg);
+      }
       const result: ApiResponse<any> = await response.json();
       if (!result.success) throw new Error(result.message || 'Erro ao adicionar responsável');
       return result.data;
@@ -501,5 +594,65 @@ export class ClinicService {
       console.error('❌ Erro no ClinicService.removeResponsavel():', error);
       throw error;
     }
+  }
+
+  // ===== Documentos da Clínica =====
+  static async listarDocumentos(params: { clinica_id: number }): Promise<Documento[]> {
+    try {
+      const response = await authorizedFetch(`${API_BASE_URL}/clinicas/documentos?clinica_id=${params.clinica_id}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result: ApiResponse<Documento[] | { documentos: Documento[] }> = await response.json();
+      if (!result.success) throw new Error(result.message || 'Erro ao listar documentos');
+      const data = (result.data as any) || [];
+      return Array.isArray(data) ? data : (data.documentos || []);
+    } catch (error) {
+      // Evita tela de "Sem Conexão": retorna fallback silencioso
+      try {
+        const saved = localStorage.getItem('clinic_documentos');
+        return saved ? (JSON.parse(saved) as Documento[]) : [];
+      } catch {
+        return [];
+      }
+    }
+  }
+
+  static async uploadDocumento(file: File, data: Omit<Documento, 'id' | 'arquivo_url' | 'arquivo_nome' | 'arquivo_tamanho' | 'created_at' | 'updated_at'>): Promise<Documento> {
+    const form = new FormData();
+    form.append('file', file);
+    
+    // Adicionar cada campo individualmente ao FormData
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        form.append(key, String(value));
+      }
+    });
+
+    const response = await authorizedFetch(`${API_BASE_URL}/clinicas/documentos/upload`, {
+      method: 'POST',
+      body: form,
+    } as RequestInit);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const result: ApiResponse<Documento> = await response.json();
+    if (!result.success || !result.data) throw new Error(result.message || 'Erro ao enviar documento');
+    return result.data;
+  }
+
+  static async atualizarDocumento(id: number, data: Partial<Documento>): Promise<Documento> {
+    const response = await authorizedFetch(`${API_BASE_URL}/clinicas/documentos/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const result: ApiResponse<Documento> = await response.json();
+    if (!result.success || !result.data) throw new Error(result.message || 'Erro ao atualizar documento');
+    return result.data;
+  }
+
+  static async removerDocumento(id: number): Promise<void> {
+    const response = await authorizedFetch(`${API_BASE_URL}/clinicas/documentos/${id}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
   }
 }

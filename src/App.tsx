@@ -62,11 +62,35 @@ const App = () => (
                 <Routes>
                   <Route path="/" element={<Login />} />
                   
+                  {/* Rota genérica que redireciona baseado no role */}
                   <Route 
                     path="/dashboard" 
                     element={
                       <ProtectedRoute>
                         <Layout pageTitle="Dashboard">
+                          <Dashboard />
+                        </Layout>
+                      </ProtectedRoute>
+                    } 
+                  />
+
+                  {/* Rotas específicas para cada tipo de usuário */}
+                  <Route 
+                    path="/dashboard-clinica" 
+                    element={
+                      <ProtectedRoute allowedRoles={['clinic']}>
+                        <Layout pageTitle="Dashboard da Clínica">
+                          <Dashboard />
+                        </Layout>
+                      </ProtectedRoute>
+                    } 
+                  />
+
+                  <Route 
+                    path="/dashboard-operadora" 
+                    element={
+                      <ProtectedRoute allowedRoles={['operator']}>
+                        <Layout pageTitle="Dashboard da Operadora">
                           <Dashboard />
                         </Layout>
                       </ProtectedRoute>
@@ -211,7 +235,7 @@ const App = () => (
                     path="/corpo-clinico" 
                     element={
                       <ProtectedRoute allowedRoles={['clinic']}>
-                        <Layout pageTitle="Corpo Clínico">
+                        <Layout pageTitle="Profissionais">
                           <CorpoClinico />
                         </Layout>
                       </ProtectedRoute>

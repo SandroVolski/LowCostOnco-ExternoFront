@@ -75,7 +75,7 @@ const AjustesNegociacao = () => {
 
   // Estados para filtros
   const [filtros, setFiltros] = useState({
-    status: 'todas' as 'todas' | 'pendente' | 'em_analise' | 'aprovado' | 'rejeitado',
+    status: 'todas' as 'todas' | 'pendente' | 'em_analise' | 'finalizada',
     search: '',
     prioridade: 'todas' as 'todas' | 'baixa' | 'media' | 'alta' | 'critica',
     categoria: 'todas' as 'todas' | 'protocolo' | 'medicamento' | 'procedimento' | 'administrativo'
@@ -91,6 +91,11 @@ const AjustesNegociacao = () => {
 
   // Referência para o input de arquivo
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Estado para visualizador de anexos
+  const [showAnexoViewer, setShowAnexoViewer] = useState(false);
+  const [selectedAnexo, setSelectedAnexo] = useState<Anexo | null>(null);
+  const [allAnexos, setAllAnexos] = useState<Anexo[]>([]);
 
   // Carregar dados ao montar componente
   // Verificar se o backend está disponível com retry
@@ -191,43 +196,91 @@ const AjustesNegociacao = () => {
       console.log('🔍 Carregando solicitações de negociação com filtros:', filtros);
       
       // Sempre enviar os filtros, mesmo que sejam 'todas'
-      const response = await AjustesService.listarSolicitacoesNegociacao({
-        clinica_id: user?.clinica_id || 1,
-        tipo: 'negociacao',
-        status: filtros.status === 'todas' ? undefined : filtros.status,
-        prioridade: filtros.prioridade === 'todas' ? undefined : filtros.prioridade,
-        categoria: filtros.categoria === 'todas' ? undefined : filtros.categoria,
-        search: filtros.search || undefined,
-        page: currentPage,
-        pageSize: pageSize,
-        sort: 'created_at:desc'
-      });
+      let response;
+      
+      if (filtros.status === 'finalizada') {
+        // Para finalizadas, buscar aprovadas e rejeitadas separadamente
+        const [aprovadas, rejeitadas] = await Promise.all([
+          AjustesService.listarSolicitacoesNegociacao({
+            clinica_id: user?.clinica_id || 1,
+            tipo: 'negociacao',
+            status: 'aprovado',
+            prioridade: filtros.prioridade === 'todas' ? undefined : filtros.prioridade,
+            categoria: filtros.categoria === 'todas' ? undefined : filtros.categoria,
+            search: filtros.search || undefined,
+            page: currentPage,
+            pageSize: pageSize,
+            sort: 'created_at:desc'
+          }),
+          AjustesService.listarSolicitacoesNegociacao({
+            clinica_id: user?.clinica_id || 1,
+            tipo: 'negociacao',
+            status: 'rejeitado',
+            prioridade: filtros.prioridade === 'todas' ? undefined : filtros.prioridade,
+            categoria: filtros.categoria === 'todas' ? undefined : filtros.categoria,
+            search: filtros.search || undefined,
+            page: currentPage,
+            pageSize: pageSize,
+            sort: 'created_at:desc'
+          })
+        ]);
+        
+        // Combinar os resultados
+        response = {
+          items: [...aprovadas.items, ...rejeitadas.items],
+          total: aprovadas.total + rejeitadas.total
+        };
+      } else {
+        response = await AjustesService.listarSolicitacoesNegociacao({
+          clinica_id: user?.clinica_id || 1,
+          tipo: 'negociacao',
+          status: filtros.status === 'todas' ? undefined : filtros.status,
+          prioridade: filtros.prioridade === 'todas' ? undefined : filtros.prioridade,
+          categoria: filtros.categoria === 'todas' ? undefined : filtros.categoria,
+          search: filtros.search || undefined,
+          page: currentPage,
+          pageSize: pageSize,
+          sort: 'created_at:desc'
+        });
+      }
       
       console.log('✅ Resposta do backend:', response);
       console.log('📋 Solicitações recebidas:', response.items);
       
-      // Carregar anexos apenas se necessário e com retry inteligente
+      // Carregar anexos automaticamente para todas as solicitações
       const solicitacoesComAnexos = [];
       for (let i = 0; i < response.items.length; i++) {
         const solicitacao = response.items[i];
         
-        // Se já tem anexos, usar os existentes
-        if (solicitacao.anexos && solicitacao.anexos.length > 0) {
-          solicitacoesComAnexos.push(solicitacao);
-          continue;
+        try {
+          console.log('🔍 Carregando anexos para solicitação:', solicitacao.id);
+          const anexos = await AjustesService.listarAnexos(solicitacao.id!);
+          
+          if (anexos && Array.isArray(anexos)) {
+            solicitacoesComAnexos.push({ ...solicitacao, anexos: anexos });
+            console.log('✅ Anexos carregados:', anexos.length, 'para solicitação', solicitacao.id);
+          } else {
+            solicitacoesComAnexos.push({ ...solicitacao, anexos: [] });
+            console.log('📋 Nenhum anexo encontrado para solicitação:', solicitacao.id);
+          }
+          
+          // Delay pequeno entre carregamentos para evitar rate limiting
+          if (i < response.items.length - 1) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        } catch (error) {
+          console.error('❌ Erro ao carregar anexos para solicitação:', solicitacao.id, error);
+          solicitacoesComAnexos.push({ ...solicitacao, anexos: [] });
         }
-        
-        // Por enquanto, não carregar anexos automaticamente para evitar rate limiting
-        // Os anexos serão carregados sob demanda quando o usuário clicar para visualizar
-        console.log('📋 Adicionando solicitação sem anexos (serão carregados sob demanda):', solicitacao.id);
-        solicitacoesComAnexos.push({ ...solicitacao, anexos: [] });
       }
       
       console.log('📋 Solicitações com anexos carregados:', solicitacoesComAnexos);
       
       setSolicitacoes(solicitacoesComAnexos);
       setTotalSolicitacoes(response.total);
-      carregarEstatisticas();
+      
+      // Calcular estatísticas baseadas nas solicitações carregadas
+      calcularEstatisticas(solicitacoesComAnexos);
     } catch (error) {
       console.error('❌ Erro ao carregar solicitações:', error);
       setIsBackendAvailable(false);
@@ -241,15 +294,47 @@ const AjustesNegociacao = () => {
     }
   };
 
-  // Função para carregar estatísticas
-  const carregarEstatisticas = async () => {
-    try {
-      const stats = await AjustesService.getEstatisticasNegociacao(1);
-      setEstatisticas(stats);
-      console.log('📊 Estatísticas carregadas:', stats);
-    } catch (error) {
-      console.error('❌ Erro ao carregar estatísticas:', error);
-    }
+  // Função para calcular estatísticas baseadas nas solicitações
+  const calcularEstatisticas = (solicitacoes: Solicitacao[]) => {
+    console.log('📊 Calculando estatísticas para:', solicitacoes.length, 'solicitações');
+    
+    // Contar solicitações por status
+    const solicitacoesPorStatus = {
+      pendente: solicitacoes.filter(s => s.status === 'pendente').length,
+      em_analise: solicitacoes.filter(s => s.status === 'em_analise').length,
+      aprovado: solicitacoes.filter(s => s.status === 'aprovado').length,
+      rejeitado: solicitacoes.filter(s => s.status === 'rejeitado').length
+    };
+
+    // Contar por prioridade
+    const solicitacoesPorPrioridade = {
+      baixa: solicitacoes.filter(s => s.prioridade === 'baixa').length,
+      media: solicitacoes.filter(s => s.prioridade === 'media').length,
+      alta: solicitacoes.filter(s => s.prioridade === 'alta').length,
+      critica: solicitacoes.filter(s => s.prioridade === 'critica').length
+    };
+
+    // Contar por categoria
+    const solicitacoesPorCategoria = {
+      protocolo: solicitacoes.filter(s => s.categoria === 'protocolo').length,
+      medicamento: solicitacoes.filter(s => s.categoria === 'medicamento').length,
+      procedimento: solicitacoes.filter(s => s.categoria === 'procedimento').length,
+      administrativo: solicitacoes.filter(s => s.categoria === 'administrativo').length
+    };
+
+    const novasEstatisticas = {
+      solicitacoesCriticas: solicitacoesPorPrioridade.critica,
+      totalSolicitacoes: solicitacoes.length,
+      taxaAprovacao: solicitacoes.length > 0 ? Math.round((solicitacoesPorStatus.aprovado / solicitacoes.length) * 100) : 0,
+      protocolosAtualizados: solicitacoesPorCategoria.protocolo,
+      tempoMedioRetorno: 0, // Será calculado futuramente se necessário
+      solicitacoesPorStatus,
+      solicitacoesPorPrioridade,
+      solicitacoesPorCategoria
+    };
+
+    console.log('📈 Estatísticas calculadas:', novasEstatisticas);
+    setEstatisticas(novasEstatisticas);
   };
 
   // Função para criar nova solicitação
@@ -306,7 +391,6 @@ const AjustesNegociacao = () => {
       // 4. Recarregar lista com delay para garantir que o backend processou
       setTimeout(() => {
         carregarSolicitacoes();
-        carregarEstatisticas();
       }, 1000);
       
     } catch (error) {
@@ -341,6 +425,22 @@ const AjustesNegociacao = () => {
   // Função para visualizar um arquivo
   const handleViewDocument = (solicitacao: Solicitacao) => {
     console.log("Visualizando documentos da solicitação:", solicitacao.id);
+    
+    if (solicitacao.anexos && solicitacao.anexos.length > 0) {
+      // Se há anexos, abrir o primeiro anexo automaticamente
+      handleOpenAnexo(solicitacao.anexos[0], solicitacao.anexos);
+    } else {
+      // Se não há anexos, mostrar mensagem
+      toast.info('Esta solicitação não possui anexos');
+    }
+  };
+
+  // Função para abrir anexo
+  const handleOpenAnexo = (anexo: Anexo, allAnexosList?: Anexo[]) => {
+    console.log('📎 Abrindo anexo:', anexo);
+    setSelectedAnexo(anexo);
+    setAllAnexos(allAnexosList || [anexo]);
+    setShowAnexoViewer(true);
   };
 
   const getStatusBadge = (status: string) => {
@@ -404,101 +504,75 @@ const AjustesNegociacao = () => {
 
 
 
-        <div className="space-y-8">
-          {/* Grid Superior com Estatísticas e Nova Solicitação */}
-          <div className="grid grid-cols-1 md:grid-cols-6 gap-6">
-            {/* Sidebar com Estatísticas */}
-            <div className="md:col-span-2 space-y-4">
-              {/* Cards de Estatísticas */}
-              <div className="grid grid-cols-2 md:grid-cols-1 gap-4">
-                <Card className="bg-primary/5 border-primary/10">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-sm text-muted-foreground">Solicitações Críticas</p>
-                        <div className="flex items-baseline gap-2">
-                          <h3 className="text-2xl font-bold">{estatisticas.solicitacoesCriticas}</h3>
-                          <span className="text-xs text-muted-foreground">urgentes</span>
-                        </div>
-                      </div>
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <AlertCircle className="h-4 w-4 text-primary" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-card border-border/50">
-                  <CardContent className="p-6">
-                    <div className="flex items-start justify-between">
-                      <div className="space-y-2">
-                        <p className="text-sm text-muted-foreground">Solicitações</p>
-                        <div className="flex items-baseline gap-2">
-                          <h3 className="text-2xl font-bold">{estatisticas.totalSolicitacoes}</h3>
-                          <span className="text-xs text-muted-foreground">ativas</span>
-                        </div>
-                      </div>
-                      <div className="p-2 bg-muted rounded-lg">
-                        <BarChart className="h-4 w-4 text-muted-foreground" />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                              <Card className="md:col-span-1 bg-card border-border/50">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">Taxa de Aprovação</p>
-                      <div className="flex items-baseline gap-2">
-                          <h3 className="text-2xl font-bold">{estatisticas.taxaAprovacao}%</h3>
-                      </div>
-                    </div>
-                    <div className="p-2 bg-muted rounded-lg">
-                      <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                    </div>
+        {/* Componentes de Estatísticas - Nova Seção Superior */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          {/* Componente Pendentes */}
+          <Card className="bg-primary/5 border-primary/10 hover:shadow-lg transition-all duration-300 hover:scale-105">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground font-medium">Pendentes</p>
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="text-3xl font-bold text-primary">{estatisticas.solicitacoesPorStatus.pendente}</h3>
+                    <span className="text-xs text-muted-foreground">aguardando</span>
                   </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-card border-border/50">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">Protocolos Atualizados</p>
-                      <div className="flex items-baseline gap-2">
-                          <h3 className="text-2xl font-bold">{estatisticas.protocolosAtualizados}</h3>
-                        <span className="text-xs text-muted-foreground">este mês</span>
-                      </div>
-                    </div>
-                    <div className="p-2 bg-muted rounded-lg">
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-primary/5 border-primary/10">
-                <CardContent className="p-6">
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-2">
-                      <p className="text-sm text-muted-foreground">Tempo de Retorno</p>
-                      <div className="flex items-baseline gap-2">
-                          <h3 className="text-2xl font-bold">{estatisticas.tempoMedioRetorno}</h3>
-                        <span className="text-xs text-muted-foreground">dias em média</span>
-                      </div>
-                    </div>
-                    <div className="p-2 bg-primary/10 rounded-lg">
-                      <Timer className="h-4 w-4 text-primary" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  <p className="text-xs text-muted-foreground">
+                    Solicitações em análise inicial
+                  </p>
+                </div>
+                <div className="p-3 bg-primary/10 rounded-xl">
+                  <Clock className="h-6 w-6 text-primary" />
+                </div>
               </div>
-            </div>
+            </CardContent>
+          </Card>
 
-            {/* Form de Nova Solicitação */}
-            <div className="md:col-span-4">
+          {/* Componente Em Análise */}
+          <Card className="bg-card border-border/50 hover:shadow-lg transition-all duration-300 hover:scale-105">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground font-medium">Em Análise</p>
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="text-3xl font-bold">{estatisticas.solicitacoesPorStatus.em_analise}</h3>
+                    <span className="text-xs text-muted-foreground">processando</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Solicitações sendo analisadas
+                  </p>
+                </div>
+                <div className="p-3 bg-muted rounded-xl">
+                  <AlertCircle className="h-6 w-6 text-muted-foreground" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Componente Finalizadas */}
+          <Card className="bg-card border-border/50 hover:shadow-lg transition-all duration-300 hover:scale-105">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground font-medium">Finalizadas</p>
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="text-3xl font-bold">{estatisticas.solicitacoesPorStatus.aprovado + estatisticas.solicitacoesPorStatus.rejeitado}</h3>
+                    <span className="text-xs text-muted-foreground">concluídas</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Solicitações processadas
+                  </p>
+                </div>
+                <div className="p-3 bg-muted rounded-xl">
+                  <CheckCircle className="h-6 w-6 text-muted-foreground" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-8">
+          {/* Form de Nova Solicitação */}
+          <div>
               <Card className="border-primary/10 shadow-md">
                 <CardHeader className="space-y-1 bg-primary/5 border-b border-primary/10">
                   <CardTitle className="text-xl font-semibold text-primary">Nova Solicitação</CardTitle>
@@ -644,7 +718,6 @@ const AjustesNegociacao = () => {
                   </form>
                 </CardContent>
               </Card>
-            </div>
           </div>
 
           {/* Lista de Solicitações */}
@@ -670,8 +743,7 @@ const AjustesNegociacao = () => {
                   <SelectItem value="todas">Todas as solicitações</SelectItem>
                   <SelectItem value="pendente">Pendentes</SelectItem>
                   <SelectItem value="em_analise">Em Análise</SelectItem>
-                  <SelectItem value="aprovado">Aprovadas</SelectItem>
-                  <SelectItem value="rejeitado">Rejeitadas</SelectItem>
+                  <SelectItem value="finalizada">Finalizadas</SelectItem>
                 </SelectContent>
               </Select>
               </div>
@@ -823,13 +895,7 @@ const AjustesNegociacao = () => {
                           variant="ghost" 
                           size="icon" 
                           className="text-muted-foreground hover:text-primary"
-                          onClick={async () => {
-                            // Se não tem anexos, carregar sob demanda
-                            if (!solicitacao.anexos || solicitacao.anexos.length === 0) {
-                              await carregarAnexosSobDemanda(solicitacao.id!);
-                            }
-                            handleViewDocument(solicitacao);
-                          }}
+                          onClick={() => handleViewDocument(solicitacao)}
                           title="Visualizar documentos"
                         >
                           <FileText className="h-4 w-4" />
@@ -852,28 +918,55 @@ const AjustesNegociacao = () => {
                           <div className="flex flex-wrap gap-2">
                             {solicitacao.anexos && solicitacao.anexos.length > 0 ? (
                               solicitacao.anexos.map((anexo, index) => (
-                              <Badge
+                                <div
                                   key={anexo.id}
-                                variant="secondary"
-                                className="bg-primary/5 text-primary hover:bg-primary/10 cursor-pointer"
-                              >
-                                  {anexo.arquivo_nome}
-                              </Badge>
+                                  className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 hover:bg-primary/10 hover:border-primary/30 transition-all duration-300 hover:scale-105"
+                                >
+                                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                                    <Paperclip className="h-4 w-4 text-primary flex-shrink-0" />
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-medium text-primary truncate max-w-[150px]">
+                                        {anexo.arquivo_nome}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {(anexo.arquivo_tamanho / 1024).toFixed(1)} KB
+                                      </p>
+                                    </div>
+                                  </div>
+                                  
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleOpenAnexo(anexo, solicitacao.anexos)}
+                                      className="h-7 w-7 p-0 hover:bg-primary hover:text-primary-foreground transition-all duration-300"
+                                      title="Visualizar documento"
+                                    >
+                                      <Eye className="h-3 w-3" />
+                                    </Button>
+                                    
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        if (anexo.arquivo_url.startsWith('http')) {
+                                          window.open(anexo.arquivo_url, '_blank');
+                                        } else {
+                                          const downloadUrl = AjustesService.getDownloadUrl(anexo.id);
+                                          window.open(downloadUrl, '_blank');
+                                        }
+                                      }}
+                                      className="h-7 w-7 p-0 hover:bg-primary hover:text-primary-foreground transition-all duration-300"
+                                      title="Baixar documento"
+                                    >
+                                      <Download className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
                               ))
                             ) : (
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <span>Nenhum anexo</span>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={async () => {
-                                    await carregarAnexosSobDemanda(solicitacao.id!);
-                                  }}
-                                  className="text-xs hover:text-primary hover:bg-primary/10 px-2 py-1 rounded"
-                                  title="Carregar anexos"
-                                >
-                                  🔄 Carregar
-                                </Button>
                               </div>
                             )}
                           </div>
@@ -915,6 +1008,135 @@ const AjustesNegociacao = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal Visualizador de Anexos */}
+      {showAnexoViewer && selectedAnexo && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-background rounded-lg w-full max-w-4xl max-h-[90vh] overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b">
+              <div className="flex items-center gap-3">
+                <Paperclip className="h-5 w-5 text-primary" />
+                <div>
+                  <h3 className="font-semibold">{selectedAnexo.arquivo_nome}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {(selectedAnexo.arquivo_tamanho / 1024).toFixed(1)} KB
+                    {allAnexos.length > 1 && (
+                      <span> • {allAnexos.findIndex(a => a.id === selectedAnexo.id) + 1} de {allAnexos.length}</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {allAnexos.length > 1 && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const currentIndex = allAnexos.findIndex(a => a.id === selectedAnexo.id);
+                        const prevIndex = currentIndex > 0 ? currentIndex - 1 : allAnexos.length - 1;
+                        setSelectedAnexo(allAnexos[prevIndex]);
+                      }}
+                      disabled={allAnexos.length <= 1}
+                    >
+                      ← Anterior
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const currentIndex = allAnexos.findIndex(a => a.id === selectedAnexo.id);
+                        const nextIndex = currentIndex < allAnexos.length - 1 ? currentIndex + 1 : 0;
+                        setSelectedAnexo(allAnexos[nextIndex]);
+                      }}
+                      disabled={allAnexos.length <= 1}
+                    >
+                      Próximo →
+                    </Button>
+                  </>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (selectedAnexo.arquivo_url.startsWith('http')) {
+                      window.open(selectedAnexo.arquivo_url, '_blank');
+                    } else {
+                      const downloadUrl = AjustesService.getDownloadUrl(selectedAnexo.id);
+                      window.open(downloadUrl, '_blank');
+                    }
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Baixar
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAnexoViewer(false)}
+                >
+                  Fechar
+                </Button>
+              </div>
+            </div>
+
+            {/* Conteúdo */}
+            <div className="p-4 h-[calc(90vh-120px)] overflow-auto">
+              {selectedAnexo.arquivo_nome.toLowerCase().endsWith('.pdf') ? (
+                // Visualizador de PDF
+                <iframe
+                  src={selectedAnexo.arquivo_url.startsWith('http') 
+                    ? selectedAnexo.arquivo_url 
+                    : AjustesService.getDownloadUrl(selectedAnexo.id)
+                  }
+                  className="w-full h-full border rounded"
+                  title={selectedAnexo.arquivo_nome}
+                />
+              ) : selectedAnexo.arquivo_nome.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                // Visualizador de imagens
+                <div className="flex items-center justify-center h-full">
+                  <img
+                    src={selectedAnexo.arquivo_url.startsWith('http') 
+                      ? selectedAnexo.arquivo_url 
+                      : AjustesService.getDownloadUrl(selectedAnexo.id)
+                    }
+                    alt={selectedAnexo.arquivo_nome}
+                    className="max-w-full max-h-full object-contain rounded shadow-lg"
+                  />
+                </div>
+              ) : (
+                // Para outros tipos de arquivo, mostrar informações e botão de download
+                <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+                  <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center">
+                    <FileText className="h-12 w-12 text-muted-foreground" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-medium mb-2">{selectedAnexo.arquivo_nome}</h4>
+                    <p className="text-muted-foreground mb-4">
+                      Este tipo de arquivo não pode ser visualizado diretamente.
+                    </p>
+                    <Button
+                      onClick={() => {
+                        if (selectedAnexo.arquivo_url.startsWith('http')) {
+                          window.open(selectedAnexo.arquivo_url, '_blank');
+                        } else {
+                          const downloadUrl = AjustesService.getDownloadUrl(selectedAnexo.id);
+                          window.open(downloadUrl, '_blank');
+                        }
+                      }}
+                      className="gap-2"
+                    >
+                      <Download className="h-4 w-4" />
+                      Baixar Arquivo
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,7 +1,7 @@
 // src/hooks/useDataLoader.ts
 // Hook personalizado para carregamento de dados com retry e fallback
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { connectionManager } from '@/services/connectionManager';
 import { toast } from 'sonner';
 
@@ -43,6 +43,17 @@ export function useDataLoader<T>({
   const [error, setError] = useState<Error | null>(null);
   const [isBackendAvailable, setIsBackendAvailable] = useState<boolean>(true);
 
+  // Memorizar handlers para não recriar loadData a cada render
+  const loaderRef = useRef(loader);
+  const fallbackRef = useRef(fallback);
+  const onSuccessRef = useRef(onSuccess);
+  const onErrorRef = useRef(onError);
+
+  useEffect(() => { loaderRef.current = loader; }, [loader]);
+  useEffect(() => { fallbackRef.current = fallback; }, [fallback]);
+  useEffect(() => { onSuccessRef.current = onSuccess; }, [onSuccess]);
+  useEffect(() => { onErrorRef.current = onError; }, [onError]);
+
   const loadData = useCallback(async (useCache = true) => {
     try {
       setLoading(true);
@@ -52,9 +63,9 @@ export function useDataLoader<T>({
       const backendAvailable = await connectionManager.checkBackendAvailability();
       setIsBackendAvailable(backendAvailable);
 
-      if (!backendAvailable && fallback) {
+      if (!backendAvailable && fallbackRef.current) {
         // Usar fallback se backend não estiver disponível
-        const fallbackData = fallback();
+        const fallbackData = fallbackRef.current();
         if (fallbackData) {
           setData(fallbackData);
           if (showToast) {
@@ -69,12 +80,12 @@ export function useDataLoader<T>({
       // Carregar dados com cache e retry
       const result = await connectionManager.debouncedRequest(
         key,
-        loader,
+        () => loaderRef.current!(),
         useCache ? ttl : 0 // Se não usar cache, TTL = 0
       );
 
       setData(result);
-      onSuccess?.(result);
+      onSuccessRef.current?.(result);
 
       if (showToast && backendAvailable) {
         toast.success('Conectado ao servidor', {
@@ -85,7 +96,7 @@ export function useDataLoader<T>({
     } catch (err) {
       const error = err as Error;
       setError(error);
-      onError?.(error);
+      onErrorRef.current?.(error);
 
       if (showToast) {
         toast.error('Erro ao carregar dados', {
@@ -94,8 +105,8 @@ export function useDataLoader<T>({
       }
 
       // Tentar fallback em caso de erro
-      if (fallback) {
-        const fallbackData = fallback();
+      if (fallbackRef.current) {
+        const fallbackData = fallbackRef.current();
         if (fallbackData) {
           setData(fallbackData);
           if (showToast) {
@@ -108,7 +119,7 @@ export function useDataLoader<T>({
     } finally {
       setLoading(false);
     }
-  }, [key, loader, fallback, ttl, retryConfig, onSuccess, onError, showToast]);
+  }, [key, ttl, showToast]);
 
   const refetch = useCallback(async () => {
     await loadData(false); // Não usar cache no refetch

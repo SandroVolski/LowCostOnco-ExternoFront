@@ -35,20 +35,15 @@ export const OperadoraAuthProvider: React.FC<{ children: ReactNode }> = ({ child
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        console.log('🔧 OperadoraAuthContext - Verificando autenticação...');
-        
         // Primeiro verificar se há usuário no localStorage
         const storedUser = localStorage.getItem('user');
-        console.log('🔧 OperadoraAuthContext - storedUser:', storedUser);
         
         if (storedUser) {
           try {
             const userData = JSON.parse(storedUser);
-            console.log('🔧 OperadoraAuthContext - userData:', userData);
             
             // Verificar se é um usuário de operadora
             if (userData.role === 'operator' && userData.operadora_id) {
-              console.log('✅ OperadoraAuthContext - Usuário de operadora encontrado');
               setUser(userData);
               setIsLoading(false);
               return;
@@ -61,17 +56,14 @@ export const OperadoraAuthProvider: React.FC<{ children: ReactNode }> = ({ child
         // Não tentar validar token automaticamente para evitar erros 401
         // O usuário será validado apenas no login
         const token = localStorage.getItem('operadora_access_token');
-        console.log('🔧 OperadoraAuthContext - operadora_access_token:', token ? 'existe' : 'não existe');
         
         if (!token) {
-          console.log('🔧 OperadoraAuthContext - Nenhum token encontrado, finalizando...');
           setIsLoading(false);
           return;
         }
 
         // Se há token, assumir que o usuário está logado (dados mock)
         if (storedUser) {
-          console.log('🔧 OperadoraAuthContext - Usuário encontrado no localStorage, finalizando...');
           setIsLoading(false);
           return;
         }
@@ -81,7 +73,6 @@ export const OperadoraAuthProvider: React.FC<{ children: ReactNode }> = ({ child
         localStorage.removeItem('operadora_refresh_token');
         localStorage.removeItem('user');
       } finally {
-        console.log('🔧 OperadoraAuthContext - Finalizando verificação, isLoading: false');
         setIsLoading(false);
       }
     };
@@ -202,12 +193,27 @@ export const OperadoraAuthProvider: React.FC<{ children: ReactNode }> = ({ child
   };
 
   const logout = () => {
+    // Limpeza completa do cache da operadora
     localStorage.removeItem('operadora_access_token');
     localStorage.removeItem('operadora_refresh_token');
+    
+    // Limpeza completa do cache geral (para evitar conflitos)
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
+    
+    // Limpeza adicional de possíveis dados residuais
+    localStorage.removeItem('adminToken');
+    localStorage.removeItem('adminUser');
+    
+    // Limpar sessionStorage também
+    sessionStorage.clear();
+    
+    // Resetar estado
     setUser(null);
+    
+    // Forçar reload da página para garantir limpeza completa
+    window.location.href = '/';
   };
 
   const refreshToken = async (): Promise<boolean> => {
@@ -229,10 +235,6 @@ export const OperadoraAuthProvider: React.FC<{ children: ReactNode }> = ({ child
     }
   };
 
-  // Debug logs
-  console.log('🔧 OperadoraAuthContext - Renderizando com user:', user);
-  console.log('🔧 OperadoraAuthContext - isAuthenticated:', isAuthenticated);
-  console.log('🔧 OperadoraAuthContext - isLoading:', isLoading);
 
   return (
     <OperadoraAuthContext.Provider value={{
@@ -253,7 +255,6 @@ export const useOperadoraAuth = () => {
   if (context === undefined) {
     throw new Error('useOperadoraAuth deve ser usado dentro de OperadoraAuthProvider');
   }
-  console.log('🔧 useOperadoraAuth - Retornando context:', context);
   return context;
 };
 
