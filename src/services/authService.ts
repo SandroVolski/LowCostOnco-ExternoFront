@@ -24,12 +24,22 @@ const STORAGE_KEYS = {
 };
 
 export const TokenStore = {
-  getAccess(): string | null { return localStorage.getItem(STORAGE_KEYS.access); },
+  getAccess(): string | null { 
+    // Verificar primeiro o token padrão, depois o token da operadora
+    const defaultToken = localStorage.getItem(STORAGE_KEYS.access);
+    if (defaultToken) return defaultToken;
+    
+    const operadoraToken = localStorage.getItem('operadora_access_token');
+    if (operadoraToken) return operadoraToken;
+    
+    return null;
+  },
   set(accessToken: string) {
     localStorage.setItem(STORAGE_KEYS.access, accessToken);
   },
   clear() {
     localStorage.removeItem(STORAGE_KEYS.access);
+    localStorage.removeItem('operadora_access_token');
   }
 };
 
