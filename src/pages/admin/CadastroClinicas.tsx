@@ -19,7 +19,9 @@ import {
   MapPin,
   FileText,
   Users,
-  ChevronDown
+  ChevronDown,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
@@ -39,6 +41,7 @@ const CadastroClinicas = () => {
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [operadoras, setOperadoras] = useState<any[]>([]);
+  const [showPassword, setShowPassword] = useState(false);
   
   // Estados para paginação
   const [clinicasPerPage] = useState(8);
@@ -73,6 +76,11 @@ const CadastroClinicas = () => {
     // @ts-ignore
     operadora_id: undefined
   });
+
+  // Controle para auto-geração de usuário corporativo
+  const [autoUserEnabled, setAutoUserEnabled] = useState(true);
+  const [suggestedUser, setSuggestedUser] = useState('');
+  const [userAvailable, setUserAvailable] = useState<boolean | null>(null);
 
   useEffect(() => {
     loadClinicas();
@@ -135,6 +143,59 @@ const CadastroClinicas = () => {
   const handleInputChange = (field: keyof ClinicaCreateInput, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  // Utilitários de geração e verificação
+  const slugify = (text: string) => {
+    return text
+      .toLowerCase()
+      .normalize('NFD').replace(/\p{Diacritic}/gu, '')
+      .replace(/[^a-z0-9]+/g, '.')
+      .replace(/\.+/g, '.')
+      .replace(/^\.|\.$/g, '')
+      .slice(0, 64);
+  };
+
+  const buildEmailUser = (name: string) => `${slugify(name)}@onkhos.com`;
+
+  const getExistingLogins = () => {
+    const clinicUsers = (clinicas || []).map(c => (c.usuario || '').toLowerCase()).filter(Boolean);
+    const clinicEmails = (clinicas || []).flatMap(c => Array.isArray(c.emails) ? c.emails : (c as any).email ? [String((c as any).email)] : []).map(e => e.toLowerCase());
+    const operadoraEmails = (operadoras || []).map((o: any) => (o.email || '').toLowerCase()).filter(Boolean);
+    return new Set([ ...clinicUsers, ...clinicEmails, ...operadoraEmails ]);
+  };
+
+  const ensureUnique = (base: string) => {
+    const existing = getExistingLogins();
+    if (!existing.has(base.toLowerCase())) return base;
+    let i = 2;
+    let candidate = base.replace(/@/, `${i}@`);
+    while (existing.has(candidate.toLowerCase())) {
+      i += 1;
+      candidate = base.replace(/@/, `${i}@`);
+    }
+    return candidate;
+  };
+
+  // Auto-gerar usuário ao digitar Nome Fantasia
+  useEffect(() => {
+    if (!autoUserEnabled) return;
+    if (!formData.nome?.trim()) {
+      setSuggestedUser('');
+      setUserAvailable(null);
+      return;
+    }
+    const email = ensureUnique(buildEmailUser(formData.nome.trim()));
+    setSuggestedUser(email);
+    setUserAvailable(true);
+    // Se o campo usuário estiver vazio ou ainda sob auto-geração, preenche
+    setFormData(prev => ({ ...prev, usuario: email || prev.usuario }));
+  }, [formData.nome]);
+
+  // Se o usuário digitar manualmente, desabilita auto-geração
+  useEffect(() => {
+    if (!formData.usuario) return;
+    if (suggestedUser && formData.usuario !== suggestedUser) setAutoUserEnabled(false);
+  }, [formData.usuario]);
 
   const handleArrayInputChange = (field: 'telefones' | 'emails', index: number, value: string) => {
     setFormData(prev => ({
@@ -372,16 +433,12 @@ const CadastroClinicas = () => {
       ? c.telefones
       : c.telefones
         ? [String(c.telefones)]
-        : c.telefone
-          ? [String((c as any).telefone)]
-          : [],
+        : [],
     emails: Array.isArray(c.emails)
       ? c.emails
       : c.emails
         ? [String(c.emails)]
-        : c.email
-          ? [String((c as any).email)]
-          : [],
+        : [],
     nome: c.nome || '',
     codigo: c.codigo || '',
     cnpj: c.cnpj || ''
@@ -636,7 +693,7 @@ const CadastroClinicas = () => {
                   
                   <div className="space-y-2">
                     <Label htmlFor="operadora">Operadora</Label>
-                    <Select value={String(formData.operadora_id || '')} onValueChange={(value) => handleInputChange('operadora_id', value ? parseInt(value) : undefined)}>
+                    <Select value={String((formData as any).operadora_id || '')} onValueChange={(value) => handleInputChange('operadora_id' as any, value ? parseInt(value) : undefined)}>
                       <SelectTrigger>
                         <SelectValue placeholder="Selecione a operadora" />
                       </SelectTrigger>
@@ -875,27 +932,46 @@ const CadastroClinicas = () => {
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="usuario">Usuário</Label>
+                    <Label htmlFor="usuario">Usuário</Label>
                       <Input
                         id="usuario"
                         value={formData.usuario || ''}
-                        onChange={(e) => handleInputChange('usuario', e.target.value)}
+                      onChange={(e) => handleInputChange('usuario', e.target.value)}
                         placeholder="Deixe vazio para gerar automaticamente"
                       />
-                      <p className="text-xs text-muted-foreground">
-                        Se não preenchido, será gerado automaticamente
+                    <p className="text-xs text-muted-foreground">
+                      {autoUserEnabled ? 'Gerando automaticamente a partir do Nome Fantasia' : 'Você editou manualmente o usuário'}
+                    </p>
+                    {suggestedUser && (
+                      <p className="text-xs">
+                        Sugestão: <span className="font-medium">{suggestedUser}</span>
                       </p>
+                    )}
                     </div>
                     
                     <div className="space-y-2">
                       <Label htmlFor="senha">Senha</Label>
-                      <Input
-                        id="senha"
-                        type="password"
-                        value={formData.senha || ''}
-                        onChange={(e) => handleInputChange('senha', e.target.value)}
-                        placeholder="Deixe vazio para usar senha padrão"
-                      />
+                      <div className="relative">
+                        <Input
+                          id="senha"
+                          type={showPassword ? "text" : "password"}
+                          value={formData.senha || ''}
+                          onChange={(e) => handleInputChange('senha', e.target.value)}
+                          placeholder="Deixe vazio para usar senha padrão"
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         Se não preenchida, será definida como "123456"
                       </p>

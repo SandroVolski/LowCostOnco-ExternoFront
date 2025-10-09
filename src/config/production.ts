@@ -2,8 +2,8 @@
 
 export const PRODUCTION_CONFIG = {
   // URLs da API em produção
-  API_BASE_URL: 'https://apisistema.onkhos.com/api', // URL específica da API
-  BACKEND_HEALTH_URL: 'https://apisistema.onkhos.com/health', // Endpoint de health
+  API_BASE_URL: 'https://localhost:3001/api', // URL específica da API
+  BACKEND_HEALTH_URL: 'https://localhost:3001/health', // Endpoint de health
   
   // Configurações de timeout
   REQUEST_TIMEOUT: 30000, // 30 segundos

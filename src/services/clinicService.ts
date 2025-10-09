@@ -193,6 +193,20 @@ export interface ResponsavelTecnico {
 // Classe de serviço para Clínicas
 export class ClinicService {
   
+  // Helper para obter headers com token de admin se disponível
+  private static getAdminHeaders(): HeadersInit {
+    const adminToken = localStorage.getItem('adminToken');
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json'
+    };
+    
+    if (adminToken) {
+      headers['Authorization'] = `Bearer ${adminToken}`;
+    }
+    
+    return headers;
+  }
+  
   // Listar todas as clínicas (para admin)
   static async getAllClinicas(): Promise<Clinica[]> {
     try {
@@ -200,7 +214,9 @@ export class ClinicService {
       console.log('🔧 API_BASE_URL:', API_BASE_URL);
       console.log('🔧 URL completa:', `${API_BASE_URL}/clinicas/admin`);
       
-      const response = await fetch(`${API_BASE_URL}/clinicas/admin`);
+      const response = await fetch(`${API_BASE_URL}/clinicas/admin`, {
+        headers: this.getAdminHeaders()
+      });
       
       console.log('🔧 Resposta recebida:', {
         status: response.status,
@@ -291,9 +307,7 @@ export class ClinicService {
     try {
       const response = await fetch(`${API_BASE_URL}/clinicas/admin`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getAdminHeaders(),
         body: JSON.stringify(clinicaData),
       });
       
@@ -323,9 +337,7 @@ export class ClinicService {
     try {
       const response = await fetch(`${API_BASE_URL}/clinicas/admin/${id}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getAdminHeaders(),
         body: JSON.stringify(clinicaData),
       });
       
@@ -355,6 +367,7 @@ export class ClinicService {
     try {
       const response = await fetch(`${API_BASE_URL}/clinicas/admin/${id}`, {
         method: 'DELETE',
+        headers: this.getAdminHeaders(),
       });
       
       if (!response.ok) {

@@ -39,7 +39,7 @@ interface Protocolo {
   id?: string;
   nome: string;
   descricao: string;
-  cid?: string;
+  cid?: string | string[]; // Aceitar string ou array de strings
   intervalo_ciclos?: number;
   ciclos_previstos?: number;
   linha?: number;
@@ -93,7 +93,7 @@ const emptyMedicamento: Medicamento = {
 const emptyProtocolo: Protocolo = {
   nome: '',
   descricao: '',
-  cid: '',
+  cid: [], // Iniciar como array vazio
   intervalo_ciclos: undefined,
   ciclos_previstos: undefined,
   linha: undefined,
@@ -124,7 +124,11 @@ const ProtocolCard = ({ protocolo, onShowDetails, onEdit, onDelete }: any) => {
             <div className="flex-1">
               <CardTitle className="text-lg font-semibold line-clamp-1 text-primary">{protocolo.nome}</CardTitle>
               <CardDescription className="mt-1 flex items-center gap-2">
-                <span className="text-sm">{protocolo.cid || 'CID não informado'}</span>
+                <span className="text-sm">
+                  {Array.isArray(protocolo.cid) 
+                    ? (protocolo.cid.length > 0 ? protocolo.cid.join(', ') : 'CID não informado')
+                    : (protocolo.cid || 'CID não informado')}
+                </span>
               </CardDescription>
             </div>
             <div className="flex gap-1">
@@ -322,7 +326,8 @@ const ProtocolsSection = () => {
           id: protocoloAPI.id.toString(),
           nome: protocoloAPI.nome,
           descricao: protocoloAPI.descricao || '',
-          cid: protocoloAPI.cid,
+          // Converter string de CIDs separados por vírgula em array
+          cid: protocoloAPI.cid ? protocoloAPI.cid.split(',').map(c => c.trim()).filter(c => c) : [],
           intervalo_ciclos: protocoloAPI.intervalo_ciclos,
           ciclos_previstos: protocoloAPI.ciclos_previstos,
           linha: protocoloAPI.linha,
@@ -398,9 +403,13 @@ const ProtocolsSection = () => {
       // Filtro de busca (nome, cid, descrição)
       if (searchTerm && searchTerm.trim() !== '') {
         const term = searchTerm.toLowerCase().trim();
+        const cidString = Array.isArray(protocolo.cid) 
+          ? protocolo.cid.join(', ') 
+          : (protocolo.cid || '');
+        
         const matchesSearch = 
           protocolo.nome.toLowerCase().includes(term) ||
-          (protocolo.cid && protocolo.cid.toLowerCase().includes(term)) ||
+          cidString.toLowerCase().includes(term) ||
           protocolo.descricao.toLowerCase().includes(term);
         
         if (!matchesSearch) {
@@ -512,11 +521,16 @@ const ProtocolsSection = () => {
     try {
       if (backendConnected) {
         // Usar API
+        // Converter array de CIDs para string separada por vírgulas
+        const cidString = Array.isArray(currentProtocolo.cid) 
+          ? currentProtocolo.cid.join(', ') 
+          : (currentProtocolo.cid || '');
+        
         const protocoloData: ProtocoloCreateInput = {
           clinica_id: 1, // Assumindo clínica ID 1 para testes
           nome: currentProtocolo.nome,
           descricao: currentProtocolo.descricao,
-          cid: currentProtocolo.cid,
+          cid: cidString,
           intervalo_ciclos: currentProtocolo.intervalo_ciclos,
           ciclos_previstos: currentProtocolo.ciclos_previstos,
           linha: currentProtocolo.linha,
@@ -613,7 +627,7 @@ const ProtocolsSection = () => {
     }));
   };
 
-  const handleInputChange = (field: keyof Protocolo, value: string | number) => {
+  const handleInputChange = (field: keyof Protocolo, value: string | number | string[]) => {
     setCurrentProtocolo(prev => ({
       ...prev,
       [field]: value
@@ -941,11 +955,15 @@ const ProtocolsSection = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="cid">CID Associado</Label>
+                  <Label htmlFor="cid">CIDs Associados (pode adicionar vários)</Label>
                   <CIDSelection
-                    value={currentProtocolo.cid || ''}
-                    onChange={(arr) => handleInputChange('cid', arr?.[0]?.codigo || '')}
-                    multiple={false}
+                    value={Array.isArray(currentProtocolo.cid) ? currentProtocolo.cid : (currentProtocolo.cid ? [currentProtocolo.cid] : [])}
+                    onChange={(arr) => {
+                      const cids = arr?.map(item => item.codigo) || [];
+                      handleInputChange('cid', cids);
+                    }}
+                    multiple={true}
+                    placeholder="Selecione um ou mais CIDs..."
                   />
                 </div>
               </div>
@@ -1292,7 +1310,11 @@ const ProtocolsSection = () => {
                   <h3 className="text-lg font-semibold mb-2">{detailsModal.protocolo.nome}</h3>
                   <div className="flex items-center gap-4 text-sm">
                     <Badge variant="secondary">{(detailsModal.protocolo.medicamentos || []).length} princípio(s) ativo(s)</Badge>
-                    <span className="text-muted-foreground">CID: {detailsModal.protocolo.cid || 'N/D'}</span>
+                    <span className="text-muted-foreground">
+                      CID: {Array.isArray(detailsModal.protocolo.cid) 
+                        ? (detailsModal.protocolo.cid.length > 0 ? detailsModal.protocolo.cid.join(', ') : 'N/D')
+                        : (detailsModal.protocolo.cid || 'N/D')}
+                    </span>
                     <span className="text-muted-foreground">Linha: {detailsModal.protocolo.linha || 'N/D'}</span>
                   </div>
                 </div>

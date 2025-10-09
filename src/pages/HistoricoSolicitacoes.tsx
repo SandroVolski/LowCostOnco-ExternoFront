@@ -50,7 +50,7 @@ const HistoricoSolicitacoes = () => {
     status: 'todos',
     dateFrom: '',
     dateTo: '',
-    operadora: 'todas'
+    // operadora: 'todas' // COMENTADO - filtro de operadora removido
   });
   const [selectedPDF, setSelectedPDF] = useState<SolicitacaoFromAPI | null>(null);
   const [showPDFModal, setShowPDFModal] = useState(false);
@@ -114,7 +114,7 @@ const HistoricoSolicitacoes = () => {
       status: 'todos',
       dateFrom: '',
       dateTo: '',
-      operadora: 'todas'
+      // operadora: 'todas' // COMENTADO - filtro de operadora removido
     });
     setCurrentPage(1);
   };
@@ -195,7 +195,8 @@ const HistoricoSolicitacoes = () => {
     }
   };
 
-  // Lista de operadoras disponíveis (simulada - em produção viria da API)
+  // Lista de operadoras disponíveis (simulada - em produção viria da API) - COMENTADO
+  /*
   const operadorasDisponiveis = [
     'Unimed',
     'Amil',
@@ -213,6 +214,7 @@ const HistoricoSolicitacoes = () => {
     const hash = nomeCliente.toLowerCase().charCodeAt(0) % operadorasDisponiveis.length;
     return operadorasDisponiveis[hash];
   };
+  */
 
   // Filtragem de dados
   const filteredSolicitacoes = solicitacoes.filter(solicitacao => {
@@ -229,18 +231,18 @@ const HistoricoSolicitacoes = () => {
     const matchesDateTo = !filters.dateTo || 
       new Date(solicitacao.data_solicitacao) <= new Date(filters.dateTo);
     
-    // Filtro de operadora baseado no paciente da solicitação
-    const matchesOperadora = filters.operadora === 'todas' || 
-      getOperadoraPorPaciente(solicitacao.cliente_nome) === filters.operadora;
+    // Filtro de operadora baseado no paciente da solicitação - COMENTADO
+    // const matchesOperadora = filters.operadora === 'todas' || 
+    //   getOperadoraPorPaciente(solicitacao.cliente_nome) === filters.operadora;
     
-    return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo && matchesOperadora;
+    return matchesSearch && matchesStatus && matchesDateFrom && matchesDateTo; // && matchesOperadora
   });
 
   // Preparar dados para CardHoverEffect
   const hoverItems = filteredSolicitacoes.map((solicitacao, index) => ({
     id: solicitacao.id || index,
     title: `Solicitação #${solicitacao.id}`,
-    description: `${solicitacao.cliente_nome} - ${getOperadoraPorPaciente(solicitacao.cliente_nome)} - ${solicitacao.hospital_nome}`,
+    description: `${solicitacao.cliente_nome} - ${solicitacao.hospital_nome}`, // Removido operadora da descrição
     link: '#',
     usage: solicitacao.ciclos_previstos || 0,
     protocols: [solicitacao.diagnostico_cid || 'N/A'],
@@ -249,7 +251,7 @@ const HistoricoSolicitacoes = () => {
     cicloAtual: solicitacao.ciclo_atual || 0,
     data: {
       ...solicitacao,
-      operadora: getOperadoraPorPaciente(solicitacao.cliente_nome)
+      // operadora: getOperadoraPorPaciente(solicitacao.cliente_nome) // COMENTADO - filtro de operadora removido
     }
   }));
 
@@ -315,6 +317,8 @@ const HistoricoSolicitacoes = () => {
                 </SelectContent>
               </Select>
               
+              {/* Filtro de Operadora/Plano de Saúde - COMENTADO */}
+              {/* 
               <Select value={filters.operadora} onValueChange={(value) => handleFilterChange('operadora', value)}>
                 <SelectTrigger className="w-36 h-8 text-sm">
                   <SelectValue placeholder="Operadora" />
@@ -328,6 +332,7 @@ const HistoricoSolicitacoes = () => {
                   ))}
                 </SelectContent>
               </Select>
+              */}
               
               <Button
                 variant="outline"

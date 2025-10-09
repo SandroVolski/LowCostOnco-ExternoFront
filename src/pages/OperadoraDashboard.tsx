@@ -543,7 +543,7 @@ const OperadoraDashboard = () => {
                   data={[
                     { name: 'Aprovadas', value: metrics.solicitacoesAutorizadas, color: '#10b981' },
                     { name: 'Em Análise', value: metrics.solicitacoesEmAnalise, color: '#f59e0b' },
-                    { name: 'Negadas', value: metrics.solicitacoesNegadas, color: '#ef4444' }
+                    { name: 'Negativas', value: metrics.solicitacoesNegadas, color: '#ef4444' }
                   ]} 
                   dataKey="value" 
                   cx="50%" cy="50%" 
@@ -556,7 +556,7 @@ const OperadoraDashboard = () => {
                   {[
                     { name: 'Aprovadas', value: metrics.solicitacoesAutorizadas, color: '#10b981' },
                     { name: 'Em Análise', value: metrics.solicitacoesEmAnalise, color: '#f59e0b' },
-                    { name: 'Negadas', value: metrics.solicitacoesNegadas, color: '#ef4444' }
+                    { name: 'Negativas', value: metrics.solicitacoesNegadas, color: '#ef4444' }
                   ].map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} />
                   ))}

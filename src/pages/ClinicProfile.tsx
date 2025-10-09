@@ -39,6 +39,40 @@ const emptyProfile: ClinicProfile = {
   observacoes: '',
 };
 
+// Helper para garantir que nenhum input receba null/undefined
+const normalizeProfile = (p: Partial<ClinicProfile>): ClinicProfile => {
+  const ensureArray = (arr?: string[]) => (Array.isArray(arr) && arr.length > 0 ? arr.map(v => v ?? '') : ['']);
+  const ensureSetor = (s?: { telefones?: string[]; emails?: string[] }) => ({
+    telefones: ensureArray(s?.telefones),
+    emails: ensureArray(s?.emails)
+  });
+
+  return {
+    nome: p.nome ?? '',
+    razao_social: p.razao_social ?? '',
+    codigo: p.codigo ?? '',
+    cnpj: p.cnpj ?? '',
+    endereco: p.endereco ?? '',
+    endereco_rua: p.endereco_rua ?? '',
+    endereco_numero: p.endereco_numero ?? '',
+    endereco_bairro: p.endereco_bairro ?? '',
+    endereco_complemento: p.endereco_complemento ?? '',
+    cidade: p.cidade ?? '',
+    estado: p.estado ?? '',
+    cep: p.cep ?? '',
+    telefones: ensureArray(p.telefones),
+    emails: ensureArray(p.emails),
+    contatos_pacientes: ensureSetor(p.contatos_pacientes),
+    contatos_administrativos: ensureSetor(p.contatos_administrativos),
+    contatos_legais: ensureSetor(p.contatos_legais),
+    contatos_faturamento: ensureSetor(p.contatos_faturamento),
+    contatos_financeiro: ensureSetor(p.contatos_financeiro),
+    website: p.website ?? '',
+    logo_url: p.logo_url ?? '',
+    observacoes: p.observacoes ?? ''
+  };
+};
+
 
 
 // Mover AnimatedSection para fora do componente para evitar re-criação
@@ -102,6 +136,8 @@ const ContatoSetorSection = ({
               value={tel || ''} 
               placeholder="(11) 99999-9999" 
               className="lco-input flex-1"
+              inputMode="tel"
+              maxLength={16}
               onChange={(e) => onUpdateTelefone(idx, e.target.value)}
             />
             {telefones.length > 1 && (
@@ -209,8 +245,8 @@ const ClinicProfileComponent = () => {
         }
         
         // Fallback para campo antigo se não há telefones no novo formato
-        if (telefones.length === 0 && clinica.telefone && clinica.telefone.trim() !== '') {
-          telefones = [String(clinica.telefone)];
+        if (telefones.length === 0 && (clinica as any).telefone && (clinica as any).telefone.trim() !== '') {
+          telefones = [String((clinica as any).telefone)];
         }
         
         if (telefones.length === 0) {
@@ -240,8 +276,8 @@ const ClinicProfileComponent = () => {
         }
         
         // Fallback para campo antigo se não há emails no novo formato
-        if (emails.length === 0 && clinica.email && clinica.email.trim() !== '') {
-          emails = [String(clinica.email)];
+        if (emails.length === 0 && (clinica as any).email && (clinica as any).email.trim() !== '') {
+          emails = [String((clinica as any).email)];
         }
         
         if (emails.length === 0) {
@@ -256,6 +292,8 @@ const ClinicProfileComponent = () => {
           telefones,
           emails,
         };
+        // Normalizar strings nulas para inputs controlados
+        const normalizedProfile = normalizeProfile(migratedProfile);
         
         console.log('📋 Dados carregados da API:', {
           telefonesOriginais: clinica.telefones,
@@ -266,8 +304,8 @@ const ClinicProfileComponent = () => {
           totalEmails: emails.length
         });
         
-        setProfile(migratedProfile);
-        setLogoPreview(migratedProfile.logo_url || '');
+        setProfile(normalizedProfile);
+        setLogoPreview(normalizedProfile.logo_url || '');
         setApiConnected(true);
         console.log('✅ Perfil carregado da API');
       } catch (apiError) {
@@ -342,9 +380,11 @@ const ClinicProfileComponent = () => {
             telefones,
             emails,
           };
+          // Normalização adicional para inputs controlados
+          const normalizedProfile = normalizeProfile(migratedProfile);
           
-          setProfile(migratedProfile);
-          setLogoPreview(migratedProfile.logo_url || '');
+          setProfile(normalizedProfile);
+          setLogoPreview(normalizedProfile.logo_url || '');
         }
       }
     } catch (error) {
@@ -401,8 +441,23 @@ const ClinicProfileComponent = () => {
     setLoading(true);
     try {
       // Limpar campos vazios de telefones e emails
-      const cleanTelefones = profile.telefones?.filter(tel => tel && tel.trim() !== '') || [''];
-      const cleanEmails = profile.emails?.filter(email => email && email.trim() !== '') || [''];
+      const cleanTelefones = (profile.telefones || [])
+        .map(t => (t || '').trim())
+        .filter(t => t !== '');
+      const cleanEmails = (profile.emails || [])
+        .map(e => (e || '').trim())
+        .filter(e => e !== '');
+
+      // Limpar contatos por setor
+      const cleanSetor = (s?: { telefones?: string[]; emails?: string[] }) => ({
+        telefones: (s?.telefones || []).map(t => (t || '').trim()).filter(Boolean),
+        emails: (s?.emails || []).map(e => (e || '').trim()).filter(Boolean)
+      });
+      const contatos_pacientes = cleanSetor(profile.contatos_pacientes);
+      const contatos_administrativos = cleanSetor(profile.contatos_administrativos);
+      const contatos_legais = cleanSetor(profile.contatos_legais);
+      const contatos_faturamento = cleanSetor(profile.contatos_faturamento);
+      const contatos_financeiro = cleanSetor(profile.contatos_financeiro);
       
       console.log('📋 Dados para salvar:', {
         telefones: cleanTelefones,
@@ -419,17 +474,23 @@ const ClinicProfileComponent = () => {
             ...profile,
             telefones: cleanTelefones,
             emails: cleanEmails,
-          }).filter(([key]) => !fieldsToExclude.includes(key))
+            contatos_pacientes,
+            contatos_administrativos,
+            contatos_legais,
+            contatos_faturamento,
+            contatos_financeiro,
+          }).filter(([key, value]) => !fieldsToExclude.includes(key) && value !== undefined)
         );
         
         console.log('🔧 Enviando dados limpos para API:', cleanProfile);
         
         const updateRequest: UpdateProfileRequest = {
-          clinica: cleanProfile
+          // usar o tipo amplo para evitar exigência de campos obrigatórios no payload de update
+          clinica: cleanProfile as unknown as ClinicProfile
         };
         
         const updatedProfile = await ClinicService.updateProfile(updateRequest);
-        setProfile(updatedProfile.clinica);
+        setProfile(normalizeProfile(updatedProfile.clinica as Partial<ClinicProfile>));
         
         toast.success('Perfil salvo com sucesso na API!');
       } else {
@@ -438,6 +499,11 @@ const ClinicProfileComponent = () => {
           ...profile,
           telefones: cleanTelefones,
           emails: cleanEmails,
+          contatos_pacientes,
+          contatos_administrativos,
+          contatos_legais,
+          contatos_faturamento,
+          contatos_financeiro,
         };
         localStorage.setItem('clinic_profile', JSON.stringify(profileData));
         
@@ -575,11 +641,12 @@ const ClinicProfileComponent = () => {
     setProfile(prevProfile => {
       const setorKey = `contatos_${setor}` as keyof ClinicProfile;
       const contatosSetor = prevProfile[setorKey] as { telefones?: string[]; emails?: string[] } || { telefones: [''], emails: [''] };
+      const formatted = tipo === 'telefones' ? formatPhone(value || '') : (value || '');
       return {
         ...prevProfile,
         [setorKey]: {
           ...contatosSetor,
-          [tipo]: (contatosSetor[tipo] || ['']).map((item, i) => i === index ? value : item),
+          [tipo]: (contatosSetor[tipo] || ['']).map((item, i) => i === index ? formatted : item || ''),
         },
       };
     });
@@ -781,14 +848,14 @@ const ClinicProfileComponent = () => {
                   <Label htmlFor="website">Website</Label>
                   <div className="relative">
                     <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="website"
-                      name="website"
-                      value={profile.website}
-                      onChange={handleInputChange}
-                      placeholder="https://www.suaclinica.com.br"
-                      className="lco-input pl-10"
-                    />
+            <Input
+              id="website"
+              name="website"
+              value={profile.website ?? ''}
+              onChange={handleInputChange}
+              placeholder="https://www.suaclinica.com.br"
+              className="lco-input pl-10"
+            />
                   </div>
                 </div>
               </div>

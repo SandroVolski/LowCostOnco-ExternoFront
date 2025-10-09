@@ -314,39 +314,51 @@ const Dashboard = () => {
 
   // ✅ PROCESSA STATUS REAL DOS PACIENTES
   const processPatientStatusData = (patients: PatientFromAPI[]) => {
-    // Calcular % de tratamento concluído para cada paciente
-    const statusData = patients.map(patient => {
-      // Simular % de tratamento baseado em dados disponíveis
-      // Em um sistema real, isso viria de uma tabela de progresso
-      const progresso = Math.floor(Math.random() * 100); // Placeholder
+    console.log('🔧 Processando status dos pacientes:', patients.length);
+    
+    // Agrupar pacientes por status real
+    const statusGroups = patients.reduce((acc, patient) => {
+      const status = patient.status || 'ativo';
       
-      let faixa = '';
-      if (progresso <= 20) faixa = '0-20%';
-      else if (progresso <= 40) faixa = '21-40%';
-      else if (progresso <= 60) faixa = '41-60%';
-      else if (progresso <= 80) faixa = '61-80%';
-      else faixa = '81-100%';
-      
-      return {
-        name: faixa,
-        count: 1,
-        percentage: progresso
-      };
-    });
-
-    // Agrupar por faixa de progresso
-    const groupedData = statusData.reduce((acc, item) => {
-      const existing = acc.find(x => x.name === item.name);
-      if (existing) {
-        existing.count += 1;
-        existing.percentage = Math.round((existing.percentage + item.percentage) / 2);
-      } else {
-        acc.push({ ...item });
+      // Mapear status para categorias mais amigáveis
+      let statusLabel = '';
+      switch (status.toLowerCase()) {
+        case 'ativo':
+        case 'em tratamento':
+          statusLabel = 'Em Tratamento';
+          break;
+        case 'inativo':
+          statusLabel = 'Inativo';
+          break;
+        case 'alta':
+        case 'concluído':
+          statusLabel = 'Alta/Concluído';
+          break;
+        case 'obito':
+        case 'óbito':
+          statusLabel = 'Óbito';
+          break;
+        default:
+          statusLabel = 'Outros';
       }
+      
+      if (!acc[statusLabel]) {
+        acc[statusLabel] = 0;
+      }
+      acc[statusLabel]++;
       return acc;
-    }, [] as PatientStatusData[]);
+    }, {} as Record<string, number>);
 
-    setPatientStatusData(groupedData);
+    // Converter para formato do gráfico
+    const totalPacientes = patients.length;
+    const data = Object.entries(statusGroups).map(([name, count]) => ({
+      name,
+      count,
+      percentage: totalPacientes > 0 ? Math.round((count / totalPacientes) * 100) : 0
+    }));
+
+    console.log('📊 Status dos pacientes processado:', data);
+    setPatientStatusData(data);
   };
 
   // ✅ PROCESSA STATUS REAL DAS SOLICITAÇÕES
@@ -633,11 +645,20 @@ const Dashboard = () => {
 
   // ✅ PROCESSA SOLICITAÇÕES POR MÊS COM DADOS REAIS
   const processSolicitacoesPorMes = (solicitacoes: SolicitacaoFromAPI[]) => {
+    console.log('🔧 Processando solicitações por mês:', solicitacoes.length);
+    
     const mesesData: Record<string, SolicitacoesPorMesData> = {};
     
     solicitacoes.forEach(solicitacao => {
       try {
-        const dataSolicitacao = new Date(solicitacao.data_solicitacao);
+        // Usar data_solicitacao ou created_at como fallback
+        const dataSolicitacao = new Date(solicitacao.data_solicitacao || solicitacao.created_at || '');
+        
+        if (isNaN(dataSolicitacao.getTime())) {
+          console.warn('Data inválida para solicitação:', solicitacao.id);
+          return;
+        }
+        
         const mesAno = dataSolicitacao.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
         
         if (!mesesData[mesAno]) {
@@ -653,6 +674,7 @@ const Dashboard = () => {
         
         mesesData[mesAno].total++;
         
+        // Mapear status corretamente
         switch (solicitacao.status) {
           case 'aprovada':
             mesesData[mesAno].autorizadas++;
@@ -663,6 +685,7 @@ const Dashboard = () => {
           case 'em_analise':
             mesesData[mesAno].emAnalise++;
             break;
+          case 'pendente':
           default:
             mesesData[mesAno].emProcessamento++;
         }
@@ -671,6 +694,7 @@ const Dashboard = () => {
       }
     });
 
+    // Ordenar por data (mais recente primeiro)
     const sortedData = Object.values(mesesData).sort((a, b) => {
       const [mesA, anoA] = a.mes.split(' ');
       const [mesB, anoB] = b.mes.split(' ');
@@ -678,6 +702,7 @@ const Dashboard = () => {
              new Date(parseInt(anoA), getMonthIndex(mesA)).getTime();
     });
 
+    console.log('📊 Solicitações por mês processadas:', sortedData);
     setSolicitacoesPorMes(sortedData);
   };
 
@@ -692,6 +717,8 @@ const Dashboard = () => {
 
   // ✅ PROCESSAMENTO DOS PRINCÍPIOS ATIVOS MAIS UTILIZADOS
   const processActivePrinciples = (protocolos: ProtocoloFromAPI[]) => {
+    console.log('🔧 Processando princípios ativos:', protocolos.length);
+    
     const principleCount: Record<string, ActivePrincipleData> = {};
     
     protocolos.forEach(protocolo => {
@@ -713,21 +740,24 @@ const Dashboard = () => {
           
           principleCount[principio].count++;
           principleCount[principio].protocols.push(protocolo.nome || 'Protocolo sem nome');
-          principleCount[principio].totalUsage += 1; // Contar uso
-          principleCount[principio].pacientesEmTratamento = Math.floor(Math.random() * 50) + 1; // Placeholder
-          principleCount[principio].quantidadeSolicitada = 1; // Contar solicitações
+          principleCount[principio].totalUsage += 1;
+          principleCount[principio].pacientesEmTratamento = 1; // 1 paciente por protocolo
+          principleCount[principio].quantidadeSolicitada = 1;
         });
       }
     });
 
+    const totalUsage = Object.values(principleCount).reduce((sum, p) => sum + p.totalUsage, 0);
+    
     const sortedPrinciples = Object.values(principleCount)
       .sort((a, b) => b.totalUsage - a.totalUsage)
       .slice(0, 10) // Top 10
-      .map((principle, index) => ({
+      .map((principle) => ({
         ...principle,
-        percentage: Math.round((principle.totalUsage / Object.values(principleCount).reduce((sum, p) => sum + p.totalUsage, 0)) * 100)
+        percentage: totalUsage > 0 ? Math.round((principle.totalUsage / totalUsage) * 100) : 0
       }));
 
+    console.log('📊 Princípios ativos processados:', sortedPrinciples);
     setActivePrinciples(sortedPrinciples);
   };
 
@@ -999,6 +1029,9 @@ const Dashboard = () => {
                     <div className="text-center">
                       <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
                       <p className="text-sm">Nenhuma solicitação encontrada</p>
+                      <p className="text-xs text-muted-foreground/70 mt-1">
+                        Verifique se há pacientes com diagnósticos cadastrados
+                      </p>
                     </div>
                   </div>
                 )}
@@ -1319,13 +1352,13 @@ const Dashboard = () => {
           </AnimatedSection>
         </div>
 
-        {/* Principais Medicamentos por Princípio Ativos */}
+        {/* Principais Medicamentos */}
         <AnimatedSection delay={800}>
           <Card className="lco-card h-[400px]">
             <CardHeader>
               <CardTitle className="flex items-center">
                 <Pill className="mr-2 h-5 w-5 text-primary" />
-                Principais Medicamentos por Princípio Ativos
+                Principais Medicamentos
               </CardTitle>
               <CardDescription>Top 10 medicamentos mais utilizados</CardDescription>
             </CardHeader>
@@ -1342,9 +1375,10 @@ const Dashboard = () => {
                 <ResponsiveContainer width="100%" height={280}>
                   <BarChart data={activePrinciples.slice(0, 10)}>
                     <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
-                    <XAxis dataKey="name" tick={{ fontSize: 12 }} interval={0} angle={-20} textAnchor="end" height={60} />
+                    {/* Remover rótulos de nome no eixo; manter apenas a legenda/tooltip */}
+                    <XAxis dataKey="name" tick={false} axisLine={{ stroke: 'var(--border)' }} height={10} />
                     <YAxis />
-                    <Tooltip formatter={(value: any, name: any) => [String(value), name]} />
+                    <Tooltip formatter={(value: any, name: any, props: any) => [String(value), props.payload?.name || name]} />
                     <Bar dataKey="pacientesEmTratamento" name="Pacientes em Tratamento" fill="#22c55e" radius={[6,6,0,0]} />
                     <Bar dataKey="quantidadeSolicitada" name="Quantidade Solicitada" fill="#f59e0b" radius={[6,6,0,0]} />
                   </BarChart>
@@ -1590,6 +1624,7 @@ const Dashboard = () => {
     const [demografiaSexo, setDemografiaSexo] = useState<any[]>([]);
     const [demografiaIdade, setDemografiaIdade] = useState<any[]>([]);
     const [realClinicas, setRealClinicas] = useState<Clinica[]>([]);
+    const [novosPacientesStats, setNovosPacientesStats] = useState<{ atual: number; anterior: number }>({ atual: 0, anterior: 0 });
 
     // Filtros
     const [selectedClinicId, setSelectedClinicId] = useState<number | 'todas'>('todas');
@@ -1606,7 +1641,7 @@ const Dashboard = () => {
     // Carregar e recarregar dados conforme filtros
     useEffect(() => {
       loadOperatorData();
-    }, [selectedClinicId]);
+    }, [selectedClinicId, timeFilter]);
 
     // Funções específicas para operadora usando operadoraAuthService
     const listarPacientesOperadora = async (params: { page: number; limit: number }) => {
@@ -1786,6 +1821,12 @@ const Dashboard = () => {
         processDiagnosticosOperator(pacientesOperadora, selectedClinicId);
         processDemografiaOperator(pacientesOperadora, selectedClinicId);
 
+        // Calcular "novos pacientes" com base em created_at dentro da janela timeFilter
+        const dias = parseInt(timeFilter || '30');
+        const agora = new Date();
+        const inicioPeriodo = new Date(agora.getTime() - dias * 24 * 60 * 60 * 1000);
+        // cálculos de novos pacientes foram movidos para processOperatorMetrics
+
       } catch (error) {
         console.error('❌ Erro ao carregar dados da operadora:', error);
         toast.error('Erro ao carregar dados da operadora');
@@ -1831,6 +1872,27 @@ const Dashboard = () => {
       const clinicasUnicas = selectedClinicId === 'todas' 
         ? (Array.isArray(clinicas) ? clinicas.length : 0)
         : 1; // Se filtrado por clínica específica, mostrar 1
+
+      // Novos pacientes reais por created_at/Data_Primeira_Solicitacao
+      const diasJanela = parseInt(timeFilter || '30');
+      const agora = new Date();
+      const inicioPeriodo = new Date(agora.getTime() - diasJanela * 24 * 60 * 60 * 1000);
+      const inicioPeriodoAnterior = new Date(inicioPeriodo.getTime() - diasJanela * 24 * 60 * 60 * 1000);
+      const fimPeriodoAnterior = new Date(inicioPeriodo.getTime());
+
+      const getDate = (p: any) => p?.created_at || p?.createdAt || p?.Data_Primeira_Solicitacao || p?.data_primeira_solicitacao;
+      const inRange = (d: any) => {
+        const dt = new Date(d);
+        return !isNaN(dt.getTime()) && dt >= inicioPeriodo && dt <= agora;
+      };
+      const inPrevRange = (d: any) => {
+        const dt = new Date(d);
+        return !isNaN(dt.getTime()) && dt >= inicioPeriodoAnterior && dt < fimPeriodoAnterior;
+      };
+
+      const novosAtual = pacientesFiltrados.filter(p => inRange(getDate(p))).length;
+      const novosAnterior = pacientesFiltrados.filter(p => inPrevRange(getDate(p))).length;
+      setNovosPacientesStats({ atual: novosAtual, anterior: novosAnterior });
 
       setOperatorMetrics({
         totalClinicas: clinicasUnicas,
@@ -2429,7 +2491,7 @@ const Dashboard = () => {
           <AnimatedSection delay={220}>
             <Card className="lco-card hover-lift group relative overflow-hidden">
               <CardHeader className="pb-2 relative z-10">
-                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Taxa de Negação</CardTitle>
+                <CardTitle className="text-xs uppercase tracking-wide text-muted-foreground">Negativas</CardTitle>
               </CardHeader>
               <CardContent className="relative z-10">
                 <div className="text-3xl font-bold">{Math.round(operatorMetrics.taxaNegacao * 100)}%</div>
@@ -2537,7 +2599,7 @@ const Dashboard = () => {
                   {/* Número principal */}
                   <div className="text-center">
                     <div className="text-5xl font-bold text-green-600 mb-2">
-                      {Math.max(1, Math.floor(operatorMetrics.totalPacientes * (parseInt(timeFilter) / 365) * 0.15))}
+                      {novosPacientesStats.atual}
                     </div>
                     <p className="text-sm text-gray-600 font-medium">Novos pacientes</p>
                   </div>
@@ -2550,7 +2612,7 @@ const Dashboard = () => {
                         <span className="text-sm font-medium text-gray-700">Este período ({timeFilter}d)</span>
                       </div>
                       <span className="font-bold text-green-600">
-                        +{Math.max(1, Math.floor(operatorMetrics.totalPacientes * (parseInt(timeFilter) / 365) * 0.15))}
+                        +{novosPacientesStats.atual}
                       </span>
                     </div>
                     
@@ -2560,7 +2622,7 @@ const Dashboard = () => {
                         <span className="text-sm font-medium text-gray-700">Período anterior</span>
                       </div>
                       <span className="font-bold text-gray-600">
-                        +{Math.max(1, Math.floor(operatorMetrics.totalPacientes * (parseInt(timeFilter) / 365) * 0.12))}
+                        +{novosPacientesStats.anterior}
                       </span>
                     </div>
                     
@@ -2591,7 +2653,7 @@ const Dashboard = () => {
                 </CardTitle>
                 <CardDescription>Comparativo entre clínicas</CardDescription>
               </CardHeader>
-              <CardContent className="h-[280px]">
+              <CardContent className="h-[300px] pt-0">
                 {statusPorClinica.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={statusPorClinica}>
@@ -2657,10 +2719,11 @@ const Dashboard = () => {
                       <Pie 
                         data={principiosAtivosTop} 
                         dataKey="value" 
-                        cx="50%" cy="60%" 
+                        cx="50%" cy="52%" 
                         innerRadius={60} outerRadius={95} 
                         paddingAngle={5}
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        /* Remover rótulos de texto no gráfico; mostrar nomes só no hover */
+                        label={false}
                         labelLine={false}
                         filter="url(#pieShadowOp)"
                       >
@@ -2708,7 +2771,7 @@ const Dashboard = () => {
               <CardHeader>
                 <CardTitle className="flex items-center">
                   <Users className="mr-2 h-5 w-5 text-accent" />
-                  Demografia - Sexo
+                  Distribuição - Sexo
                 </CardTitle>
                 <CardDescription>Distribuição por sexo</CardDescription>
               </CardHeader>
@@ -2724,7 +2787,7 @@ const Dashboard = () => {
                       <Pie 
                         data={demografiaSexo} 
                         dataKey="value" 
-                        cx="50%" cy="60%" 
+                        cx="50%" cy="52%" 
                         innerRadius={55} outerRadius={90} 
                         labelLine={false}
                         label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}

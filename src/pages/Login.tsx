@@ -8,7 +8,7 @@ import Logo from '@/components/Logo';
 import AnimatedText from '@/components/AnimatedText';
 import LoginTransition from '@/components/LoginTransition';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Sun, Moon, Shield, AlertCircle } from 'lucide-react';
+import { Sun, Moon, Shield, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { AuthService } from '@/services/api';
 
@@ -17,6 +17,7 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [showTransition, setShowTransition] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const { login, navigateToDashboard } = useAuth();
   const { login: operadoraLogin } = useOperadoraAuth();
@@ -34,6 +35,7 @@ const Login = () => {
   const [operadoraPassword, setOperadoraPassword] = useState('');
   const [operadoraLoading, setOperadoraLoading] = useState(false);
   const [operadoraError, setOperadoraError] = useState('');
+  const [showOperadoraPassword, setShowOperadoraPassword] = useState(false);
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -206,15 +208,28 @@ const Login = () => {
                 <label htmlFor="password" className="text-sm font-semibold text-foreground">
                   Senha
                 </label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Digite sua senha"
-                  required
-                  className="h-10 text-sm border-2 focus:border-primary/50 transition-colors"
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Digite sua senha"
+                    required
+                    className="h-10 text-sm border-2 focus:border-primary/50 transition-colors pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center justify-between text-sm">
@@ -347,15 +362,28 @@ const Login = () => {
               <label htmlFor="operadoraPassword" className="text-sm font-semibold text-foreground">
                 Senha
               </label>
-              <Input
-                id="operadoraPassword"
-                type="password"
-                value={operadoraPassword}
-                onChange={(e) => setOperadoraPassword(e.target.value)}
-                placeholder="Digite sua senha"
-                required
-                className="h-10 text-sm border-2 focus:border-primary/50 transition-colors"
-              />
+              <div className="relative">
+                <Input
+                  id="operadoraPassword"
+                  type={showOperadoraPassword ? "text" : "password"}
+                  value={operadoraPassword}
+                  onChange={(e) => setOperadoraPassword(e.target.value)}
+                  placeholder="Digite sua senha"
+                  required
+                  className="h-10 text-sm border-2 focus:border-primary/50 transition-colors pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowOperadoraPassword(!showOperadoraPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showOperadoraPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <div className="flex gap-3 pt-1">

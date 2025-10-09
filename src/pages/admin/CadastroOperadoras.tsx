@@ -13,7 +13,9 @@ import {
   Trash2, 
   Save, 
   X,
-  FileText
+  FileText,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { toast } from 'sonner';
 import AnimatedSection from '@/components/AnimatedSection';
@@ -27,6 +29,7 @@ const CadastroOperadoras = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
   // Estados para paginação
   const [operadorasPerPage] = useState(8);
@@ -41,6 +44,11 @@ const CadastroOperadoras = () => {
     email: '',
     senha: ''
   });
+
+  // Auto geração de email corporativo
+  const [autoEmailEnabled, setAutoEmailEnabled] = useState(true);
+  const [suggestedEmail, setSuggestedEmail] = useState('');
+  const [emailAvailable, setEmailAvailable] = useState<boolean | null>(null);
 
   useEffect(() => {
     loadOperadoras();
@@ -102,6 +110,57 @@ const CadastroOperadoras = () => {
   const handleInputChange = (field: keyof OperadoraCreateInput, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
+
+  const slugify = (text: string) => {
+    return (text || '')
+      .toLowerCase()
+      .normalize('NFD').replace(/\p{Diacritic}/gu, '')
+      .replace(/[^a-z0-9]+/g, '.')
+      .replace(/\.+/g, '.')
+      .replace(/^\.|\.$/g, '')
+      .slice(0, 64);
+  };
+
+  const buildCorporateEmail = (name: string) => `${slugify(name)}@onkhos.com`;
+
+  // Carregar existentes para verificar duplicidade
+  const getExistingLogins = () => {
+    const opEmails = (operadoras || []).map(o => (o.email || '').toLowerCase()).filter(Boolean);
+    // Não temos aqui a lista de clínicas, mas o formato evita colisão com as já listadas entre operadoras
+    return new Set([ ...opEmails ]);
+  };
+
+  const ensureUnique = (base: string) => {
+    const existing = getExistingLogins();
+    if (!existing.has(base.toLowerCase())) return base;
+    let i = 2;
+    let candidate = base.replace(/@/, `${i}@`);
+    while (existing.has(candidate.toLowerCase())) {
+      i += 1;
+      candidate = base.replace(/@/, `${i}@`);
+    }
+    return candidate;
+  };
+
+  // Auto gerar email ao digitar o nome da operadora
+  useEffect(() => {
+    if (!autoEmailEnabled) return;
+    if (!formData.nome?.trim()) {
+      setSuggestedEmail('');
+      setEmailAvailable(null);
+      return;
+    }
+    const email = ensureUnique(buildCorporateEmail(formData.nome.trim()));
+    setSuggestedEmail(email);
+    setEmailAvailable(true);
+    setFormData(prev => ({ ...prev, email: email || prev.email }));
+  }, [formData.nome]);
+
+  // Se o usuário editar manualmente o email, desligar auto
+  useEffect(() => {
+    if (!formData.email) return;
+    if (suggestedEmail && formData.email !== suggestedEmail) setAutoEmailEnabled(false);
+  }, [formData.email]);
 
   const validateForm = (): boolean => {
     if (!formData.nome.trim()) {
@@ -471,7 +530,7 @@ const CadastroOperadoras = () => {
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email de Acesso *</Label>
+                    <Label htmlFor="email">Email de Acesso *</Label>
                       <Input
                         id="email"
                         type="email"
@@ -480,18 +539,35 @@ const CadastroOperadoras = () => {
                         placeholder="operadora@exemplo.com"
                         required
                       />
+                    {suggestedEmail && (
+                      <p className="text-xs">Sugestão: <span className="font-medium">{suggestedEmail}</span></p>
+                    )}
                     </div>
                     
                     <div className="space-y-2">
                       <Label htmlFor="senha">Senha *</Label>
-                      <Input
-                        id="senha"
-                        type="password"
-                        value={formData.senha}
-                        onChange={(e) => handleInputChange('senha', e.target.value)}
-                        placeholder="Senha de acesso"
-                        required
-                      />
+                      <div className="relative">
+                        <Input
+                          id="senha"
+                          type={showPassword ? "text" : "password"}
+                          value={formData.senha}
+                          onChange={(e) => handleInputChange('senha', e.target.value)}
+                          placeholder="Senha de acesso"
+                          required
+                          className="pr-10"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        >
+                          {showPassword ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>

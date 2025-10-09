@@ -81,21 +81,34 @@ class ChatService {
       console.log('🔧 [CHAT SERVICE] Dados recebidos do backend:', result.data);
       
       // Mapear os dados do backend para o formato do frontend
-      const mappedChats = (result.data || []).map((chat: any) => ({
-        id: chat.id,
-        name: chat.nome_conversa || `${chat.operadora_nome} - ${chat.clinica_nome}`,
-        operadora_id: chat.operadora_id,
-        clinica_id: chat.clinica_id,
-        participants: [
-          { id: chat.operadora_id, name: chat.operadora_nome, type: 'operadora' },
-          { id: chat.clinica_id, name: chat.clinica_nome, type: 'clinica' }
-        ],
-        last_message: chat.ultima_mensagem_texto,
-        last_message_time: chat.ultima_mensagem_data,
-        unread_count: chat.mensagens_nao_lidas || 0,
-        created_at: chat.created_at,
-        updated_at: chat.updated_at
-      }));
+      const mappedChats = (result.data || []).map((chat: any) => {
+        console.log('🔧 [CHAT SERVICE] Chat individual do backend:', chat);
+        
+        // Tentar diferentes campos para os nomes (com letra minúscula)
+        const operadoraNome = chat.operadora_nome || chat.operadoraNome || chat.operadora_nome || '';
+        const clinicaNome = chat.clinica_nome || chat.clinicaNome || chat.clinica_nome || '';
+        
+        console.log('🔧 [CHAT SERVICE] Nomes extraídos:', { operadoraNome, clinicaNome });
+        
+        return {
+          id: chat.id,
+          name: chat.nome_conversa || `${operadoraNome} - ${clinicaNome}`,
+          operadora_id: chat.operadora_id,
+          clinica_id: chat.clinica_id,
+          // Campos diretos para fallback
+          operadora_nome: operadoraNome,
+          clinica_nome: clinicaNome,
+          participants: [
+            { id: chat.operadora_id, name: operadoraNome, type: 'operadora' },
+            { id: chat.clinica_id, name: clinicaNome, type: 'clinica' }
+          ],
+          last_message: chat.ultima_mensagem_texto,
+          last_message_time: chat.ultima_mensagem_data,
+          unread_count: chat.mensagens_nao_lidas || 0,
+          created_at: chat.created_at,
+          updated_at: chat.updated_at
+        };
+      });
       
       console.log('🔧 [CHAT SERVICE] Chats mapeados:', mappedChats);
       
@@ -140,19 +153,21 @@ class ChatService {
     }
   }
   
-  // Buscar mensagens de um chat
-  async getChatMessages(chatId: number, limit: number = 50, offset: number = 0): Promise<{
+  // Buscar mensagens de um chat (suporta paginação e incremental via lastId)
+  async getChatMessages(chatId: number, limit: number = 50, offset: number = 0, lastId?: number): Promise<{
     messages: Message[];
     pagination: {
       limit: number;
       offset: number;
       total: number;
+      last_id?: number | null;
     };
   }> {
     try {
       const queryParams = new URLSearchParams();
       queryParams.append('limit', limit.toString());
       queryParams.append('offset', offset.toString());
+      if (lastId && lastId > 0) queryParams.append('last_id', String(lastId));
       
       const response = await authorizedFetch(`${config.API_BASE_URL}/chat/chats/${chatId}/messages?${queryParams.toString()}`);
       if (!response.ok) {
@@ -347,8 +362,8 @@ class ChatService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          operadora_id: operadoraId,
-          clinica_id: clinicaId
+          targetUserId: clinicaId,
+          targetUserType: 'clinica'
         }),
       });
       

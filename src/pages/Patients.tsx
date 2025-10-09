@@ -81,8 +81,11 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { PacienteService, testarConexaoBackend, testarConexaoBanco, SolicitacaoService, SolicitacaoFromAPI } from '@/services/api';
+import { PacienteService, testarConexaoBackend, testarConexaoBanco, SolicitacaoService, SolicitacaoFromAPI, ProtocoloService } from '@/services/api';
 import { CatalogService, type CatalogCidItem } from '@/services/api';
+import { OperadoraService } from '@/services/operadoraService';
+import { PrestadorService, Prestador } from '@/services/prestadorService';
+import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import CIDSelection from '@/components/CIDSelection';
 
@@ -125,7 +128,7 @@ interface Patient {
   Prestador: string;
   plano_saude: string;
   numero_carteirinha: string;
-  Cid_Diagnostico: string;
+  Cid_Diagnostico: string | string[];
   Data_Primeira_Solicitacao: string;
   telefone: string;
   email: string;
@@ -133,6 +136,12 @@ interface Patient {
   observacoes: string;
   setor_prestador: string;
   clinica_id?: number;
+  // Campos adicionais para o popup
+  peso?: string;
+  altura?: string;
+  contato_emergencia_nome?: string;
+  contato_emergencia_telefone?: string;
+  medico_assistente_nome?: string;
 }
 
 interface ModernAlertProps {
@@ -378,13 +387,22 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
               <div className="space-y-2 flex-1 overflow-y-hidden">
               {/* Informações básicas compactas */}
               <div className="space-y-2 text-xs bg-muted/30 rounded-lg p-2.5 border border-border/20">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-muted-foreground">Médico Assistente:</span>
-                  <span className="font-medium text-right break-words">{patient.Prestador}</span>
-                </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-muted-foreground">Médico Assistente:</span>
+                    <span className="font-medium text-right break-words">
+                      {patient.medico_assistente_nome || 
+                       (patient as any).medico_assistente_nome || 
+                       patient.Prestador || 
+                       'Não informado'}
+                    </span>
+                  </div>
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-muted-foreground">CID/Diagnóstico:</span>
-                  <span className="font-medium text-right break-words">{patient.Cid_Diagnostico}</span>
+                  <span className="font-medium text-right break-words">
+                    {Array.isArray(patient.Cid_Diagnostico) 
+                      ? patient.Cid_Diagnostico.join(', ') 
+                      : patient.Cid_Diagnostico}
+                  </span>
                 </div>
               </div>
 
@@ -936,14 +954,20 @@ const initialPatients: Patient[] = [
     Prestador: 'Hospital ABC',
     plano_saude: 'Unimed Nacional',
     numero_carteirinha: '123456789',
-    Cid_Diagnostico: 'C50',
+    Cid_Diagnostico: ['C50', 'C78'],
     Data_Primeira_Solicitacao: '15/01/2024',
     telefone: '(11) 99999-9999',
     email: 'maria.silva@email.com',
     endereco: 'Rua das Flores, 123 - São Paulo, SP',
     observacoes: 'Paciente colaborativa, boa resposta ao tratamento inicial.',
     setor_prestador: 'Agendamento',
-    clinica_id: 1
+    clinica_id: 1,
+    // Campos adicionais para o popup
+    peso: '65',
+    altura: '165',
+    contato_emergencia_nome: 'João Silva',
+    contato_emergencia_telefone: '(11) 88888-8888',
+    medico_assistente_nome: 'Dr. Carlos Santos'
   }
 ];
 
@@ -969,14 +993,20 @@ const emptyPatient: Patient = {
   Prestador: '',
   plano_saude: '',
   numero_carteirinha: '',
-  Cid_Diagnostico: '',
+  Cid_Diagnostico: [],
   Data_Primeira_Solicitacao: '',
   telefone: '',
   email: '',
   endereco: '',
   observacoes: '',
   setor_prestador: '',
-  clinica_id: 1
+  clinica_id: 1,
+  // Campos adicionais para o popup
+  peso: '',
+  altura: '',
+  contato_emergencia_nome: '',
+  contato_emergencia_telefone: '',
+  medico_assistente_nome: ''
 };
 
 // Mapeamento de operadoras (nome para ID e vice-versa)
@@ -1036,8 +1066,14 @@ const Patients = () => {
   const [backendConnected, setBackendConnected] = useState(false);
   const [loading, setLoading] = useState(true);
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
+  const [protocolosOptions, setProtocolosOptions] = useState<Array<{value: string, label: string}>>([]);
+  const [operadorasOptions, setOperadorasOptions] = useState<Array<{value: string, label: string}>>([]);
+  const [prestadoresOptions, setPrestadoresOptions] = useState<Array<{value: string, label: string}>>([]);
+  const [clinicaOperadoraId, setClinicaOperadoraId] = useState<number | null>(null);
+  const [operadoraFilterManual, setOperadoraFilterManual] = useState(false); // Rastrear se operadora foi selecionada manualmente
   const { navigateWithTransition } = usePageNavigation();
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   const itemsPerPage = 50;
 
@@ -1056,6 +1092,80 @@ const Patients = () => {
   useEffect(() => {
     checkBackendConnection();
   }, []);
+
+  // Carregar protocolos da clínica logada
+  useEffect(() => {
+    if (backendConnected) {
+      loadProtocolosFromAPI();
+      loadOperadorasFromAPI();
+      loadPrestadoresFromAPI();
+    }
+  }, [backendConnected]);
+
+  // Pré-selecionar operadora quando o formulário for aberto
+  useEffect(() => {
+    if (isDialogOpen && !isEditing && operadorasOptions.length > 0 && user) {
+      console.log('🔧 Formulário aberto, verificando pré-seleção...');
+      console.log('🔧 Operadoras disponíveis:', operadorasOptions);
+      console.log('🔧 Usuário:', user);
+      
+      // Se não há operadora selecionada, tentar pré-selecionar
+      if (!currentPatient.Operadora) {
+        console.log('🔧 Nenhuma operadora selecionada, tentando pré-seleção...');
+        
+        // Primeiro, tentar buscar a operadora específica da clínica
+        const clinicaId = user?.clinica_id || user?.id || 1;
+        OperadoraService.getOperadoraByClinica(clinicaId).then(operadoraClinica => {
+          if (operadoraClinica) {
+            console.log('🔧 Operadora da clínica encontrada para pré-seleção:', operadoraClinica.nome);
+            setCurrentPatient(prev => ({
+              ...prev,
+              Operadora: operadoraClinica.nome
+            }));
+          } else if (operadorasOptions.length > 0) {
+            console.log('🔧 Usando primeira operadora disponível para pré-seleção:', operadorasOptions[0].value);
+            setCurrentPatient(prev => ({
+              ...prev,
+              Operadora: operadorasOptions[0].value
+            }));
+          }
+        }).catch(error => {
+          console.error('❌ Erro ao buscar operadora para pré-seleção:', error);
+          if (operadorasOptions.length > 0) {
+            setCurrentPatient(prev => ({
+              ...prev,
+              Operadora: operadorasOptions[0].value
+            }));
+          }
+        });
+      }
+    }
+  }, [isDialogOpen, isEditing, operadorasOptions, user]);
+
+  // Pré-selecionar operadora da clínica no filtro quando carregada
+  useEffect(() => {
+    // Só pré-selecionar se:
+    // 1. As operadoras foram carregadas
+    // 2. O usuário está logado
+    // 3. O filtro ainda está em 'all'
+    // 4. Foi encontrada a operadora da clínica
+    if (operadorasOptions.length > 0 && user && operadoraFilter === 'all') {
+      const clinicaId = user?.clinica_id || user?.id || 1;
+      
+      OperadoraService.getOperadoraByClinica(clinicaId)
+        .then(operadoraClinica => {
+          if (operadoraClinica) {
+            console.log('🔧 Pré-selecionando operadora no filtro (automaticamente):', operadoraClinica.nome);
+            setOperadoraFilter(operadoraClinica.nome);
+            // NÃO marcar como manual - é pré-seleção automática
+            setOperadoraFilterManual(false);
+          }
+        })
+        .catch(error => {
+          console.error('❌ Erro ao buscar operadora para filtro:', error);
+        });
+    }
+  }, [operadorasOptions, user]);
 
   // Recarregar dados quando mudar página, busca ou filtros
   useEffect(() => {
@@ -1132,6 +1242,128 @@ const Patients = () => {
     }
   };
 
+  const loadProtocolosFromAPI = async () => {
+    try {
+      console.log('🔧 Carregando protocolos da clínica...');
+      const result = await ProtocoloService.listarProtocolos({ page: 1, limit: 1000 });
+      
+      const protocolos = result.data.map(protocolo => ({
+        value: protocolo.nome,
+        label: protocolo.nome
+      }));
+      
+      setProtocolosOptions(protocolos);
+      console.log('✅ Protocolos carregados:', protocolos);
+    } catch (error) {
+      console.error('❌ Erro ao carregar protocolos:', error);
+      // Em caso de erro, manter opções padrão
+      setProtocolosOptions([
+        { value: 'AC-T', label: 'AC-T' },
+        { value: 'FEC', label: 'FEC' },
+        { value: 'Carboplatina', label: 'Carboplatina' },
+        { value: 'Cisplatina', label: 'Cisplatina' },
+        { value: 'Paclitaxel', label: 'Paclitaxel' }
+      ]);
+    }
+  };
+
+  // Carregar operadoras do banco de dados
+  const loadOperadorasFromAPI = async () => {
+    try {
+      console.log('🔧 Carregando operadoras...');
+      const clinicaId = user?.clinica_id || user?.id || 1;
+      
+      // Buscar todas as operadoras
+      const operadoras = await OperadoraService.getAllOperadoras();
+      
+      const operadorasOptions = operadoras.map(operadora => ({
+        value: operadora.nome,
+        label: operadora.nome
+      }));
+      
+      setOperadorasOptions(operadorasOptions);
+      console.log('✅ Operadoras carregadas:', operadorasOptions);
+      
+      // Buscar a operadora específica da clínica
+      console.log('🔧 Buscando operadora da clínica:', clinicaId);
+      console.log('🔧 Usuário logado:', user);
+      const operadoraClinica = await OperadoraService.getOperadoraByClinica(clinicaId);
+      
+      if (operadoraClinica) {
+        console.log('✅ Operadora da clínica encontrada:', operadoraClinica.nome);
+        setClinicaOperadoraId(operadoraClinica.id || 1);
+        
+        // Pré-selecionar a operadora da clínica
+        console.log('🔧 Pré-selecionando operadora:', operadoraClinica.nome);
+        console.log('🔧 Estado atual do paciente:', currentPatient.Operadora);
+        console.log('🔧 Está editando?', isEditing);
+        
+        if (!currentPatient.Operadora && !isEditing) {
+          console.log('🔧 Aplicando pré-seleção...');
+          setCurrentPatient(prev => {
+            const updated = {
+              ...prev,
+              Operadora: operadoraClinica.nome
+            };
+            console.log('🔧 Paciente atualizado:', updated);
+            return updated;
+          });
+        }
+      } else {
+        console.log('⚠️ Operadora não encontrada para a clínica, usando primeira disponível');
+        // Fallback: usar a primeira operadora disponível
+        if (operadoras.length > 0) {
+          setClinicaOperadoraId(operadoras[0].id || 1);
+          console.log('🔧 Usando primeira operadora disponível:', operadoras[0].nome);
+          if (!currentPatient.Operadora && !isEditing) {
+            setCurrentPatient(prev => ({
+              ...prev,
+              Operadora: operadoras[0].nome
+            }));
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Erro ao carregar operadoras:', error);
+      // Em caso de erro, manter opções padrão
+      setOperadorasOptions([
+        { value: 'Unimed', label: 'Unimed' },
+        { value: 'Bradesco Saúde', label: 'Bradesco Saúde' },
+        { value: 'SulAmérica', label: 'SulAmérica' },
+        { value: 'Amil', label: 'Amil' },
+        { value: 'Porto Seguro', label: 'Porto Seguro' }
+      ]);
+    }
+  };
+
+  // Carregar prestadores (médicos) da clínica
+  const loadPrestadoresFromAPI = async () => {
+    try {
+      console.log('🔧 Carregando prestadores da clínica...');
+      const clinicaId = user?.clinica_id || user?.id || 1;
+      console.log('🔧 ID da clínica do usuário logado:', clinicaId);
+      const prestadores = await PrestadorService.getPrestadoresByClinica(clinicaId);
+      
+      const prestadoresOptions = prestadores.map(prestador => ({
+        value: prestador.nome,
+        label: `${prestador.nome}${prestador.especialidade_principal || prestador.especialidade ? ` - ${prestador.especialidade_principal || prestador.especialidade}` : ''}`
+      }));
+      
+      setPrestadoresOptions(prestadoresOptions);
+      console.log('✅ Prestadores carregados:', prestadoresOptions);
+    } catch (error) {
+      console.error('❌ Erro ao carregar prestadores:', error);
+      // Em caso de erro, manter opções padrão
+      setPrestadoresOptions([
+        { value: 'Dr. Carlos Santos', label: 'Dr. Carlos Santos - Oncologia' },
+        { value: 'Dra. Maria Silva', label: 'Dra. Maria Silva - Hematologia' },
+        { value: 'Dr. João Oliveira', label: 'Dr. João Oliveira - Oncologia' },
+        { value: 'Dra. Ana Costa', label: 'Dra. Ana Costa - Radioterapia' },
+        { value: 'Dr. Pedro Lima', label: 'Dr. Pedro Lima - Cirurgia Oncológica' }
+      ]);
+    }
+  };
+
   const loadPatientsFromAPI = async () => {
     if (!backendConnected) {
       console.log('⚠️ Backend não conectado, não carregando da API');
@@ -1163,11 +1395,22 @@ const Patients = () => {
       });
       
       console.log('✅ Pacientes carregados da API:', result);
+      
+      // Debug: Verificar campos do médico assistente
+      if (result.data && result.data.length > 0) {
+        console.log('🔧 Debug primeiro paciente:');
+        const firstPatient = result.data[0];
+        console.log('  Nome:', firstPatient.name);
+        console.log('  Prestador:', firstPatient.Prestador);
+        console.log('  medico_assistente_nome:', firstPatient.medico_assistente_nome);
+        console.log('  Todos os campos:', Object.keys(firstPatient));
+      }
+      
       setPatients(result.data);
       setTotalPatients(result.pagination.total);
       setTotalPages(result.pagination.totalPages);
       
-      if (result.data.length === 0 && (searchTerm || statusFilter !== 'all' || cidFilter !== 'all' || protocoloFilter !== 'all' || operadoraFilter !== 'all')) {
+      if (result.data.length === 0 && (searchTerm || statusFilter !== 'all' || cidFilter !== 'all' || protocoloFilter !== 'all' || (operadoraFilterManual && operadoraFilter !== 'all'))) {
         toast.info('Nenhum paciente encontrado para os filtros aplicados');
       }
       
@@ -1219,7 +1462,8 @@ const Patients = () => {
       
       // Filtro de CID
       if (cidFilter !== 'all') {
-        const matchesCid = patient.Cid_Diagnostico?.toLowerCase().includes(cidFilter.toLowerCase());
+        const cids = Array.isArray(patient.Cid_Diagnostico) ? patient.Cid_Diagnostico : [patient.Cid_Diagnostico || ''];
+        const matchesCid = cids.some(cid => cid?.toLowerCase().includes(cidFilter.toLowerCase()));
         if (!matchesCid) {
           return false;
         }
@@ -1330,7 +1574,22 @@ const Patients = () => {
     setCidFilter('all');
     setProtocoloFilter('all');
     setOperadoraFilter('all');
+    setOperadoraFilterManual(false); // Resetar flag de seleção manual
     setCurrentPage(1);
+    
+    // Após resetar, re-aplicar a pré-seleção automática da operadora da clínica
+    const clinicaId = user?.clinica_id || user?.id || 1;
+    OperadoraService.getOperadoraByClinica(clinicaId)
+      .then(operadoraClinica => {
+        if (operadoraClinica) {
+          console.log('🔧 Re-aplicando pré-seleção automática após reset:', operadoraClinica.nome);
+          setOperadoraFilter(operadoraClinica.nome);
+          setOperadoraFilterManual(false);
+        }
+      })
+      .catch(error => {
+        console.error('❌ Erro ao re-aplicar pré-seleção:', error);
+      });
   };
 
   const handleEdit = (id: string) => {
@@ -1392,7 +1651,8 @@ const Patients = () => {
     // Campos obrigatórios
     if (!currentPatient.Paciente_Nome?.trim()) errors.Paciente_Nome = 'Nome é obrigatório';
     if (!currentPatient.Data_Nascimento?.trim()) errors.Data_Nascimento = 'Data de nascimento é obrigatória';
-    if (!currentPatient.Cid_Diagnostico?.trim()) errors.Cid_Diagnostico = 'CID diagnóstico é obrigatório';
+    const cids = Array.isArray(currentPatient.Cid_Diagnostico) ? currentPatient.Cid_Diagnostico : [currentPatient.Cid_Diagnostico || ''];
+    if (cids.length === 0 || cids.every(cid => !cid?.trim())) errors.Cid_Diagnostico = 'Pelo menos um CID diagnóstico é obrigatório';
     if (!currentPatient.stage?.trim()) errors.stage = 'Estágio é obrigatório';
     if (!currentPatient.treatment?.trim()) errors.treatment = 'Tratamento é obrigatório';
     if (!currentPatient.startDate?.trim()) errors.startDate = 'Data de início é obrigatória';
@@ -1466,7 +1726,9 @@ const Patients = () => {
         name: currentPatient.Paciente_Nome,
         age: calculateAge(convertToISODate(currentPatient.Data_Nascimento)),
         gender: currentPatient.Sexo,
-        diagnosis: currentPatient.Cid_Diagnostico,
+        diagnosis: Array.isArray(currentPatient.Cid_Diagnostico) 
+          ? currentPatient.Cid_Diagnostico.join(', ') 
+          : currentPatient.Cid_Diagnostico,
         // Converter datas para formato interno
         Data_Nascimento: convertToISODate(currentPatient.Data_Nascimento),
         startDate: convertToISODate(currentPatient.startDate)
@@ -1558,8 +1820,8 @@ const Patients = () => {
         formattedValue = value.replace(/\s+/g, '').toUpperCase();
         break;
       case 'Cid_Diagnostico':
-        // Formato CID: letra maiúscula + números
-        formattedValue = value.toUpperCase().replace(/[^A-Z0-9.]/g, '');
+        // Para arrays de CIDs, não aplicar formatação aqui (será feita pelo componente)
+        formattedValue = value;
         break;
       default:
         formattedValue = value;
@@ -1577,6 +1839,13 @@ const Patients = () => {
     setCurrentPatient({
       ...currentPatient,
       [name]: value,
+    });
+  };
+
+  const handleCidSelectChange = (cids: string[]) => {
+    setCurrentPatient({
+      ...currentPatient,
+      Cid_Diagnostico: cids,
     });
   };
 
@@ -1681,32 +1950,39 @@ const Patients = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos os protocolos</SelectItem>
-              <SelectItem value="AC-T">AC-T</SelectItem>
-              <SelectItem value="FEC">FEC</SelectItem>
-              <SelectItem value="Carboplatina">Carboplatina</SelectItem>
-              <SelectItem value="Cisplatina">Cisplatina</SelectItem>
-              <SelectItem value="Paclitaxel">Paclitaxel</SelectItem>
+              {protocolosOptions.map((protocolo) => (
+                <SelectItem key={protocolo.value} value={protocolo.value}>
+                  {protocolo.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
-          <Select value={operadoraFilter} onValueChange={setOperadoraFilter}>
-            <SelectTrigger className={`w-40 ${operadoraFilter !== 'all' ? 'border-primary bg-primary/5' : ''}`}>
+          <Select 
+            value={operadoraFilter} 
+            onValueChange={(value) => {
+              setOperadoraFilter(value);
+              // Marcar como seleção manual quando usuário muda o filtro
+              setOperadoraFilterManual(true);
+            }}
+          >
+            <SelectTrigger className={`w-40 ${operadoraFilterManual && operadoraFilter !== 'all' ? 'border-primary bg-primary/5' : ''}`}>
               <SelectValue placeholder="Operadora" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas as operadoras</SelectItem>
-              <SelectItem value="Unimed">Unimed</SelectItem>
-              <SelectItem value="Amil">Amil</SelectItem>
-              <SelectItem value="SulAmérica">SulAmérica</SelectItem>
-              <SelectItem value="Bradesco">Bradesco Saúde</SelectItem>
-              <SelectItem value="Porto Seguro">Porto Seguro</SelectItem>
+              {operadorasOptions.map(operadora => (
+                <SelectItem key={operadora.value} value={operadora.value}>
+                  {operadora.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 
           <div className="flex items-center gap-2 ml-auto">
 
             
-            {(searchTerm || statusFilter !== 'all' || cidFilter !== 'all' || protocoloFilter !== 'all' || operadoraFilter !== 'all' || sortBy !== 'newest') && (
+            {(searchTerm || statusFilter !== 'all' || cidFilter !== 'all' || protocoloFilter !== 'all' || (operadoraFilterManual && operadoraFilter !== 'all') || sortBy !== 'newest') && (
               <Button
                 variant="outline"
                 size="sm"
@@ -1735,7 +2011,7 @@ const Patients = () => {
             <User className="w-16 h-16 text-muted-foreground mb-4 opacity-50" />
             <h3 className="text-lg font-medium">Nenhum paciente encontrado</h3>
             <p className="text-muted-foreground mt-2">
-              {(searchTerm || statusFilter !== 'all' || cidFilter !== 'all' || protocoloFilter !== 'all' || operadoraFilter !== 'all') ? 
+              {(searchTerm || statusFilter !== 'all' || cidFilter !== 'all' || protocoloFilter !== 'all' || (operadoraFilterManual && operadoraFilter !== 'all')) ? 
                 'Tente mudar sua busca ou filtros, ou adicione um novo paciente' :
                 'Nenhum paciente cadastrado ainda. Adicione o primeiro paciente!'
               }
@@ -1960,11 +2236,11 @@ const Patients = () => {
                         <SelectValue placeholder="Selecione uma operadora" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="Unimed">Unimed</SelectItem>
-                        <SelectItem value="Bradesco Saúde">Bradesco Saúde</SelectItem>
-                        <SelectItem value="SulAmérica">SulAmérica</SelectItem>
-                        <SelectItem value="Amil">Amil</SelectItem>
-                        <SelectItem value="Porto Seguro">Porto Seguro</SelectItem>
+                        {operadorasOptions.map((operadora) => (
+                          <SelectItem key={operadora.value} value={operadora.value}>
+                            {operadora.label}
+                          </SelectItem>
+                        ))}
                         <SelectItem value="Outro">Outro</SelectItem>
                       </SelectContent>
                     </Select>
@@ -1974,14 +2250,20 @@ const Patients = () => {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="abrangencia">Abrangência</Label>
-                    <Input
-                      id="abrangencia"
-                      name="abrangencia"
+                    <Select
                       value={(currentPatient as any).abrangencia || ''}
-                      onChange={handleInputChange}
-                      placeholder="Ex: Nacional, Estadual, Municipal"
-                      className="transition-all duration-300 focus:border-primary"
-                    />
+                      onValueChange={(value) => handleInputChange({ target: { name: 'abrangencia', value } } as any)}
+                    >
+                      <SelectTrigger className="transition-all duration-300 focus:border-primary">
+                        <SelectValue placeholder="Selecione a abrangência" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Nacional">Nacional</SelectItem>
+                        <SelectItem value="Estadual">Estadual</SelectItem>
+                        <SelectItem value="Municipal">Municipal</SelectItem>
+                        <SelectItem value="Regional">Regional</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
               </TabsContent>
@@ -1989,12 +2271,13 @@ const Patients = () => {
               <TabsContent value="dados-medicos" className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="Cid_Diagnostico">CID Diagnóstico *</Label>
+                    <Label htmlFor="Cid_Diagnostico">CIDs Diagnóstico *</Label>
                     <CIDSelection
-                      value={currentPatient.Cid_Diagnostico || ''}
-                      patientCID={currentPatient.Cid_Diagnostico || ''}
-                      onChange={(arr) => handleSelectChange('Cid_Diagnostico', arr?.[0]?.codigo || '')}
-                      multiple={false}
+                      value={Array.isArray(currentPatient.Cid_Diagnostico) ? currentPatient.Cid_Diagnostico : [currentPatient.Cid_Diagnostico || '']}
+                      patientCID={Array.isArray(currentPatient.Cid_Diagnostico) ? currentPatient.Cid_Diagnostico[0] : currentPatient.Cid_Diagnostico || ''}
+                      onChange={(arr) => handleCidSelectChange(arr.map(item => item.codigo))}
+                      multiple={true}
+                      placeholder="Selecione um ou mais CIDs..."
                     />
                     {validationErrors.Cid_Diagnostico && (
                       <p className="text-sm text-red-500 mt-1">{validationErrors.Cid_Diagnostico}</p>
@@ -2003,17 +2286,26 @@ const Patients = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="stage">Estágio *</Label>
-                    <Input
-                      id="stage"
-                      name="stage"
+                    <Select
                       value={currentPatient.stage}
-                      onChange={handleInputChange}
-                      placeholder="Ex: II, III, IV"
-                      required
-                      className={`transition-all duration-300 focus:border-primary ${
+                      onValueChange={(value) => handleInputChange({ target: { name: 'stage', value } } as any)}
+                    >
+                      <SelectTrigger className={`transition-all duration-300 focus:border-primary ${
                         validationErrors.stage ? 'border-red-500' : ''
-                      }`}
-                    />
+                      }`}>
+                        <SelectValue placeholder="Selecione o estágio" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="I">Estágio I</SelectItem>
+                        <SelectItem value="II">Estágio II</SelectItem>
+                        <SelectItem value="III">Estágio III</SelectItem>
+                        <SelectItem value="IV">Estágio IV</SelectItem>
+                        <SelectItem value="Recidiva">Recidiva</SelectItem>
+                        <SelectItem value="Metastático">Metastático</SelectItem>
+                        <SelectItem value="Localizado">Localizado</SelectItem>
+                        <SelectItem value="Avançado">Avançado</SelectItem>
+                      </SelectContent>
+                    </Select>
                     {validationErrors.stage && (
                       <p className="text-sm text-red-500 mt-1">{validationErrors.stage}</p>
                     )}
@@ -2021,17 +2313,27 @@ const Patients = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="treatment">Tratamento *</Label>
-                    <Input
-                      id="treatment"
-                      name="treatment"
+                    <Select
                       value={currentPatient.treatment}
-                      onChange={handleInputChange}
-                      placeholder="Ex: Quimioterapia, Radioterapia"
-                      required
-                      className={`transition-all duration-300 focus:border-primary ${
+                      onValueChange={(value) => handleInputChange({ target: { name: 'treatment', value } } as any)}
+                    >
+                      <SelectTrigger className={`transition-all duration-300 focus:border-primary ${
                         validationErrors.treatment ? 'border-red-500' : ''
-                      }`}
-                    />
+                      }`}>
+                        <SelectValue placeholder="Selecione o tratamento" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Quimioterapia">Quimioterapia</SelectItem>
+                        <SelectItem value="Radioterapia">Radioterapia</SelectItem>
+                        <SelectItem value="Cirurgia">Cirurgia</SelectItem>
+                        <SelectItem value="Imunoterapia">Imunoterapia</SelectItem>
+                        <SelectItem value="Terapia Alvo">Terapia Alvo</SelectItem>
+                        <SelectItem value="Hormonioterapia">Hormonioterapia</SelectItem>
+                        <SelectItem value="Transplante de Medula">Transplante de Medula</SelectItem>
+                        <SelectItem value="Cuidados Paliativos">Cuidados Paliativos</SelectItem>
+                        <SelectItem value="Outro">Outro</SelectItem>
+                      </SelectContent>
+                    </Select>
                     {validationErrors.treatment && (
                       <p className="text-sm text-red-500 mt-1">{validationErrors.treatment}</p>
                     )}
@@ -2058,17 +2360,35 @@ const Patients = () => {
 
                   <div className="space-y-2">
                     <Label htmlFor="Prestador">Médico Assistente *</Label>
-                    <Input
-                      id="Prestador"
-                      name="Prestador"
-                      value={currentPatient.Prestador}
-                      onChange={handleInputChange}
-                      placeholder="Digite o nome do médico assistente..."
-                      required
-                      className={`transition-all duration-300 focus:border-primary ${
-                        validationErrors.Prestador ? 'border-red-500' : ''
-                      }`}
-                    />
+                    <div className="flex gap-2">
+                      <Select
+                        value={currentPatient.Prestador}
+                        onValueChange={(value) => handleInputChange({ target: { name: 'Prestador', value } } as any)}
+                      >
+                        <SelectTrigger className={`flex-1 transition-all duration-300 focus:border-primary ${
+                          validationErrors.Prestador ? 'border-red-500' : ''
+                        }`}>
+                          <SelectValue placeholder="Selecione o médico" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {prestadoresOptions.map((prestador) => (
+                            <SelectItem key={prestador.value} value={prestador.value}>
+                              {prestador.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        id="Prestador"
+                        name="Prestador"
+                        value={currentPatient.Prestador}
+                        onChange={handleInputChange}
+                        placeholder="Ou digite o nome..."
+                        className={`flex-1 transition-all duration-300 focus:border-primary ${
+                          validationErrors.Prestador ? 'border-red-500' : ''
+                        }`}
+                      />
+                    </div>
                     {validationErrors.Prestador && (
                       <p className="text-sm text-red-500 mt-1">{validationErrors.Prestador}</p>
                     )}
@@ -2416,11 +2736,20 @@ const Patients = () => {
                   </div>
                   <div>
                     <span className="text-muted-foreground">Médico Assistente:</span>
-                    <p className="font-medium">{selectedPatient.Prestador}</p>
+                    <p className="font-medium">
+                      {selectedPatient.medico_assistente_nome || 
+                       (selectedPatient as any).medico_assistente_nome || 
+                       selectedPatient.Prestador || 
+                       'Não informado'}
+                    </p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">CID Diagnóstico:</span>
-                    <p className="font-medium">{selectedPatient.Cid_Diagnostico}</p>
+                    <span className="text-muted-foreground">CIDs Diagnóstico:</span>
+                    <p className="font-medium">
+                      {Array.isArray(selectedPatient.Cid_Diagnostico) 
+                        ? selectedPatient.Cid_Diagnostico.join(', ') 
+                        : selectedPatient.Cid_Diagnostico}
+                    </p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Estágio:</span>
@@ -2436,7 +2765,11 @@ const Patients = () => {
                   </div>
                   <div>
                     <span className="text-muted-foreground">Peso / Altura:</span>
-                    <p className="font-medium">{(selectedPatient as any).peso || '—'} kg {(selectedPatient as any).altura ? `• ${(selectedPatient as any).altura} cm` : ''}</p>
+                    <p className="font-medium">
+                      {selectedPatient.peso || (selectedPatient as any).weight || '—'} kg 
+                      {selectedPatient.altura || (selectedPatient as any).height ? 
+                        ` • ${selectedPatient.altura || (selectedPatient as any).height} cm` : ''}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -2449,27 +2782,44 @@ const Patients = () => {
                   Dados de Contato
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                                  <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <span className="text-muted-foreground">Telefone:</span>
-                    <p className="font-medium">{selectedPatient.telefone || 'Não informado'}</p>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <span className="text-muted-foreground">Telefone:</span>
+                      <p className="font-medium">
+                        {(selectedPatient as any).contato_telefone || 
+                         (selectedPatient as any).telefone || 
+                         selectedPatient.telefone || 
+                         'Não informado'}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <span className="text-muted-foreground">E-mail:</span>
-                    <p className="font-medium">{selectedPatient.email || 'Não informado'}</p>
+                  <div className="flex items-center gap-2">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <span className="text-muted-foreground">E-mail:</span>
+                      <p className="font-medium">
+                        {(selectedPatient as any).contato_email || 
+                         (selectedPatient as any).email || 
+                         selectedPatient.email || 
+                         'Não informado'}
+                      </p>
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-muted-foreground" />
-                  <div>
-                    <span className="text-muted-foreground">Contato de Emergência:</span>
-                    <p className="font-medium">{(selectedPatient as any).contato_emergencia_nome || '—'} {(selectedPatient as any).contato_emergencia_telefone ? `• ${(selectedPatient as any).contato_emergencia_telefone}` : ''}</p>
+                  <div className="flex items-center gap-2">
+                    <Phone className="h-4 w-4 text-muted-foreground" />
+                    <div>
+                      <span className="text-muted-foreground">Contato de Emergência:</span>
+                      <p className="font-medium">
+                        {selectedPatient.contato_emergencia_nome || 
+                         (selectedPatient as any).nome_responsavel || 
+                         '—'} 
+                        {selectedPatient.contato_emergencia_telefone || 
+                         (selectedPatient as any).telefone_responsavel ? 
+                          ` • ${selectedPatient.contato_emergencia_telefone || (selectedPatient as any).telefone_responsavel}` : ''}
+                      </p>
+                    </div>
                   </div>
-                </div>
                   <div className="md:col-span-2 flex items-start gap-2">
                     <MapPin className="h-4 w-4 text-muted-foreground mt-1" />
                     <div className="flex-1">

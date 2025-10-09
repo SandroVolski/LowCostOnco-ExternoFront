@@ -199,12 +199,19 @@ const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
   };
   const contatos = parseJson((apiPatient as any).contatos) || {};
   const enderecoJson = parseJson((apiPatient as any).endereco) || {};
+  const contatoEmergenciaJson = parseJson((apiPatient as any).contato_emergencia) || {};
 
   // Médico assistente (se backend enviar em algum dos formatos abaixo)
   const medicoAssistenteNome = (apiPatient as any).medico_nome || (apiPatient as any).medicoAssistenteNome || (apiPatient as any).medico_assistente_nome || '';
   const medicoAssistenteEmail = (apiPatient as any).medico_email || (apiPatient as any).medicoAssistenteEmail || (apiPatient as any).medico_assistente_email || '';
   const medicoAssistenteTelefone = (apiPatient as any).medico_telefone || (apiPatient as any).medicoAssistenteTelefone || (apiPatient as any).medico_assistente_telefone || '';
   const medicoAssistenteEspecialidade = (apiPatient as any).medico_especialidade || (apiPatient as any).medicoAssistenteEspecialidade || (apiPatient as any).medico_assistente_especialidade || '';
+  
+  // Debug: Log dos campos do médico assistente
+  console.log('🔧 Debug médico assistente para paciente:', apiPatient.nome || apiPatient.Paciente_Nome);
+  console.log('🔧 medico_assistente_nome:', (apiPatient as any).medico_assistente_nome);
+  console.log('🔧 medicoAssistenteNome final:', medicoAssistenteNome);
+  console.log('🔧 prestador_id:', (apiPatient as any).prestador_id);
 
   return {
     id: apiPatient.id ? apiPatient.id.toString() : '',
@@ -226,10 +233,10 @@ const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
     Data_Nascimento: convertDateFromISO(nasc || null), // Converter para exibição
     Sexo: sexo,
     Operadora: apiPatient.operadora_nome || (apiPatient.Operadora ? apiPatient.Operadora.toString() : ''),
-    Prestador: apiPatient.prestador_nome || (apiPatient.Prestador ? apiPatient.Prestador.toString() : ''),
+    Prestador: medicoAssistenteNome || apiPatient.prestador_nome || (apiPatient.Prestador ? apiPatient.Prestador.toString() : ''),
     plano_saude: apiPatient.plano_saude || '',
     numero_carteirinha: apiPatient.numero_carteirinha || '',
-    Cid_Diagnostico: cid,
+    Cid_Diagnostico: cid.includes(',') ? cid.split(',').map(c => c.trim()).filter(c => c) : cid,
     Data_Primeira_Solicitacao: convertDateFromISO(dataPrimeira || null), // Converter para exibição
     telefone: apiPatient.telefone || '',
     email: apiPatient.email || '',
@@ -254,6 +261,18 @@ const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
     medico_assistente_email: medicoAssistenteEmail,
     medico_assistente_telefone: medicoAssistenteTelefone,
     medico_assistente_especialidade: medicoAssistenteEspecialidade,
+
+    // Peso e altura (convertendo para string para exibição)
+    peso: (apiPatient as any).peso ? String((apiPatient as any).peso) : (apiPatient as any).weight || '',
+    altura: (apiPatient as any).altura ? String((apiPatient as any).altura) : (apiPatient as any).height || '',
+
+    // Contato de emergência (do JSON do banco)
+    contato_emergencia_nome: contatoEmergenciaJson.nome || 
+                           (apiPatient as any).contato_emergencia_nome || 
+                           (apiPatient as any).nome_responsavel || '',
+    contato_emergencia_telefone: contatoEmergenciaJson.telefone || 
+                                (apiPatient as any).contato_emergencia_telefone || 
+                                (apiPatient as any).telefone_responsavel || '',
   };
 };
 
@@ -265,11 +284,13 @@ const convertFrontendToAPI = (frontendPatient: any): Partial<PatientFromAPI> => 
     // clinica_id definido no backend a partir do token
     Paciente_Nome: frontendPatient.Paciente_Nome || frontendPatient.name,
     Operadora: frontendPatient.Operadora ? parseInt(frontendPatient.Operadora) || 1 : 1, // Converter para número
-    Prestador: frontendPatient.Prestador ? parseInt(frontendPatient.Prestador) || 1 : 1, // Converter para número
+    Prestador: frontendPatient.Prestador || '', // Manter como string para resolução por nome
     Codigo: frontendPatient.Codigo,
     Data_Nascimento: convertDateToISO(frontendPatient.Data_Nascimento || null), // ✅ CORRIGIDO
     Sexo: frontendPatient.Sexo,
-    Cid_Diagnostico: frontendPatient.Cid_Diagnostico,
+    Cid_Diagnostico: Array.isArray(frontendPatient.Cid_Diagnostico) 
+      ? frontendPatient.Cid_Diagnostico.join(', ') 
+      : frontendPatient.Cid_Diagnostico,
     Data_Primeira_Solicitacao: convertDateToISO(
       frontendPatient.Data_Primeira_Solicitacao || 
       frontendPatient.startDate ||
@@ -1173,13 +1194,24 @@ export const CatalogService = {
   },
   async searchPrincipiosAtivosPaged(params: { search: string; limit: number; offset: number }): Promise<{ items: CatalogPrincipioAtivoItem[]; total: number; }> {
     try {
-      const url = new URL(`${API_BASE_URL}/catalog/principios-ativos`, window.location.origin);
-      if (params.search) url.searchParams.set('search', params.search);
-      url.searchParams.set('limit', String(params.limit));
-      url.searchParams.set('offset', String(params.offset));
-      const res = await fetch(url.toString());
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const queryParams = new URLSearchParams();
+      if (params.search) queryParams.set('search', params.search);
+      queryParams.set('limit', String(params.limit));
+      queryParams.set('offset', String(params.offset));
+      
+      const url = `${API_BASE_URL}/catalog/principios-ativos?${queryParams.toString()}`;
+      console.log('🔧 Buscando princípios ativos:', url);
+      
+      const res = await fetch(url);
+      if (!res.ok) {
+        const errorText = await res.text();
+        console.error('❌ Erro HTTP:', res.status, errorText);
+        throw new Error(`HTTP ${res.status}`);
+      }
+      
       const result: any = await res.json();
+      console.log('✅ Princípios ativos recebidos:', result.total, 'total');
+      
       // Backend retorna array de strings, converter para objetos com propriedade 'nome'
       const data = result.data || [];
       let items: CatalogPrincipioAtivoItem[] = [];

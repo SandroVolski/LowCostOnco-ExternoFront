@@ -476,7 +476,7 @@ const Reports = () => {
     if (!formData.diagnostico_cid?.trim()) {
       missingFields.push({ 
         field: 'diagnostico_cid', 
-        label: 'CID', 
+        label: 'CIDs', 
         elementId: 'diagnostico_cid' 
       });
     }
@@ -1455,11 +1455,15 @@ const Reports = () => {
                   <CardContent className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="diagnostico_cid">CID-10 *</Label>
+                      <Label htmlFor="diagnostico_cid">CIDs-10 (pode adicionar vários) *</Label>
                       <CIDSelection
-                        value={formData.diagnostico_cid || ''}
-                        onChange={(arr) => setFormData(prev => ({ ...prev, diagnostico_cid: arr?.[0]?.codigo || '' }))}
-                        multiple={false}
+                        value={formData.diagnostico_cid ? formData.diagnostico_cid.split(',').map(c => c.trim()).filter(c => c) : []}
+                        onChange={(arr) => {
+                          const cids = arr?.map(item => item.codigo) || [];
+                          setFormData(prev => ({ ...prev, diagnostico_cid: cids.join(', ') }));
+                        }}
+                        multiple={true}
+                        placeholder="Selecione um ou mais CIDs..."
                       />
                     </div>
                     <div className="space-y-2">

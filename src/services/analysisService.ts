@@ -2,6 +2,7 @@
 
 import { operadoraAuthService } from './operadoraAuthService';
 import { authorizedFetch } from './authService';
+import { PacienteService } from '@/services/api';
 import config from '@/config/environment';
 
 // Helper para detectar tipo de usuário e usar o serviço correto
@@ -175,6 +176,45 @@ const CID_TO_ORGAN_MAP: Record<string, string> = {
   'C77.2': 'breast',
 };
 
+// Prefixos de CID para mapeamento mais amplo (aceita sem ponto, e variações)
+const CID_PREFIX_TO_ORGAN: Array<{ prefix: string | RegExp; organ: string }> = [
+  { prefix: /^C7[01-2]/i, organ: 'brain' }, // C70, C71, C72
+  { prefix: /^C34/i, organ: 'lungs' },
+  { prefix: /^C78(?:\.[0-6-9])?/i, organ: 'lungs' }, // metástases pulmonares
+  { prefix: /^C38/i, organ: 'heart' },
+  { prefix: /^C22/i, organ: 'liver' },
+  { prefix: /^C16/i, organ: 'stomach' },
+  { prefix: /^C6[4-6]/i, organ: 'kidneys' }, // C64, C65, C66
+  { prefix: /^C67/i, organ: 'bladder' },
+  { prefix: /^C61/i, organ: 'prostate' },
+  { prefix: /^C50/i, organ: 'breast' },
+];
+
+function normalizeCidCode(input: string): string {
+  const raw = (input || '').toUpperCase().replace(/\s+/g, '');
+  if (!raw) return '';
+  // Inserir ponto após a 3ª posição se vier sem ponto (ex.: C160 -> C16.0)
+  if (/^C\d{3}$/.test(raw)) {
+    return raw.slice(0, 3) + '.' + raw.slice(3);
+  }
+  return raw;
+}
+
+function detectOrganByCid(cid: string): string | null {
+  if (!cid) return null;
+  const norm = normalizeCidCode(cid);
+  if (CID_TO_ORGAN_MAP[norm]) return CID_TO_ORGAN_MAP[norm];
+  // Testar prefixos (sem ponto e com ponto)
+  for (const rule of CID_PREFIX_TO_ORGAN) {
+    if (typeof rule.prefix === 'string') {
+      if (norm.startsWith(rule.prefix)) return rule.organ;
+    } else {
+      if (rule.prefix.test(norm)) return rule.organ;
+    }
+  }
+  return null;
+}
+
 // Mapeamento de órgãos para cores
 const ORGAN_COLORS: Record<string, string> = {
   brain: 'medical-purple',
@@ -247,7 +287,55 @@ export class AnalysisService {
       const analysisData = result.data || [];
       console.log('✅ Dados de análise carregados:', analysisData.length, 'órgãos');
       
-      return analysisData;
+      // Se a API retornar dados, utilizar diretamente
+      if (Array.isArray(analysisData) && analysisData.length > 0) {
+        return analysisData;
+      }
+
+      // Fallback: construir análise básica a partir dos pacientes quando não houver dados no backend
+      console.log('ℹ️ API de análise retornou vazio. Gerando análise básica no frontend a partir dos pacientes...');
+      const patientsResult = await PacienteService.listarPacientes({ page: 1, limit: 1000 });
+      const patients = patientsResult.data || [];
+
+      const organToData = new Map<string, { patientsSet: Set<string>; cidsSet: Set<string> }>();
+
+      for (const p of patients) {
+        const rawCid: any = (p.Cid_Diagnostico ?? (p as any).cid_diagnostico ?? '');
+        const codes: string[] = Array.isArray(rawCid)
+          ? rawCid
+          : String(rawCid)
+              .split(',')
+              .map(s => s.trim())
+              .filter(Boolean);
+
+        const patientId = (p.id ?? p.Codigo ?? p.codigo ?? Math.random().toString()).toString();
+
+        for (const code of codes) {
+          const organ = detectOrganByCid(code);
+          if (!organ) continue; // Ignorar CIDs não oncológicos ou sem mapeamento
+
+          if (!organToData.has(organ)) {
+            organToData.set(organ, { patientsSet: new Set<string>(), cidsSet: new Set<string>() });
+          }
+          const bucket = organToData.get(organ)!;
+          bucket.patientsSet.add(patientId);
+          bucket.cidsSet.add(normalizeCidCode(code));
+        }
+      }
+
+      const built: OrganAnalysisData[] = Array.from(organToData.entries()).map(([organId, bucket]) => ({
+        organId,
+        organName: ORGAN_NAMES[organId] || organId,
+        patients: bucket.patientsSet.size,
+        cids: Array.from(bucket.cidsSet),
+        protocols: [],
+        color: ORGAN_COLORS[organId] || 'primary',
+        description: ORGAN_DESCRIPTIONS[organId] || '',
+        solicitacoes: [],
+      }));
+
+      console.log('✅ Análise construída no frontend:', built);
+      return built;
       
     } catch (error) {
       console.error('❌ Erro ao buscar dados de análise:', error);

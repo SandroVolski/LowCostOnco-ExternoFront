@@ -43,6 +43,10 @@ const Chat = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [lastMessageId, setLastMessageId] = useState<number | null>(null);
+  const lastMessageIdRef = useRef<number | null>(null);
+  const selectedChatIdRef = useRef<number | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // Função para obter informações do contato
   const getContactInfo = () => {
@@ -55,6 +59,49 @@ const Chat = () => {
     );
     
     return contact;
+  };
+
+  // Função para verificar novas mensagens
+  const checkForNewMessages = async () => {
+    const chatId = selectedChatIdRef.current;
+    if (!chatId) return;
+    
+    try {
+      const response = await chatService.getChatMessages(chatId, 50, 0, lastMessageIdRef.current || undefined);
+      if (response && response.messages && response.messages.length > 0) {
+        const latest = response.messages[response.messages.length - 1];
+        setMessages(prev => {
+          const lastId = lastMessageIdRef.current;
+          // Evitar duplicação: filtrar por id já existente no estado
+          const existingIds = new Set(prev.map(m => m.id));
+          const newOnes = response.messages.filter(m => (!lastId || m.id > lastId) && !existingIds.has(m.id));
+          if (newOnes.length === 0) return prev;
+          return [...prev, ...newOnes];
+        });
+        setLastMessageId(latest.id);
+        lastMessageIdRef.current = latest.id;
+        setTimeout(scrollToBottom, 50);
+      }
+    } catch (error) {
+      console.error('Erro ao verificar novas mensagens:', error);
+    }
+  };
+
+  // Iniciar polling para novas mensagens
+  const startPolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+    }
+    
+    pollingIntervalRef.current = setInterval(checkForNewMessages, 2000); // Verifica a cada 2 segundos
+  };
+
+  // Parar polling
+  const stopPolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
   };
 
   // Função para ver perfil do contato
@@ -200,7 +247,7 @@ const Chat = () => {
       });
       
       // Scroll para o final
-      setTimeout(scrollToBottom, 100);
+      setTimeout(scrollToBottom, 50);
       
       // Enviar arquivo para o servidor usando o chatService
       const newMessage = await chatService.uploadFile(selectedChat.id, file);
@@ -262,33 +309,49 @@ const Chat = () => {
       setLoading(true);
       const userChats = await chatService.getUserChats();
       console.log('🔧 [CHAT COMPONENT] Chats carregados:', userChats);
+      console.log('🔧 [CHAT COMPONENT] Primeiro chat detalhado:', userChats[0]);
       
-      // Para operadoras, transformar clínicas credenciadas em formato de chat
+      // Usar os dados já mapeados pelo chatService (preservar participants e nomes)
       const processedChats = userChats.map((chat: any) => {
+        console.log('🔧 [LOAD CHATS] Processando chat:', chat);
+        
         if (user?.role === 'operator') {
-          // Para operadoras, o chat é a clínica credenciada
+          // Para operadoras, preservar todos os campos mapeados pelo chatService
+          // e garantir que os nomes estejam corretos
+          const operadoraNome = chat.operadora_nome || 'Operadora';
+          const clinicaNome = chat.nome || chat.clinica_nome || 'Clínica';
+          
+          // Para operadoras, se não há conversa_id, precisamos criar/encontrar a conversa
+          const chatId = chat.conversa_id || chat.id;
+          
+          console.log('🔧 [OPERADORA] Chat processado:', {
+            originalId: chat.id,
+            conversaId: chat.conversa_id,
+            finalId: chatId,
+            clinicaNome,
+            operadoraNome
+          });
+          
           return {
-            id: chat.conversa_id || chat.id,
-            name: chat.nome || chat.nome_conversa,
-            description: `Chat com ${chat.nome}`,
-            unread_count: chat.mensagens_nao_lidas || 0,
-            last_message: chat.ultima_mensagem_texto,
-            last_message_time: chat.ultima_mensagem_data,
+            ...chat, // Preservar todos os campos do chatService
+            id: chatId,
+            name: clinicaNome, // Nome da clínica para operadoras
+            description: `Chat com ${clinicaNome}`,
             clinica_id: chat.id, // ID da clínica
             operadora_id: user?.id,
+            // Garantir que os nomes estejam disponíveis
+            operadora_nome: operadoraNome,
+            clinica_nome: clinicaNome,
+            participants: [
+              { id: user?.id, name: operadoraNome, type: 'operadora' },
+              { id: chat.id, name: clinicaNome, type: 'clinica' }
+            ],
             type: 'individual' as const
           };
         } else {
-          // Para clínicas, usar formato original
+          // Para clínicas, usar dados mapeados pelo chatService
           return {
-            id: chat.id,
-            name: chat.nome_conversa,
-            description: chat.descricao,
-            unread_count: chat.mensagens_nao_lidas || 0,
-            last_message: chat.ultima_mensagem_texto,
-            last_message_time: chat.ultima_mensagem_data,
-            clinica_id: chat.clinica_id,
-            operadora_id: chat.operadora_id,
+            ...chat, // Preservar todos os campos do chatService
             type: 'individual' as const
           };
         }
@@ -299,6 +362,7 @@ const Chat = () => {
       // Se não há chat selecionado e há chats disponíveis, selecionar o primeiro
       if (!selectedChat && processedChats.length > 0) {
         setSelectedChat(processedChats[0]);
+        selectedChatIdRef.current = processedChats[0].id || null;
         if (processedChats[0].id) {
           await loadMessages(processedChats[0].id);
         }
@@ -329,6 +393,7 @@ const Chat = () => {
         const newChat = await chatService.findOrCreateChat(1, 'operadora');
         setChats([newChat]);
         setSelectedChat(newChat);
+        selectedChatIdRef.current = newChat.id || null;
         if (newChat.id) {
           await loadMessages(newChat.id);
         }
@@ -338,6 +403,7 @@ const Chat = () => {
         const newChat = await chatService.findOrCreateChat(1, 'clinica');
         setChats([newChat]);
         setSelectedChat(newChat);
+        selectedChatIdRef.current = newChat.id || null;
         if (newChat.id) {
           await loadMessages(newChat.id);
         }
@@ -356,7 +422,9 @@ const Chat = () => {
   const loadMessages = async (chatId: number) => {
     try {
       setMessagesLoading(true);
-      const response = await chatService.getChatMessages(chatId);
+      console.log('🔧 [LOAD MESSAGES] Carregando mensagens para chatId:', chatId);
+      console.log('🔧 [LOAD MESSAGES] selectedChat:', selectedChat);
+      const response = await chatService.getChatMessages(chatId, 50, 0);
       
       // Processar mensagens para criar fileInfo se necessário
       const processedMessages = response.messages.map(msg => {
@@ -429,8 +497,20 @@ const Chat = () => {
       
       setMessages(processedMessages);
       
+      // Definir lastMessageId inicial para polling
+      if (processedMessages.length > 0) {
+        const latestMessage = processedMessages[processedMessages.length - 1];
+        setLastMessageId(latestMessage.id);
+        lastMessageIdRef.current = latestMessage.id;
+      } else {
+        setLastMessageId(null);
+        lastMessageIdRef.current = null;
+      }
       // Scroll para o final após carregar as mensagens
-      setTimeout(scrollToBottom, 100);
+      setTimeout(scrollToBottom, 50);
+      
+      // Iniciar polling para novas mensagens
+      startPolling();
     } catch (error) {
       console.error('Erro ao carregar mensagens:', error);
       toast({
@@ -479,7 +559,7 @@ const Chat = () => {
       });
       
       // Scroll para o final após enviar mensagem
-      setTimeout(scrollToBottom, 100);
+      setTimeout(scrollToBottom, 50);
       
       // Enviar para o servidor
       const newMessage = await chatService.sendMessage(selectedChat.id, messageText);
@@ -515,9 +595,45 @@ const Chat = () => {
 
   // Selecionar chat
   const handleSelectChat = async (chat: Chat) => {
+    console.log('🔧 [SELECT CHAT] Chat selecionado:', chat);
+    
+    // Parar polling anterior
+    stopPolling();
+    
     setSelectedChat(chat);
+    selectedChatIdRef.current = chat.id || null;
+    
     if (chat.id) {
-      await loadMessages(chat.id);
+      // Se é operadora e não há conversa_id, criar/encontrar conversa primeiro
+      if (user?.role === 'operator' && !(chat as any).conversa_id) {
+        try {
+          console.log('🔧 [SELECT CHAT] Criando/encontrando conversa para operadora...');
+          const newChat = await chatService.findOrCreateOperadoraClinicaChat(
+            chat.operadora_id || user.id, 
+            chat.clinica_id || chat.id
+          );
+          console.log('🔧 [SELECT CHAT] Conversa criada/encontrada:', newChat);
+          
+          // Atualizar o chat selecionado com o ID correto
+          const updatedChat = {
+            ...chat,
+            id: newChat.id,
+            conversa_id: newChat.id
+          };
+          setSelectedChat(updatedChat);
+          
+          await loadMessages(newChat.id);
+        } catch (error) {
+          console.error('Erro ao criar/encontrar conversa:', error);
+          toast({
+            title: "Erro",
+            description: "Erro ao carregar conversa. Tente novamente.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        await loadMessages(chat.id);
+      }
     }
   };
 
@@ -615,6 +731,26 @@ const Chat = () => {
     loadChats();
   }, []);
 
+  // Auto-scroll sempre que mensagens mudarem (apenas se a última mensagem for nova)
+  useEffect(() => {
+    if (messages && messages.length > 0) {
+      setTimeout(scrollToBottom, 30);
+    }
+  }, [messages]);
+
+  // Limpar polling quando trocar de chat ou desmontar componente
+  useEffect(() => {
+    // ao trocar de chat, reinicia polling para o novo chat
+    stopPolling();
+    if (selectedChat?.id) {
+      selectedChatIdRef.current = selectedChat.id;
+      startPolling();
+    }
+    return () => {
+      stopPolling();
+    };
+  }, [selectedChat?.id]);
+
   return (
     <div className="h-[calc(100vh-4rem)] border border-border rounded-lg overflow-hidden shadow-sm animate-fade-in">
       <div className="grid grid-cols-1 md:grid-cols-3 h-full">
@@ -689,9 +825,25 @@ const Chat = () => {
                                 {chat.last_message?.created_at ? formatTime(chat.last_message.created_at) : ''}
                               </span>
                             </div>
-                            <p className="text-muted-foreground text-xs truncate">
-                              {chat.last_message?.content || 'Nenhuma mensagem ainda'}
-                            </p>
+                              {chat.last_message?.content ? (
+                                <p className="text-muted-foreground text-xs truncate">
+                                  {chat.last_message.content}
+                                </p>
+                              ) : user?.role === 'operator' ? (() => {
+                                const nomeConversa = (chat as any)?.nome_conversa || '';
+                                const parts = nomeConversa.split(' - ');
+                                const clinicaName = parts[1] || 'Clínica';
+                                return (
+                                  <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground">Chat com</p>
+                                    <p className="text-sm font-medium text-primary">{clinicaName}</p>
+                                  </div>
+                                );
+                              })() : (
+                                <p className="text-muted-foreground text-xs truncate">
+                                  Nenhuma mensagem ainda
+                                </p>
+                              )}
                           </div>
                           {chat.ultima_mensagem_data && (
                             <div className="h-2 w-2 bg-primary rounded-full"></div>
@@ -745,9 +897,25 @@ const Chat = () => {
                                 {chat.last_message?.created_at ? formatTime(chat.last_message.created_at) : ''}
                               </span>
                             </div>
-                            <p className="text-muted-foreground text-xs truncate">
-                              {chat.last_message?.content || 'Nenhuma mensagem ainda'}
-                            </p>
+                              {chat.last_message?.content ? (
+                                <p className="text-muted-foreground text-xs truncate">
+                                  {chat.last_message.content}
+                                </p>
+                              ) : user?.role === 'operator' ? (() => {
+                                const nomeConversa = (chat as any)?.nome_conversa || '';
+                                const parts = nomeConversa.split(' - ');
+                                const clinicaName = parts[1] || 'Clínica';
+                                return (
+                                  <div className="space-y-1">
+                                    <p className="text-xs text-muted-foreground">Chat com</p>
+                                    <p className="text-sm font-medium text-primary">{clinicaName}</p>
+                                  </div>
+                                );
+                              })() : (
+                                <p className="text-muted-foreground text-xs truncate">
+                                  Nenhuma mensagem ainda
+                                </p>
+                              )}
                           </div>
                           <div className="h-2 w-2 bg-primary rounded-full"></div>
                         </div>
@@ -771,14 +939,61 @@ const Chat = () => {
                     <AvatarFallback className={cn(
                       user?.role === 'operator' ? "bg-support-green/20 text-support-green" : "bg-support-yellow/20 text-support-yellow"
                     )}>
-                      {getUserInitials(selectedChat.name)}
+                      {getUserInitials((() => {
+                        // Tentar obter o nome do contato (não o usuário atual)
+                        const contact = getContactInfo();
+                        if (contact?.name) return contact.name;
+                        
+                        // Fallback: usar participantes ou campos diretos
+                        const operadoraName = (selectedChat as any)?.participants?.find((p: any) => p.type === 'operadora')?.name || 
+                                             (selectedChat as any)?.operadora_nome || '';
+                        const clinicaName = (selectedChat as any)?.participants?.find((p: any) => p.type === 'clinica')?.name || 
+                                           (selectedChat as any)?.clinica_nome || '';
+                        
+                        // Se é operadora, mostrar nome da clínica; se é clínica, mostrar nome da operadora
+                        if (user?.role === 'operator' && clinicaName) return clinicaName;
+                        if (user?.role === 'clinic' && operadoraName) return operadoraName;
+                        
+                        return selectedChat.name;
+                      })())}
                     </AvatarFallback>
                   </Avatar>
                   <div>
-                    <p className="font-medium">{selectedChat.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {user?.role === 'operator' ? 'Clínica' : 'Operadora'}
-                    </p>
+                    {(() => {
+                      // Debug: log do selectedChat para ver os campos disponíveis
+                      console.log('🔧 [HEADER DEBUG] selectedChat completo:', selectedChat);
+                      console.log('🔧 [HEADER DEBUG] participants:', (selectedChat as any)?.participants);
+                      
+                      // Extrair nomes do nome_conversa que já contém "Operadora - Clínica"
+                      const nomeConversa = (selectedChat as any)?.nome_conversa || '';
+                      const parts = nomeConversa.split(' - ');
+                      const operadoraName = parts[0] || '';
+                      const clinicaName = parts[1] || '';
+                      
+                      console.log('🔧 [HEADER DEBUG] nome_conversa:', nomeConversa);
+                      console.log('🔧 [HEADER DEBUG] operadoraName extraído:', operadoraName);
+                      console.log('🔧 [HEADER DEBUG] clinicaName extraído:', clinicaName);
+                      
+                      // Título principal: nome do contato (não o usuário atual)
+                      const contact = getContactInfo();
+                      const mainTitle = contact?.name || 
+                                       (user?.role === 'operator' ? clinicaName : operadoraName) || 
+                                       selectedChat.name;
+                      
+                      console.log('🔧 [HEADER DEBUG] mainTitle:', mainTitle);
+                      
+                      return (
+                        <>
+                          <p className="font-medium">{mainTitle}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {operadoraName && clinicaName 
+                              ? `Operadora: ${operadoraName} • Clínica: ${clinicaName}`
+                              : user?.role === 'operator' ? 'Clínica' : 'Operadora'
+                            }
+                          </p>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
                 <DropdownMenu>

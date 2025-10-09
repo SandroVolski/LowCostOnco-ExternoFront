@@ -22,6 +22,7 @@ import {
 import { toast } from 'sonner';
 import { SolicitacaoFromAPI } from '@/services/api';
 import { operadoraAuthService } from '@/services/operadoraAuthService';
+import { TokenStore } from '@/services/authService';
 import config from '@/config/environment';
 import {
   AlertDialog,
@@ -93,8 +94,12 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
       let pdfUrl: string;
       
       if (viewMethod === 'blob') {
-        console.log('🔧 Carregando PDF como blob (operadora) para solicitação:', solicitacao?.id);
-        const token = localStorage.getItem('operadora_access_token') || '';
+        console.log('🔧 Carregando PDF como blob para solicitação:', solicitacao?.id);
+        const token = TokenStore.getAccess();
+        console.log('🔧 Token encontrado:', token ? 'Sim' : 'Não');
+        if (!token) {
+          throw new Error('Token de autenticação não encontrado');
+        }
         const res = await fetch(`${config.API_BASE_URL}/solicitacoes/${solicitacao?.id}/pdf`, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -389,28 +394,32 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
             {/* Controles do PDF (zoom/fullscreen + ações) */}
             {!loading && !error && viewMethod !== 'external' && (
               <div className="flex items-center gap-2 mr-8">
-                {/* Ações Aprovar/Rejeitar posicionadas à esquerda do botão de diminuir zoom */}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={(solicitacao?.status || 'pendente') !== 'pendente'}
-                  onClick={() => setConfirmAction({ type: 'rejeitar' })}
-                  className="border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                  title="Rejeitar solicitação"
-                >
-                  <ThumbsDown className="h-4 w-4" />
-                </Button>
-                <Button
-                  size="sm"
-                  disabled={(solicitacao?.status || 'pendente') !== 'pendente'}
-                  onClick={() => setConfirmAction({ type: 'aprovar' })}
-                  className="bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
-                  title="Aprovar solicitação"
-                >
-                  <ThumbsUp className="h-4 w-4" />
-                </Button>
+                {/* Ações Aprovar/Rejeitar - apenas para operadoras */}
+                {onApprove && onReject && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={(solicitacao?.status || 'pendente') !== 'pendente'}
+                      onClick={() => setConfirmAction({ type: 'rejeitar' })}
+                      className="border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                      title="Rejeitar solicitação"
+                    >
+                      <ThumbsDown className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={(solicitacao?.status || 'pendente') !== 'pendente'}
+                      onClick={() => setConfirmAction({ type: 'aprovar' })}
+                      className="bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                      title="Aprovar solicitação"
+                    >
+                      <ThumbsUp className="h-4 w-4" />
+                    </Button>
 
-                <div className="w-px h-6 bg-border mx-1" />
+                    <div className="w-px h-6 bg-border mx-1" />
+                  </>
+                )}
 
                 <Button
                   variant="outline"
@@ -474,23 +483,28 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
             
             <div className="flex gap-2">
               {/* Ações da operadora dentro do popout */}
-              <Button
-                variant="outline"
-                disabled={(solicitacao?.status || 'pendente') !== 'pendente'}
-                onClick={() => setConfirmAction({ type: 'rejeitar' })}
-                className="border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <ThumbsDown className="h-4 w-4 mr-2" />
-                Rejeitar
-              </Button>
-              <Button
-                disabled={(solicitacao?.status || 'pendente') !== 'pendente'}
-                onClick={() => setConfirmAction({ type: 'aprovar' })}
-                className="bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                <ThumbsUp className="h-4 w-4 mr-2" />
-                Aprovar
-              </Button>
+              {/* Botões de aprovar/rejeitar - apenas para operadoras */}
+              {onApprove && onReject && (
+                <>
+                  <Button
+                    variant="outline"
+                    disabled={(solicitacao?.status || 'pendente') !== 'pendente'}
+                    onClick={() => setConfirmAction({ type: 'rejeitar' })}
+                    className="border-red-300 text-red-700 hover:bg-red-50 hover:text-red-800 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <ThumbsDown className="h-4 w-4 mr-2" />
+                    Rejeitar
+                  </Button>
+                  <Button
+                    disabled={(solicitacao?.status || 'pendente') !== 'pendente'}
+                    onClick={() => setConfirmAction({ type: 'aprovar' })}
+                    className="bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <ThumbsUp className="h-4 w-4 mr-2" />
+                    Aprovar
+                  </Button>
+                </>
+              )}
               <Button
                 variant="outline"
                 onClick={handleOpenExternal}

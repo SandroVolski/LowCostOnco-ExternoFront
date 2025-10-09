@@ -1,6 +1,7 @@
 // src/services/operadoraService.ts
 
 import config from '@/config/environment';
+import { authorizedFetch } from './authService';
 
 const API_BASE_URL = config.API_BASE_URL;
 
@@ -42,28 +43,29 @@ interface ApiResponse<T = any> {
 // Classe de serviço para Operadoras
 export class OperadoraService {
   
+  // Helper para obter headers com token de admin se disponível
+  private static getAdminHeaders(): HeadersInit {
+    const adminToken = localStorage.getItem('adminToken');
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json'
+    };
+    
+    if (adminToken) {
+      headers['Authorization'] = `Bearer ${adminToken}`;
+    }
+    
+    return headers;
+  }
+  
   // Listar todas as operadoras
   static async getAllOperadoras(): Promise<Operadora[]> {
     try {
       console.log('🔧 OperadoraService.getAllOperadoras() iniciado');
       console.log('🔧 API_BASE_URL:', API_BASE_URL);
-      console.log('🔧 URL completa:', `${API_BASE_URL}/operadoras/admin`);
+      console.log('🔧 URL completa:', `${API_BASE_URL}/operadoras`);
       
-      const token = localStorage.getItem('adminToken') || localStorage.getItem('accessToken');
-      console.log('🔧 Token encontrado:', token);
-      
-      const response = await fetch(`${API_BASE_URL}/operadoras/admin`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-      
-      console.log('🔧 Resposta recebida:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
+      const response = await fetch(`${API_BASE_URL}/operadoras`, {
+        headers: this.getAdminHeaders()
       });
       
       if (!response.ok) {
@@ -71,7 +73,6 @@ export class OperadoraService {
       }
       
       const result: ApiResponse<Operadora[]> = await response.json();
-      console.log('🔧 Dados da resposta:', result);
       
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar operadoras');
@@ -88,7 +89,9 @@ export class OperadoraService {
   // Buscar operadora por ID
   static async getOperadoraById(id: number): Promise<Operadora> {
     try {
-      const response = await fetch(`${API_BASE_URL}/operadoras/admin/${id}`);
+      const response = await fetch(`${API_BASE_URL}/operadoras/admin/${id}`, {
+        headers: this.getAdminHeaders()
+      });
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -114,14 +117,9 @@ export class OperadoraService {
   // Criar nova operadora
   static async createOperadora(operadoraData: OperadoraCreateInput): Promise<Operadora> {
     try {
-      const token = localStorage.getItem('adminToken') || localStorage.getItem('accessToken');
-      
       const response = await fetch(`${API_BASE_URL}/operadoras/admin`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: this.getAdminHeaders(),
         body: JSON.stringify(operadoraData),
       });
       
@@ -149,14 +147,9 @@ export class OperadoraService {
   // Atualizar operadora
   static async updateOperadora(id: number, operadoraData: OperadoraUpdateInput): Promise<Operadora> {
     try {
-      const token = localStorage.getItem('adminToken') || localStorage.getItem('accessToken');
-      
       const response = await fetch(`${API_BASE_URL}/operadoras/admin/${id}`, {
         method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: this.getAdminHeaders(),
         body: JSON.stringify(operadoraData),
       });
       
@@ -184,14 +177,9 @@ export class OperadoraService {
   // Deletar operadora
   static async deleteOperadora(id: number): Promise<boolean> {
     try {
-      const token = localStorage.getItem('adminToken') || localStorage.getItem('accessToken');
-      
       const response = await fetch(`${API_BASE_URL}/operadoras/admin/${id}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
+        headers: this.getAdminHeaders(),
       });
       
       if (!response.ok) {
@@ -228,5 +216,34 @@ export class OperadoraService {
     });
     
     return prepared;
+  }
+
+  // Buscar operadora de uma clínica específica
+  static async getOperadoraByClinica(clinicaId: number): Promise<Operadora | null> {
+    try {
+      console.log('🔧 OperadoraService.getOperadoraByClinica() iniciado para clínica:', clinicaId);
+      
+      const response = await authorizedFetch(`${API_BASE_URL}/operadoras/clinica/${clinicaId}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.log('⚠️ Operadora não encontrada para esta clínica');
+          return null;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result: ApiResponse<Operadora> = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.message || 'Erro ao buscar operadora da clínica');
+      }
+      
+      console.log('✅ Operadora da clínica encontrada:', result.data);
+      return result.data || null;
+    } catch (error) {
+      console.error('❌ Erro no OperadoraService.getOperadoraByClinica():', error);
+      return null;
+    }
   }
 }

@@ -974,78 +974,75 @@ Documentos necessários:
                     "border-l-red-500 hover:border-l-red-400"
                   )}
                 >
-                  <CardContent className="p-6">
-                    <div className="flex flex-col space-y-4">
+                  <CardContent className="p-5">
+                    <div className="flex flex-col space-y-3">
                       {/* Header */}
                       <div className="flex items-start justify-between">
-                        <div className="space-y-1">
+                        <div className="space-y-1.5">
                           <div className="flex items-center gap-2">
-                            <h3 className="font-semibold text-base group-hover:text-primary group-hover:scale-105 transition-all duration-300 origin-left">
+                            <h3 className="font-semibold text-lg group-hover:text-primary transition-colors duration-300">
                               {solicitacao.titulo}
                             </h3>
-                            <div className="group-hover:scale-110 transition-transform duration-300">
                             {getStatusBadge(solicitacao.status)}
-                            </div>
                           </div>
                           <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                              <div className="flex items-center gap-1 group-hover:text-primary transition-colors duration-300">
-                                <User className="h-4 w-4 group-hover:scale-110 transition-transform duration-300" />
-                              {solicitacao.medico}
+                            <div className="flex items-center gap-1.5">
+                              <User className="h-3.5 w-3.5" />
+                              <span>{solicitacao.medico}</span>
                             </div>
-                              <span className="text-muted-foreground/50 group-hover:text-primary/50 transition-colors duration-300">•</span>
-                              <div className="flex items-center gap-1 group-hover:text-primary transition-colors duration-300">
-                                <GraduationCap className="h-4 w-4 group-hover:scale-110 transition-transform duration-300" />
-                              {solicitacao.especialidade}
+                            <span className="text-muted-foreground/40">•</span>
+                            <div className="flex items-center gap-1.5">
+                              <GraduationCap className="h-3.5 w-3.5" />
+                              <span>{solicitacao.especialidade}</span>
                             </div>
-                              <span className="text-muted-foreground/50 group-hover:text-primary/50 transition-colors duration-300">•</span>
-                              <div className="flex items-center gap-1 group-hover:text-primary transition-colors duration-300">
-                                <Calendar className="h-4 w-4 group-hover:scale-110 transition-transform duration-300" />
-                                {formatDate(solicitacao.created_at || '')}
+                            <span className="text-muted-foreground/40">•</span>
+                            <div className="flex items-center gap-1.5">
+                              <Calendar className="h-3.5 w-3.5" />
+                              <span>{formatDate(solicitacao.created_at || '')}</span>
                             </div>
                           </div>
                         </div>
-
                       </div>
 
                       {/* Descrição */}
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-muted-foreground leading-relaxed">
                         {solicitacao.descricao}
                       </p>
 
                       {/* Anexos e Timeline em Grid */}
-                      <div className="grid grid-cols-1 gap-4 pt-4 border-t">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3 border-t">
                         {/* Anexos */}
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-medium flex items-center gap-2 group-hover:text-primary transition-colors duration-300">
-                            <Paperclip className="h-4 w-4 group-hover:rotate-12 transition-transform duration-300" />
-                            Documentos Anexados
+                        <div className="space-y-2 min-w-0">
+                          <h4 className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                            <Paperclip className="h-4 w-4 text-primary" />
+                            Documentos
                           </h4>
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-2 min-w-0">
                             {solicitacao.anexos && solicitacao.anexos.length > 0 ? (
                               solicitacao.anexos.map((anexo, index) => (
                                 <div
                                   key={anexo.id}
-                                  className="flex items-center gap-2 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2 hover:bg-primary/10 hover:border-primary/30 transition-all duration-300 hover:scale-105"
+                                  className="flex items-center gap-2 bg-muted/30 border border-border rounded-md px-2.5 py-1.5 hover:bg-muted/50 hover:border-primary/30 transition-colors duration-200 group/anexo max-w-full"
                                 >
                                   <div className="flex items-center gap-2 min-w-0 flex-1">
-                                    <Paperclip className="h-4 w-4 text-primary flex-shrink-0" />
-                                    <div className="min-w-0">
-                                      <p className="text-sm font-medium text-primary truncate max-w-[150px]">
+                                    <Paperclip className="h-3.5 w-3.5 text-primary flex-shrink-0" />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-xs font-medium text-foreground truncate max-w-[80px]">
                                         {anexo.arquivo_nome}
                                       </p>
-                                      <p className="text-xs text-muted-foreground">
+                                      <p className="text-[10px] text-muted-foreground">
                                         {(anexo.arquivo_tamanho / 1024).toFixed(1)} KB
                                       </p>
                                     </div>
                                   </div>
                                   
-                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                  <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover/anexo:opacity-100 transition-opacity">
                                     <Button
                                       variant="ghost"
                                       size="sm"
                                       onClick={() => handleOpenAnexo(anexo)}
-                                      className="h-7 w-7 p-0 hover:bg-primary hover:text-primary-foreground transition-all duration-300"
-                                      title="Visualizar documento"
+                                      className="h-6 w-6 p-0 hover:bg-primary hover:text-primary-foreground transition-colors"
+                                      title="Visualizar"
                                     >
                                       <Eye className="h-3 w-3" />
                                     </Button>
@@ -1061,8 +1058,8 @@ Documentos necessários:
                                           window.open(downloadUrl, '_blank');
                                         }
                                       }}
-                                      className="h-7 w-7 p-0 hover:bg-primary hover:text-primary-foreground transition-all duration-300"
-                                      title="Baixar documento"
+                                      className="h-6 w-6 p-0 hover:bg-primary hover:text-primary-foreground transition-colors"
+                                      title="Baixar"
                                     >
                                       <Download className="h-3 w-3" />
                                     </Button>
@@ -1070,73 +1067,58 @@ Documentos necessários:
                                 </div>
                               ))
                             ) : (
-                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                <span>Nenhum anexo</span>
-                              </div>
+                              <p className="text-xs text-muted-foreground">Nenhum documento anexado</p>
                             )}
                           </div>
                         </div>
 
                         {/* Timeline */}
-                        <div className="space-y-2">
-                          <h4 className="text-sm font-medium flex items-center gap-2 group-hover:text-primary transition-colors duration-300">
-                            <Clock className="h-4 w-4 group-hover:scale-110 transition-transform duration-300" />
+                        <div className="space-y-2 min-w-0">
+                          <h4 className="text-sm font-semibold flex items-center gap-2 text-foreground">
+                            <Clock className="h-4 w-4 text-primary" />
                             Histórico
                           </h4>
-                          <div className="space-y-2">
+                          <div className="space-y-2.5">
                             {solicitacao.historico?.map((evento, index) => (
                               <div
                                 key={evento.id}
-                                className={cn(
-                                  "flex items-start gap-2 text-sm",
-                                  index === (solicitacao.historico?.length || 0) - 1 && "text-primary"
-                                )}
+                                className="flex items-start gap-2.5 text-xs"
                               >
-                                <div className="w-1.5 h-1.5 rounded-full mt-2 bg-primary" />
-                                <div>
-                                  <p className="font-medium">{evento.status}</p>
-                                  <p className="text-muted-foreground text-xs">
-                                    {formatDate(evento.created_at)} - {evento.comentario}
+                                <div className="w-2 h-2 rounded-full mt-1 bg-primary flex-shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="font-medium text-foreground">{evento.status}</p>
+                                  <p className="text-muted-foreground text-xs leading-relaxed">
+                                    {formatDate(evento.created_at)}
+                                    {evento.comentario && ` - ${evento.comentario}`}
                                   </p>
                                 </div>
                               </div>
                             )) || (
-                              <span className="text-sm text-muted-foreground">Nenhum histórico</span>
+                              <p className="text-xs text-muted-foreground">Nenhum histórico disponível</p>
                             )}
                           </div>
                         </div>
                       </div>
 
                       {/* Botões de Ação */}
-                      <div className="flex items-center gap-2 pt-4 border-t opacity-0 group-hover:opacity-100 transition-all duration-300">
+                      <div className="flex items-center gap-2 pt-3 border-t mt-1 opacity-0 group-hover:opacity-100 transition-all duration-300">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => setEditingSolicitacao(solicitacao)}
-                          className="flex-1 hover:bg-primary hover:text-primary-foreground transition-all duration-300 hover:scale-105"
+                          className="flex-1 hover:bg-primary hover:text-primary-foreground transition-colors duration-200"
                         >
-                          <Edit className="h-4 w-4 mr-2" />
+                          <Edit className="h-3.5 w-3.5 mr-1.5" />
                           Editar
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setSelectedSolicitacao(solicitacao);
-                            setShowStatusModal(true);
-                          }}
-                          className="flex-1 hover:bg-primary hover:text-primary-foreground transition-all duration-300 hover:scale-105"
-                        >
-                          <Clock className="h-4 w-4 mr-2" />
-                          Status
-                        </Button>
+                        {/* Botão de Status - REMOVIDO (controle apenas pela Operadora) */}
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleExcluirSolicitacao(solicitacao.id!)}
-                          className="text-destructive hover:text-destructive/80 hover:bg-destructive hover:text-destructive-foreground transition-all duration-300 hover:scale-105"
+                          className="hover:bg-destructive hover:text-destructive-foreground transition-colors duration-200"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </Button>
                       </div>
                     </div>
@@ -1264,46 +1246,7 @@ Documentos necessários:
         </div>
       )}
 
-      {/* Modal Alterar Status */}
-      {showStatusModal && selectedSolicitacao && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-background rounded-lg p-6 w-full max-w-md">
-            <h2 className="text-xl font-semibold mb-4">Alterar Status</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">Novo Status</label>
-                <Select value={novoStatus} onValueChange={(value: any) => setNovoStatus(value)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="em_analise">Em Análise</SelectItem>
-                    <SelectItem value="aprovado">Aprovado</SelectItem>
-                    <SelectItem value="rejeitado">Rejeitado</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Comentário (opcional)</label>
-                <AutoResizeTextarea
-                  value={comentarioStatus}
-                  onChange={(e) => setComentarioStatus(e.target.value)}
-                  placeholder="Comentário sobre a alteração de status"
-                  className="min-h-[80px]"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 mt-6">
-              <Button onClick={handleAlterarStatus} disabled={loading} className="flex-1">
-                {loading ? 'Alterando...' : 'Alterar Status'}
-              </Button>
-              <Button variant="outline" onClick={() => setShowStatusModal(false)}>
-                Cancelar
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Modal Alterar Status - REMOVIDO (controle apenas pela Operadora) */}
 
       {/* Modal Visualizador de Anexos */}
       {showAnexoViewer && selectedAnexo && (

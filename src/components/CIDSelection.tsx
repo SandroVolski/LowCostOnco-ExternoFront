@@ -201,8 +201,8 @@ const CIDSelection: React.FC<CIDSelectionProps> = ({
                 return (
                   <div key={cid.codigo} className={`flex items-center justify-between p-2 cursor-pointer hover:bg-muted/40 ${isSel ? (cid.isFromPatient ? 'bg-red-50' : 'bg-green-50') : ''}`} onClick={() => toggleSelect(cid)}>
                     <div className="min-w-0">
-                      <div className={`text-sm font-medium ${cid.isFromPatient ? 'text-red-700' : 'text-foreground'}`}>{cid.codigo}</div>
-                      {cid.descricao && <div className="text-xs text-muted-foreground truncate">{cid.descricao}</div>}
+                      <div className={`text-sm font-medium ${cid.isFromPatient ? 'text-red-700' : (isSel ? 'text-green-700' : 'text-foreground')}`}>{cid.codigo}</div>
+                      {cid.descricao && <div className={`text-xs truncate ${cid.isFromPatient ? 'text-red-600' : (isSel ? 'text-green-600' : 'text-muted-foreground')}`}>{cid.descricao}</div>}
                     </div>
                     {isSel && <Check className={`h-4 w-4 ${cid.isFromPatient ? 'text-red-600' : 'text-green-600'}`} />}
                   </div>

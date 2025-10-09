@@ -582,12 +582,26 @@ const PatientDashboard = () => {
   const processCidTableData = (patients: any[]) => {
     const cidCount: Record<string, number> = {};
     patients.forEach(p => {
-      const cid = (p.Cid_Diagnostico || p.cid_diagnostico || 'Não informado').toUpperCase();
-      if (cid) cidCount[cid] = (cidCount[cid] || 0) + 1;
+      const raw = (p.Cid_Diagnostico !== undefined && p.Cid_Diagnostico !== null)
+        ? p.Cid_Diagnostico
+        : (p.cid_diagnostico !== undefined && p.cid_diagnostico !== null)
+          ? p.cid_diagnostico
+          : 'Não informado';
+      const upper = String(raw).toUpperCase();
+      if (!upper.trim() || upper.trim() === 'NÃO INFORMADO') return;
+
+      // Divide possíveis múltiplos CIDs separados por vírgula e conta cada um
+      const parts = upper.split(',').map(part => part.trim()).filter(Boolean);
+      if (parts.length === 0) return;
+
+      parts.forEach(code => {
+        if (!code) return;
+        cidCount[code] = (cidCount[code] || 0) + 1;
+      });
     });
     const data = Object.entries(cidCount)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
+      .slice(0, 9)
       .map(([cid, quantidade]) => ({ cid, quantidade }));
     setCidTableData(data);
   };
@@ -884,7 +898,7 @@ const PatientDashboard = () => {
         </Card>
       </AnimatedSection>
 
-      {/* Progresso dos Tratamentos - Versão Sutil */}
+      {/* Progresso dos Tratamentos - Versão Sutil (comentado a pedido)
       <AnimatedSection delay={450}>
         <Card className="lco-card hover:shadow-md transition-all duration-300">
           <CardHeader className="pb-3">
@@ -895,100 +909,11 @@ const PatientDashboard = () => {
             <CardDescription>Acompanhamento dos ciclos de tratamento</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {treatmentProgressData.length > 0 ? (
-                <>
-                  {treatmentProgressData.map((progress, index) => (
-                    <div key={index} className="group/item">
-                      <div className="flex items-center justify-between p-4 bg-muted/10 rounded-lg hover:bg-muted/20 transition-all duration-200">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <div className="font-medium">{progress.paciente}</div>
-                            <div className={cn(
-                              "px-2 py-0.5 rounded-full text-xs font-medium",
-                              progress.solicitacaoStatus === 'aprovada' ? 'bg-support-green/10 text-support-green' :
-                              progress.solicitacaoStatus === 'em_analise' ? 'bg-primary/10 text-primary' :
-                              progress.solicitacaoStatus === 'pendente' ? 'bg-support-yellow/10 text-support-yellow' :
-                              'bg-muted/10 text-muted-foreground'
-                            )}>
-                              {progress.solicitacaoStatus === 'aprovada' ? 'Aprovada' :
-                               progress.solicitacaoStatus === 'em_analise' ? 'Em Análise' :
-                               progress.solicitacaoStatus === 'pendente' ? 'Pendente' :
-                               progress.solicitacaoStatus}
-                            </div>
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {progress.protocolo} • Ciclo {progress.cicloAtual}/{progress.ciclosPrevistos}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            Próximo ciclo: {progress.proximoCiclo}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 ml-4">
-                          <div className="text-right">
-                            <div className="text-lg font-semibold text-primary">
-                              {progress.progresso}%
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="mt-2 flex items-center gap-3">
-                        <div className="flex-1 bg-muted rounded-full h-2 overflow-hidden">
-                          <div 
-                            className={cn(
-                              "h-full transition-all duration-500 ease-out",
-                              progress.progresso >= 90 ? 'bg-support-green' :
-                              progress.progresso >= 80 ? 'bg-emerald-500/70' :
-                              progress.progresso >= 70 ? 'bg-green-500/70' :
-                              progress.progresso >= 60 ? 'bg-lime-500/70' :
-                              progress.progresso >= 50 ? 'bg-yellow-500/70' :
-                              progress.progresso >= 40 ? 'bg-orange-500/70' :
-                              progress.progresso >= 30 ? 'bg-amber-500/70' :
-                              progress.progresso >= 20 ? 'bg-red-500/70' :
-                              progress.progresso >= 10 ? 'bg-red-600/70' :
-                              progress.status === 'paused' ? 'bg-support-yellow' :
-                              'bg-gray-400/70'
-                            )}
-                            style={{ width: `${progress.progresso}%` }}
-                          />
-                        </div>
-                        <div className="text-xs font-medium min-w-[3rem] text-right text-muted-foreground">
-                          {progress.progresso}%
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Botão Carregar Mais */}
-                  {hasMoreTreatmentProgress && (
-                    <div className="flex justify-center pt-4">
-                      <button
-                        onClick={loadMoreTreatmentProgress}
-                        className="flex items-center gap-2 px-4 py-2 text-sm bg-primary/5 text-primary rounded-lg hover:bg-primary/10 transition-colors"
-                      >
-                        <Plus className="h-4 w-4" />
-                        Carregar Mais Tratamentos
-                      </button>
-                    </div>
-                  )}
-                  
-                  {/* Indicador de total */}
-                  {allTreatmentProgressData.length > 0 && (
-                    <div className="text-center text-xs text-muted-foreground pt-3 border-t border-border/30">
-                      Mostrando {treatmentProgressData.length} de {allTreatmentProgressData.length} tratamentos
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Nenhum tratamento em progresso</p>
-                </div>
-              )}
-            </div>
+            ...
           </CardContent>
         </Card>
       </AnimatedSection>
+      */}
 
       {/* Pacientes por Sexo e Pacientes por Médico lado a lado */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

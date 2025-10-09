@@ -155,12 +155,41 @@ const Analysis = () => {
           return ids.size;
         })();
 
+        // Sistemas monitorados (órgãos) a partir dos dados de órgãos (já com fallback no service)
+        const sistemasMonitorados = Array.isArray(organsData) ? organsData.length : 0;
+
+        // Protocolos ativos a partir das solicitações (finalidade distinta)
+        const protocolosAtivos = (() => {
+          const set = new Set<string>();
+          for (const s of solicitacoesFiltradas) {
+            const f = (s.finalidade || '').toString().trim();
+            if (f) set.add(f);
+          }
+          return set.size;
+        })();
+
+        // CIDs cadastrados a partir dos pacientes (CIDs distintos)
+        const cidsCadastrados = (() => {
+          const set = new Set<string>();
+          for (const p of pacientesFiltrados) {
+            const raw = (p.Cid_Diagnostico ?? (p as any).cid_diagnostico ?? '') as any;
+            const codes: string[] = Array.isArray(raw)
+              ? raw
+              : String(raw)
+                  .split(',')
+                  .map((x: string) => x.trim().toUpperCase())
+                  .filter(Boolean);
+            codes.forEach(c => set.add(c));
+          }
+          return set.size;
+        })();
+
         const metricsAligned: AnalysisMetrics = {
           totalSolicitacoes: hasClinicas ? solicitacoesFiltradas.length : 0,
           totalPacientes: hasClinicas ? pacientesUnicosCount : 0,
-          sistemasMonitorados: hasClinicas ? (metricsData?.sistemasMonitorados || 0) : 0,
-          protocolosAtivos: hasClinicas ? (metricsData?.protocolosAtivos || 0) : 0,
-          cidsCadastrados: hasClinicas ? (metricsData?.cidsCadastrados || 0) : 0,
+          sistemasMonitorados: hasClinicas ? (sistemasMonitorados || 0) : 0,
+          protocolosAtivos: hasClinicas ? (protocolosAtivos || 0) : 0,
+          cidsCadastrados: hasClinicas ? (cidsCadastrados || 0) : 0,
         };
 
         // KPIs e Charts: zerar quando não houver clínicas
