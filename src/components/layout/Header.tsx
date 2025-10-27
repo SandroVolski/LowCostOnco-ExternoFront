@@ -24,7 +24,9 @@ import {
   UserPlus,
   AlertCircle,
   Activity,
-  Settings
+  Settings,
+  DollarSign,
+  TrendingUp
 } from 'lucide-react';
 import Logo from '@/components/Logo';
 import { Button } from '@/components/ui/button';
@@ -421,6 +423,16 @@ const Header = () => {
             },
           ],
         },
+        {
+          label: 'Financeiro',
+          path: '/financeiro',
+          icon: <DollarSign className={cn("h-5 w-5", location.pathname === '/financeiro' && "text-primary")} />,
+        },
+        // {
+        //   label: 'Finanças',
+        //   path: '/financas',
+        //   icon: <TrendingUp className={cn("h-5 w-5", location.pathname === '/financas' && "text-primary")} />,
+        // },
         ...commonItems,
       ];
     } else if (user?.role === 'operator') {
@@ -944,6 +956,22 @@ const Header = () => {
                   <div className={cn(
                     "transition-all duration-200",
                     location.pathname === '/cadastro-documentos' ? "opacity-100 scale-100" : "opacity-0 scale-75"
+                  )}>
+                    <Check className="h-4 w-4 text-primary" />
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  className={cn(
+                    "cursor-pointer hover:bg-primary/10 flex items-center gap-2",
+                    location.pathname === '/procedimentos' && "bg-primary/10 text-primary font-medium"
+                  )}
+                  onClick={() => navigateWithTransition('/procedimentos')}
+                >
+                  <DollarSign className="h-4 w-4" />
+                  <span className="flex-1">Procedimentos</span>
+                  <div className={cn(
+                    "transition-all duration-200",
+                    location.pathname === '/procedimentos' ? "opacity-100 scale-100" : "opacity-0 scale-75"
                   )}>
                     <Check className="h-4 w-4 text-primary" />
                   </div>

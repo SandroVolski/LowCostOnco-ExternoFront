@@ -20,6 +20,8 @@ import {
   FileText,
   Users,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Eye,
   EyeOff
 } from 'lucide-react';
@@ -38,15 +40,14 @@ const CadastroClinicas = () => {
   const [editingClinica, setEditingClinica] = useState<Clinica | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'ativo' | 'inativo'>('all');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [operadoras, setOperadoras] = useState<any[]>([]);
   const [showPassword, setShowPassword] = useState(false);
   
   // Estados para paginação
-  const [clinicasPerPage] = useState(8);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [showAll, setShowAll] = useState(false);
+  const [pagination, setPagination] = useState<any>(null);
 
   const [formData, setFormData] = useState<ClinicaCreateInput>({
     nome: '',
@@ -83,28 +84,28 @@ const CadastroClinicas = () => {
   const [userAvailable, setUserAvailable] = useState<boolean | null>(null);
 
   useEffect(() => {
-    loadClinicas();
+    loadClinicas(1, searchTerm);
     OperadoraService.getAllOperadoras().then(setOperadoras).catch(() => setOperadoras([]));
   }, []);
 
-  // Resetar paginação quando mudar a busca
+  // Resetar paginação e recarregar quando mudar a busca
   useEffect(() => {
-    setCurrentPage(1);
-    setShowAll(false);
+    loadClinicas(1, searchTerm);
   }, [searchTerm]);
 
-  const loadClinicas = async () => {
+  const loadClinicas = async (page: number = 1, searchTerm: string = '') => {
     try {
-      console.log('🔧 Iniciando carregamento de clínicas...');
+      console.log(`🔧 Iniciando carregamento de clínicas - página ${page}, busca: "${searchTerm}"...`);
       setLoading(true);
       
       console.log('🔧 Chamando ClinicService.getAllClinicas()...');
-      const clinicasData = await ClinicService.getAllClinicas();
+      const result = await ClinicService.getAllClinicas(page, 50, searchTerm);
       
-      console.log('✅ Clínicas recebidas:', clinicasData);
-      console.log('📊 Total de clínicas:', clinicasData.length);
+      console.log('✅ Clínicas recebidas:', result.data.length);
+      console.log('📊 Paginação:', result.pagination);
       
-      setClinicas(clinicasData);
+      setClinicas(result.data);
+      setPagination(result.pagination);
     } catch (error) {
       console.error('❌ Erro ao carregar clínicas:', error);
       console.error('❌ Detalhes do erro:', {
@@ -118,27 +119,7 @@ const CadastroClinicas = () => {
     }
   };
 
-  // Função para carregar mais clínicas
-  const loadMoreClinicas = () => {
-    if (showAll) {
-      setShowAll(false);
-      setCurrentPage(1);
-    } else {
-      setCurrentPage(prev => prev + 1);
-    }
-  };
-
-  // Função para mostrar todas as clínicas
-  const showAllClinicas = () => {
-    setShowAll(true);
-    setCurrentPage(Math.ceil(filteredClinicas.length / clinicasPerPage));
-  };
-
-  // Função para voltar ao início
-  const resetPagination = () => {
-    setCurrentPage(1);
-    setShowAll(false);
-  };
+  // Funções de paginação removidas - agora usando paginação do backend
 
   const handleInputChange = (field: keyof ClinicaCreateInput, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -370,35 +351,46 @@ const CadastroClinicas = () => {
   const handleEdit = (clinica: Clinica) => {
     setEditingClinica(clinica);
     setFormData({
-      nome: clinica.nome,
-      codigo: clinica.codigo,
+      nome: clinica.nome || '',
+      razao_social: clinica.razao_social || '',
+      codigo: clinica.codigo || '',
       cnpj: clinica.cnpj || '',
-      endereco: clinica.endereco || '',
+      endereco_rua: clinica.endereco_rua || '',
+      endereco_numero: clinica.endereco_numero || '',
+      endereco_bairro: clinica.endereco_bairro || '',
+      endereco_complemento: clinica.endereco_complemento || '',
       cidade: clinica.cidade || '',
       estado: clinica.estado || '',
       cep: clinica.cep || '',
-      telefones: clinica.telefones.length > 0 ? clinica.telefones : [''],
-      emails: clinica.emails.length > 0 ? clinica.emails : [''],
+      telefones: Array.isArray(clinica.telefones) && clinica.telefones.length > 0 ? clinica.telefones : [''],
+      emails: Array.isArray(clinica.emails) && clinica.emails.length > 0 ? clinica.emails : [''],
+      contatos_pacientes: clinica.contatos_pacientes || { telefones: [''], emails: [''] },
+      contatos_administrativos: clinica.contatos_administrativos || { telefones: [''], emails: [''] },
+      contatos_legais: clinica.contatos_legais || { telefones: [''], emails: [''] },
+      contatos_faturamento: clinica.contatos_faturamento || { telefones: [''], emails: [''] },
+      contatos_financeiro: clinica.contatos_financeiro || { telefones: [''], emails: [''] },
       website: clinica.website || '',
       logo_url: clinica.logo_url || '',
       observacoes: clinica.observacoes || '',
       usuario: clinica.usuario || '',
       senha: clinica.senha || '',
-      status: clinica.status
+      status: clinica.status || 'ativo',
+      // @ts-ignore
+      operadora_id: (clinica as any).operadora_id || undefined,
     });
     setIsFormOpen(true);
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm('Tem certeza que deseja excluir esta clínica?')) {
+    if (confirm('Tem certeza que deseja inativar esta clínica?')) {
       try {
         setLoading(true);
-        await ClinicService.deleteClinica(id);
-        setClinicas(prev => prev.filter(c => c.id !== id));
-        toast.success('Clínica excluída com sucesso!');
+        const updated = await ClinicService.updateClinica(id, { status: 'inativo' });
+        setClinicas(prev => prev.map(c => c.id === id ? updated : c));
+        toast.success('Clínica inativada com sucesso!');
       } catch (error) {
-        console.error('Erro ao excluir clínica:', error);
-        toast.error(error instanceof Error ? error.message : 'Erro ao excluir clínica');
+        console.error('Erro ao inativar clínica:', error);
+        toast.error(error instanceof Error ? error.message : 'Erro ao inativar clínica');
       } finally {
         setLoading(false);
       }
@@ -408,55 +400,38 @@ const CadastroClinicas = () => {
   const resetForm = () => {
     setFormData({
       nome: '',
+      razao_social: '',
       codigo: '',
       cnpj: '',
-      endereco: '',
+      endereco_rua: '',
+      endereco_numero: '',
+      endereco_bairro: '',
+      endereco_complemento: '',
       cidade: '',
       estado: '',
       cep: '',
       telefones: [''],
       emails: [''],
+      contatos_pacientes: { telefones: [''], emails: [''] },
+      contatos_administrativos: { telefones: [''], emails: [''] },
+      contatos_legais: { telefones: [''], emails: [''] },
+      contatos_faturamento: { telefones: [''], emails: [''] },
+      contatos_financeiro: { telefones: [''], emails: [''] },
       website: '',
       logo_url: '',
       observacoes: '',
       usuario: '',
       senha: '',
-      status: 'ativo'
+      status: 'ativo',
+      // @ts-ignore
+      operadora_id: undefined,
     });
     setEditingClinica(null);
   };
 
-  // Normalização defensiva: garantir arrays para telefones/emails e strings seguras para filtros
-  const normalizedClinicas = clinicas.map((c) => ({
-    ...c,
-    telefones: Array.isArray(c.telefones)
-      ? c.telefones
-      : c.telefones
-        ? [String(c.telefones)]
-        : [],
-    emails: Array.isArray(c.emails)
-      ? c.emails
-      : c.emails
-        ? [String(c.emails)]
-        : [],
-    nome: c.nome || '',
-    codigo: c.codigo || '',
-    cnpj: c.cnpj || ''
-  }));
-
-  const filteredClinicas = normalizedClinicas.filter(clinica =>
-    (clinica.nome || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (clinica.codigo || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (clinica.cnpj && clinica.cnpj.includes(searchTerm))
-  );
-
-  // Calcular clínicas a serem exibidas
-  const totalClinicas = filteredClinicas.length;
-  const totalPages = Math.ceil(totalClinicas / clinicasPerPage);
-  const startIndex = showAll ? 0 : (currentPage - 1) * clinicasPerPage;
-  const endIndex = showAll ? totalClinicas : Math.min(currentPage * clinicasPerPage, totalClinicas);
-  const displayedClinicas = filteredClinicas.slice(startIndex, endIndex);
-  const hasMoreClinicas = !showAll && endIndex < totalClinicas;
+  // Usar dados diretamente do backend (já filtrados e paginados)
+  const displayedClinicas = clinicas;
+  const totalClinicas = pagination?.total || 0;
 
   return (
     <div className="w-full space-y-6">
@@ -481,14 +456,29 @@ const CadastroClinicas = () => {
       <AnimatedSection delay={100}>
         <div className="lco-card hover:shadow-lg transition-all duration-300">
           <CardContent className="pt-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Buscar por nome, código ou CNPJ..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+            <div className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Buscar por nome, código ou CNPJ..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <label className="text-sm font-medium">Status:</label>
+                <Select value={statusFilter} onValueChange={(value: 'all' | 'ativo' | 'inativo') => setStatusFilter(value)}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="ativo">Ativas</SelectItem>
+                    <SelectItem value="inativo">Inativas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </div>
@@ -504,7 +494,7 @@ const CadastroClinicas = () => {
             </CardTitle>
             <CardDescription>
               Mostrando {displayedClinicas.length} de {totalClinicas} clínicas
-              {!showAll && hasMoreClinicas && ` • Página ${currentPage} de ${totalPages}`}
+              {pagination && ` • Página ${pagination.page} de ${pagination.totalPages}`}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -512,7 +502,7 @@ const CadastroClinicas = () => {
               <div className="flex items-center justify-center h-32">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
               </div>
-            ) : filteredClinicas.length === 0 ? (
+            ) : displayedClinicas.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>Nenhuma clínica encontrada</p>
@@ -520,7 +510,12 @@ const CadastroClinicas = () => {
             ) : (
               <div className="space-y-4">
                 {displayedClinicas.map((clinica) => (
-                  <div key={clinica.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-all duration-200 hover:shadow-md">
+                  <div 
+                    key={clinica.id} 
+                    className={`border rounded-lg p-4 hover:bg-muted/50 transition-all duration-200 hover:shadow-md ${
+                      clinica.status === 'inativo' ? 'opacity-50 bg-muted/30' : ''
+                    }`}
+                  >
                     <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between space-y-4 lg:space-y-0">
                       <div className="flex-1">
                         <div className="flex flex-wrap items-center space-x-2 mb-3">
@@ -585,47 +580,37 @@ const CadastroClinicas = () => {
                   </div>
                 ))}
 
-                {/* Controles de Paginação */}
-                {totalClinicas > clinicasPerPage && (
+                {/* Controles de Paginação (backend) */}
+                {pagination && (
                   <div className="flex flex-col sm:flex-row items-center justify-center space-y-3 sm:space-y-0 sm:space-x-4 pt-6 border-t">
-                    {!showAll && hasMoreClinicas && (
+                    <div className="flex items-center space-x-2">
                       <Button
-                        onClick={loadMoreClinicas}
+                        onClick={() => loadClinicas(pagination.page - 1, searchTerm)}
+                        disabled={!pagination.hasPrev}
                         variant="outline"
-                        className="flex items-center space-x-2"
+                        size="sm"
                       >
-                        <ChevronDown className="h-4 w-4" />
-                        <span>Carregar Mais 8</span>
+                        <ChevronLeft className="h-4 w-4" />
+                        Anterior
                       </Button>
-                    )}
-                    
-                    {!showAll && (
+                      
+                      <span className="text-sm text-muted-foreground">
+                        Página {pagination.page} de {pagination.totalPages}
+                      </span>
+                      
                       <Button
-                        onClick={showAllClinicas}
+                        onClick={() => loadClinicas(pagination.page + 1, searchTerm)}
+                        disabled={!pagination.hasNext}
                         variant="outline"
-                        className="flex items-center space-x-2"
+                        size="sm"
                       >
-                        <Building2 className="h-4 w-4" />
-                        <span>Mostrar Todas ({totalClinicas})</span>
+                        Próxima
+                        <ChevronRight className="h-4 w-4" />
                       </Button>
-                    )}
-                    
-                    {showAll && (
-                      <Button
-                        onClick={resetPagination}
-                        variant="outline"
-                        className="flex items-center space-x-2"
-                      >
-                        <ChevronDown className="h-4 w-4 rotate-180" />
-                        <span>Voltar ao Início</span>
-                      </Button>
-                    )}
+                    </div>
                     
                     <div className="text-sm text-muted-foreground">
-                      {showAll 
-                        ? `Mostrando todas as ${totalClinicas} clínicas`
-                        : `Página ${currentPage} de ${totalPages} • ${displayedClinicas.length} de ${totalClinicas}`
-                      }
+                      {`Mostrando ${clinicas.length} de ${pagination.total} clínicas`}
                     </div>
                   </div>
                 )}

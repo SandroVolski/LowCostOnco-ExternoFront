@@ -42,6 +42,8 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         isSpecialAdmin: true
       };
       setAdminUser(specialAdmin);
+      // Persistir token especial para chamadas admin no backend
+      localStorage.setItem('adminToken', 'admin-special-access');
       return true;
     }
     return false;

@@ -12,14 +12,14 @@ import cors from 'cors';
 const AdminLogin = () => {
 	const [secret, setSecret] = useState('');
 	const [showPassword, setShowPassword] = useState(false);
-	const { loginAdmin } = useAdmin();
+  const { loginAdmin } = useAdmin();
 	const navigate = useNavigate();
 
-	const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
-		if (loginAdmin(secret)) {
+    if (loginAdmin('OnkhosGlobal', secret)) {
 			toast.success('Admin autenticado');
-			navigate('/admin/clinicas/register');
+      navigate('/admin/clinicas/register');
 		} else {
 			toast.error('Segredo inválido');
 		}

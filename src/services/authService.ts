@@ -134,11 +134,10 @@ export async function authorizedFetch(input: RequestInfo | URL, init?: RequestIn
   const initWithAuth = shouldAuth ? AuthService.withAuthHeaders(init) : (init || {});
 
   let response = await fetch(input, initWithAuth);
-  if (response.status !== 401 && response.status !== 403) return response;
-  // Sem refresh: se 401 ou 403, efetua logout e redireciona para login
+  if (response.status !== 401) return response;
+  // Sem refresh: se 401, efetua logout e redireciona para login
   if (shouldAuth) {
     await AuthService.logout();
-    // Redirecionar para login após logout (rota correta é "/")
     window.location.href = '/';
   }
   return response;

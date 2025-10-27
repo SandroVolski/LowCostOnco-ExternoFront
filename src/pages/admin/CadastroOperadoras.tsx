@@ -27,6 +27,7 @@ const CadastroOperadoras = () => {
   const [editingOperadora, setEditingOperadora] = useState<Operadora | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'ativo' | 'inativo'>('all');
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -259,15 +260,15 @@ const CadastroOperadoras = () => {
   };
 
   const handleDelete = async (id: number) => {
-    if (confirm('Tem certeza que deseja excluir esta operadora?')) {
+    if (confirm('Tem certeza que deseja inativar esta operadora?')) {
       try {
         setLoading(true);
-        await OperadoraService.deleteOperadora(id);
-        setOperadoras(prev => prev.filter(o => o.id !== id));
-        toast.success('Operadora excluída com sucesso!');
+        const updated = await OperadoraService.updateOperadora(id, { status: 'inativo' });
+        setOperadoras(prev => prev.map(o => o.id === id ? updated : o));
+        toast.success('Operadora inativada com sucesso!');
       } catch (error) {
-        console.error('Erro ao excluir operadora:', error);
-        toast.error(error instanceof Error ? error.message : 'Erro ao excluir operadora');
+        console.error('Erro ao inativar operadora:', error);
+        toast.error(error instanceof Error ? error.message : 'Erro ao inativar operadora');
       } finally {
         setLoading(false);
       }
@@ -286,11 +287,15 @@ const CadastroOperadoras = () => {
     setEditingOperadora(null);
   };
 
-  const filteredOperadoras = operadoras.filter(operadora =>
-    operadora.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    operadora.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (operadora.cnpj && operadora.cnpj.includes(searchTerm))
-  );
+  const filteredOperadoras = operadoras.filter(operadora => {
+    const matchesSearch = operadora.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         operadora.codigo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         (operadora.cnpj && operadora.cnpj.includes(searchTerm));
+    
+    const matchesStatus = statusFilter === 'all' || operadora.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
 
   // Calcular operadoras a serem exibidas
   const totalOperadoras = filteredOperadoras.length;
@@ -323,14 +328,29 @@ const CadastroOperadoras = () => {
       <AnimatedSection delay={100}>
         <div className="lco-card hover:shadow-lg transition-all duration-300">
           <CardContent className="pt-6">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                placeholder="Buscar por nome, código ou CNPJ..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
+            <div className="space-y-4">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Buscar por nome, código ou CNPJ..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <label className="text-sm font-medium">Status:</label>
+                <Select value={statusFilter} onValueChange={(value: 'all' | 'ativo' | 'inativo') => setStatusFilter(value)}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas</SelectItem>
+                    <SelectItem value="ativo">Ativas</SelectItem>
+                    <SelectItem value="inativo">Inativas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </CardContent>
         </div>
@@ -362,7 +382,12 @@ const CadastroOperadoras = () => {
             ) : (
               <div className="space-y-4">
                 {displayedOperadoras.map((operadora) => (
-                  <div key={operadora.id} className="border rounded-lg p-4 hover:bg-muted/50 transition-all duration-200 hover:shadow-md">
+                  <div 
+                    key={operadora.id} 
+                    className={`border rounded-lg p-4 hover:bg-muted/50 transition-all duration-200 hover:shadow-md ${
+                      operadora.status === 'inativo' ? 'opacity-50 bg-muted/30' : ''
+                    }`}
+                  >
                     <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between space-y-4 lg:space-y-0">
                       <div className="flex-1">
                         <div className="flex flex-wrap items-center space-x-2 mb-3">

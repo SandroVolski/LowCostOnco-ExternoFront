@@ -207,14 +207,13 @@ export class ClinicService {
     return headers;
   }
   
-  // Listar todas as clínicas (para admin)
-  static async getAllClinicas(): Promise<Clinica[]> {
+  // Listar todas as clínicas (para admin) com paginação e busca
+  static async getAllClinicas(page: number = 1, limit: number = 50, search: string = ''): Promise<{data: Clinica[], pagination: any}> {
     try {
-      console.log('🔧 ClinicService.getAllClinicas() iniciado');
-      console.log('🔧 API_BASE_URL:', API_BASE_URL);
-      console.log('🔧 URL completa:', `${API_BASE_URL}/clinicas/admin`);
+      console.log(`🔧 ClinicService.getAllClinicas() iniciado - página ${page}, limite ${limit}, busca: "${search}"`);
       
-      const response = await fetch(`${API_BASE_URL}/clinicas/admin`, {
+      const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
+      const response = await fetch(`${API_BASE_URL}/clinicas/admin?page=${page}&limit=${limit}${searchParam}`, {
         headers: this.getAdminHeaders()
       });
       
@@ -229,15 +228,17 @@ export class ClinicService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
       
-      const result: ApiResponse<Clinica[]> = await response.json();
-      console.log('🔧 Dados da resposta:', result);
+      const result: any = await response.json();
       
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar clínicas');
       }
       
-      console.log('✅ Clínicas obtidas com sucesso:', result.data);
-      return result.data || [];
+      console.log(`✅ Clínicas obtidas: ${result.data.length} de ${result.pagination?.total || 'N/A'}`);
+      return {
+        data: result.data || [],
+        pagination: result.pagination
+      };
     } catch (error) {
       console.error('❌ Erro no ClinicService.getAllClinicas():', error);
       throw new Error('Erro ao buscar clínicas');

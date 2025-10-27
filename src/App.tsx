@@ -27,23 +27,29 @@ import Chat from "./pages/Chat";
 import ClinicProfile from "./pages/ClinicProfile";
 import NotFound from "./pages/NotFound";
 import RecursosGlosas from "./pages/RecursosGlosas";
+import RecursosGlosasList from "./pages/RecursosGlosasList";
 import Protocols from "./pages/Protocols";
 import AjustesNegociacao from "./pages/AjustesNegociacao";
 import AjustesCorpoClinico from "./pages/AjustesCorpoClinico";
 import HistoricoSolicitacoes from "./pages/HistoricoSolicitacoes";
 import CorpoClinico from "./pages/CorpoClinico";
 import CadastroDocumentos from "./pages/CadastroDocumentos";
+import Procedimentos from "./pages/Procedimentos";
+import FinanceiroClinica from "./pages/FinanceiroClinica";
+import FinancasClinica from "./pages/FinancasClinica";
 import ClinicRegisterAdmin from "./pages/ClinicRegisterAdmin";
 import AdminLogin from "./pages/AdminLogin";
 import AdminControleSistema from "./pages/AdminControleSistema";
 import { useAdmin } from "./contexts/AdminContext";
+import CadastroClinicas from "./pages/admin/CadastroClinicas";
+import CadastroOperadoras from "./pages/admin/CadastroOperadoras";
 
 const queryClient = new QueryClient();
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { isSpecialAdmin } = useAdmin();
   if (!isSpecialAdmin) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/admin" replace />;
   }
   return <>{children}</>;
 }
@@ -163,15 +169,40 @@ const App = () => (
                     } 
                   />
                   
-                  <Route 
-                    path="/recursos-glosas" 
+                  {/* Lista de Recursos de Glosas */}
+                  <Route
+                    path="/recursos-glosas"
                     element={
                       <ProtectedRoute allowedRoles={['clinic']}>
                         <Layout pageTitle="Recursos de Glosas">
+                          <RecursosGlosasList />
+                        </Layout>
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Criar novo Recurso de Glosa */}
+                  <Route
+                    path="/recursos-glosas/novo"
+                    element={
+                      <ProtectedRoute allowedRoles={['clinic']}>
+                        <Layout pageTitle="Novo Recurso de Glosa">
                           <RecursosGlosas />
                         </Layout>
                       </ProtectedRoute>
-                    } 
+                    }
+                  />
+
+                  {/* Ver detalhes de um Recurso de Glosa */}
+                  <Route
+                    path="/recursos-glosas/:id"
+                    element={
+                      <ProtectedRoute allowedRoles={['clinic']}>
+                        <Layout pageTitle="Recurso de Glosa">
+                          <RecursosGlosas />
+                        </Layout>
+                      </ProtectedRoute>
+                    }
                   />
 
                   <Route 
@@ -230,6 +261,24 @@ const App = () => (
                       </AdminRoute>
                     } 
                   />
+
+                  {/* Rotas administrativas para cadastros em separado */}
+                  <Route 
+                    path="/admin/clinicas" 
+                    element={
+                      <AdminRoute>
+                        <AdminControleSistema />
+                      </AdminRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/admin/operadoras" 
+                    element={
+                      <AdminRoute>
+                        <AdminControleSistema />
+                      </AdminRoute>
+                    } 
+                  />
                             
                   <Route 
                     path="/corpo-clinico" 
@@ -252,6 +301,39 @@ const App = () => (
                       </ProtectedRoute>
                     } 
                   />
+
+                  <Route 
+                    path="/procedimentos" 
+                    element={
+                      <ProtectedRoute allowedRoles={['clinic']}>
+                        <Layout pageTitle="Procedimentos">
+                          <Procedimentos />
+                        </Layout>
+                      </ProtectedRoute>
+                    } 
+                  />
+
+                  <Route 
+                    path="/financeiro" 
+                    element={
+                      <ProtectedRoute allowedRoles={['clinic']}>
+                        <Layout pageTitle="Financeiro">
+                          <FinanceiroClinica />
+                        </Layout>
+                      </ProtectedRoute>
+                    } 
+                  />
+
+                  {/* <Route 
+                    path="/financas" 
+                    element={
+                      <ProtectedRoute allowedRoles={['clinic']}>
+                        <Layout pageTitle="Finanças">
+                          <FinancasClinica />
+                        </Layout>
+                      </ProtectedRoute>
+                    } 
+                  /> */}
                   
                   <Route 
                     path="/analysis" 

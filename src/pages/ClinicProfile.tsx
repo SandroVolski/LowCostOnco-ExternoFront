@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Building2, Upload, Save, Camera, MapPin, Phone, Mail, FileText, Globe, Plus, Edit, Trash2, UserPlus, Users, FolderOpen } from 'lucide-react';
+import { Building2, Upload, Save, Camera, MapPin, Phone, Mail, FileText, Globe, Plus, Edit, Trash2, UserPlus, Users, FolderOpen, DollarSign } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { usePageNavigation } from '@/components/transitions/PageTransitionContext';
 import { Button } from '@/components/ui/button';
@@ -707,6 +707,14 @@ const ClinicProfileComponent = () => {
             >
               <FolderOpen className="w-4 h-4 mr-2" />
               Documentos
+            </Button>
+            <Button
+              onClick={() => navigateWithTransition('/procedimentos')}
+              variant="outline"
+              className="text-green-600 border-green-600 hover:bg-green-50 transition-all duration-300"
+            >
+              <DollarSign className="w-4 h-4 mr-2" />
+              Procedimentos
             </Button>
             <Button 
               onClick={handleSave}

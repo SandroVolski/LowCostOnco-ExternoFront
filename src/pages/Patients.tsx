@@ -2434,6 +2434,7 @@ const Patients = () => {
                         <SelectItem value="Em remissão">Em remissão</SelectItem>
                         <SelectItem value="Alta">Alta</SelectItem>
                         <SelectItem value="Óbito">Óbito</SelectItem>
+                        <SelectItem value="Suspenso">Suspenso</SelectItem>
                       </SelectContent>
                     </Select>
                     {validationErrors.status && (

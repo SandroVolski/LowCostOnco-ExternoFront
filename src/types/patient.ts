@@ -1,4 +1,4 @@
-export type PatientStatus = 'ativo' | 'inativo' | 'alta' | 'obito';
+export type PatientStatus = 'Em tratamento' | 'Em remissão' | 'Alta' | 'Óbito' | 'Suspenso';
 
 export interface Patient {
   id: number;

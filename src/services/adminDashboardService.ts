@@ -171,16 +171,16 @@ export class AdminDashboardService {
     }
   }
 
-  // Buscar informações das clínicas
-  static async getClinicasInfo(): Promise<ClinicaInfo[]> {
+  // Buscar informações das clínicas (com paginação)
+  static async getClinicasInfo(page: number = 1, limit: number = 100): Promise<{data: ClinicaInfo[], pagination: any}> {
     try {
-      console.log('🔧 AdminDashboardService.getClinicasInfo() iniciado');
+      console.log(`🔧 AdminDashboardService.getClinicasInfo() iniciado - página ${page}`);
       
-      let response = await adminAuthorizedFetch(`${API_BASE_URL}/admin/clinicas`);
+      let response = await adminAuthorizedFetch(`${API_BASE_URL}/admin/clinicas?page=${page}&limit=${limit}`);
       if (!response) {
         const adminToken = localStorage.getItem('admin_access_token');
         const fallbackToken = localStorage.getItem('operadora_access_token');
-        response = await fetch(`${API_BASE_URL}/admin/clinicas`, {
+        response = await fetch(`${API_BASE_URL}/admin/clinicas?page=${page}&limit=${limit}`, {
           headers: {
             'Authorization': `Bearer ${adminToken || fallbackToken || ''}`,
           },
@@ -197,8 +197,11 @@ export class AdminDashboardService {
         throw new Error(result.message || 'Erro ao buscar clínicas');
       }
       
-      console.log('✅ Informações das clínicas obtidas com sucesso:', result.data);
-      return result.data;
+      console.log(`✅ Informações das clínicas obtidas: ${result.data.length} de ${result.pagination?.total || 'N/A'}`);
+      return {
+        data: result.data,
+        pagination: result.pagination
+      };
     } catch (error) {
       console.error('❌ Erro no AdminDashboardService.getClinicasInfo():', error);
       throw new Error('Erro ao buscar informações das clínicas');
@@ -249,12 +252,14 @@ export class AdminDashboardService {
     try {
       console.log('🔧 AdminDashboardService.getAllAdminData() iniciado');
       
-      const [metrics, operadoras, clinicas, chartsData] = await Promise.all([
+      const [metrics, operadoras, clinicasResult, chartsData] = await Promise.all([
         this.getSystemMetrics(),
         this.getOperadorasInfo(),
-        this.getClinicasInfo(),
+        this.getClinicasInfo(1, 100), // Primeira página com 100 clínicas
         this.getChartsData()
       ]);
+      
+      const clinicas = clinicasResult.data;
       
       console.log('✅ Todos os dados administrativos obtidos com sucesso');
       

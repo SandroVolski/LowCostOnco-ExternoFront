@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAdmin } from '@/contexts/AdminContext';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -50,15 +50,21 @@ import GerenciarUsuariosOperadora from '@/pages/admin/GerenciarUsuariosOperadora
 const AdminControleSistema = () => {
   const { isSpecialAdmin, adminUser, logoutAdmin } = useAdmin();
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [scrolled, setScrolled] = useState(false);
 
+  // Sincronizar a aba com a URL atual
   useEffect(() => {
-    if (!isSpecialAdmin) {
-      navigate('/');
-      toast.error('Acesso negado. Apenas administradores especiais podem acessar esta área.');
+    const path = location.pathname;
+    if (path.startsWith('/admin/clinicas')) {
+      setActiveTab('clinicas');
+    } else if (path.startsWith('/admin/operadoras')) {
+      setActiveTab('operadoras');
+    } else {
+      setActiveTab('dashboard');
     }
-  }, [isSpecialAdmin, navigate]);
+  }, [location.pathname]);
 
   // Adicionar classe ao body para garantir scroll
   useEffect(() => {
@@ -90,9 +96,7 @@ const AdminControleSistema = () => {
     toast.success('Logout administrativo realizado com sucesso!');
   };
 
-  if (!isSpecialAdmin) {
-    return null;
-  }
+  // Confia no guard externo (AdminRoute); renderizar a UI diretamente
 
   return (
     <div className="min-h-screen bg-background">
@@ -120,7 +124,7 @@ const AdminControleSistema = () => {
         {/* Desktop Navigation - Centralizado */}
         <nav className="hidden md:flex items-center space-x-1 absolute left-1/2 transform -translate-x-1/2">
           <button
-            onClick={() => setActiveTab('dashboard')}
+            onClick={() => navigate('/admin/controle-sistema')}
             className={cn(
               "nav-link hover-lift flex items-center gap-1",
               activeTab === 'dashboard' && "active",
@@ -132,7 +136,7 @@ const AdminControleSistema = () => {
           </button>
           
           <button
-            onClick={() => setActiveTab('clinicas')}
+            onClick={() => navigate('/admin/clinicas')}
             className={cn(
               "nav-link hover-lift flex items-center gap-1",
               activeTab === 'clinicas' && "active",
@@ -144,7 +148,7 @@ const AdminControleSistema = () => {
           </button>
           
           <button
-            onClick={() => setActiveTab('operadoras')}
+            onClick={() => navigate('/admin/operadoras')}
             className={cn(
               "nav-link hover-lift flex items-center gap-1",
               activeTab === 'operadoras' && "active",
@@ -207,7 +211,18 @@ const AdminControleSistema = () => {
       {/* Conteúdo Principal */}
       <div className="w-full px-6 py-6 pb-20">
         <AnimatedSection>
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+          <Tabs 
+            value={activeTab} 
+            onValueChange={(val) => {
+              setActiveTab(val);
+              if (val === 'dashboard') navigate('/admin/controle-sistema');
+              if (val === 'clinicas') navigate('/admin/clinicas');
+              if (val === 'operadoras') navigate('/admin/operadoras');
+              if (val === 'usuarios-operadora') setActiveTab('usuarios-operadora');
+              if (val === 'logs') setActiveTab('logs');
+            }} 
+            className="space-y-6"
+          >
             <TabsContent value="dashboard" className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
               <DashboardAdmin />
             </TabsContent>
