@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOperadoraAuth } from '@/contexts/OperadoraAuthContext';
+import { useAuditorAuth } from '@/contexts/AuditorAuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +9,7 @@ import Logo from '@/components/Logo';
 import AnimatedText from '@/components/AnimatedText';
 import LoginTransition from '@/components/LoginTransition';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Sun, Moon, Shield, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Sun, Moon, Shield, AlertCircle, Eye, EyeOff, UserCog } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { AuthService } from '@/services/api';
 
@@ -21,6 +22,7 @@ const Login = () => {
   const { theme, toggleTheme } = useTheme();
   const { login, navigateToDashboard } = useAuth();
   const { login: operadoraLogin } = useOperadoraAuth();
+  const { login: auditorLogin } = useAuditorAuth();
 
   const [forgotOpen, setForgotOpen] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
@@ -36,6 +38,14 @@ const Login = () => {
   const [operadoraLoading, setOperadoraLoading] = useState(false);
   const [operadoraError, setOperadoraError] = useState('');
   const [showOperadoraPassword, setShowOperadoraPassword] = useState(false);
+
+  // Estados para login do auditor
+  const [auditorMode, setAuditorMode] = useState(false);
+  const [auditorUsername, setAuditorUsername] = useState('');
+  const [auditorPassword, setAuditorPassword] = useState('');
+  const [auditorLoading, setAuditorLoading] = useState(false);
+  const [auditorError, setAuditorError] = useState('');
+  const [showAuditorPassword, setShowAuditorPassword] = useState(false);
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -87,6 +97,27 @@ const Login = () => {
       setOperadoraError('Erro ao fazer login. Tente novamente.');
     } finally {
       setOperadoraLoading(false);
+    }
+  };
+
+  const handleAuditorLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuditorLoading(true);
+    setAuditorError('');
+    
+    try {
+      const success = await auditorLogin(auditorUsername, auditorPassword);
+      if (success) {
+        // Redirecionar para dashboard do auditor
+        window.location.href = '/auditor/dashboard';
+      } else {
+        setAuditorError('Usuário ou senha inválidos');
+      }
+    } catch (error) {
+      console.error('Erro no login do auditor:', error);
+      setAuditorError('Erro ao fazer login. Tente novamente.');
+    } finally {
+      setAuditorLoading(false);
     }
   };
 
@@ -288,26 +319,38 @@ const Login = () => {
               </Button>
             </form>
 
-            {/* Botão de acesso da Operadora */}
+            {/* Botões de acesso alternativos */}
             <div className="space-y-3">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t border-border/50" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase tracking-wider">
-                  <span className="bg-card px-2 text-muted-foreground font-medium">Acesso Operadora</span>
+                  <span className="bg-card px-2 text-muted-foreground font-medium">Outros Acessos</span>
                 </div>
               </div>
               
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setOperadoraMode(true)}
-                className="w-full h-9 flex items-center justify-center gap-2 text-sm font-medium border-2 hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all duration-200"
-              >
-                <Shield className="h-4 w-4" />
-                Acesso para Operadoras
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setOperadoraMode(true)}
+                  className="h-9 flex items-center justify-center gap-2 text-sm font-medium border-2 hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all duration-200"
+                >
+                  <Shield className="h-4 w-4" />
+                  Operadora
+                </Button>
+                
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setAuditorMode(true)}
+                  className="h-9 flex items-center justify-center gap-2 text-sm font-medium border-2 hover:bg-primary/5 hover:border-primary/30 hover:text-primary transition-all duration-200"
+                >
+                  <Shield className="h-4 w-4" />
+                  Auditor
+                </Button>
+              </div>
             </div>
 
           </CardContent>
@@ -404,6 +447,104 @@ const Login = () => {
                 className="flex-1 h-9 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
               >
                 {operadoraLoading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-foreground border-t-transparent" />
+                    Autenticando...
+                  </div>
+                ) : (
+                  'Entrar'
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Login do Auditor */}
+      <Dialog open={auditorMode} onOpenChange={setAuditorMode}>
+        <DialogContent className="sm:max-w-md border-primary/20 shadow-2xl">
+          <DialogHeader className="text-center pb-4">
+            <div className="flex justify-center mb-3">
+              <div className="p-2 bg-primary/10 rounded-full">
+                <UserCog className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+            <DialogTitle className="text-xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">
+              Login do Auditor
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground mt-1">
+              Acesso exclusivo para auditores
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAuditorLogin} className="space-y-4">
+            {auditorError && (
+              <div className="p-3 text-sm text-red-600 bg-red-50 border-2 border-red-200 rounded-lg flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                {auditorError}
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <label htmlFor="auditorUsername" className="text-sm font-semibold text-foreground">
+                Usuário
+              </label>
+              <Input
+                id="auditorUsername"
+                type="text"
+                value={auditorUsername}
+                onChange={(e) => setAuditorUsername(e.target.value)}
+                placeholder="Digite seu usuário"
+                required
+                className="h-10 text-sm border-2 focus:border-primary/50 transition-colors"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <label htmlFor="auditorPassword" className="text-sm font-semibold text-foreground">
+                Senha
+              </label>
+              <div className="relative">
+                <Input
+                  id="auditorPassword"
+                  type={showAuditorPassword ? "text" : "password"}
+                  value={auditorPassword}
+                  onChange={(e) => setAuditorPassword(e.target.value)}
+                  placeholder="Digite sua senha"
+                  required
+                  className="h-10 text-sm border-2 focus:border-primary/50 transition-colors pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowAuditorPassword(!showAuditorPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  {showAuditorPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => {
+                  setAuditorMode(false);
+                  setAuditorError('');
+                }}
+                className="flex-1 h-9"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                type="submit"
+                disabled={auditorLoading || !auditorUsername || !auditorPassword}
+                className="flex-1 h-9 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold"
+              >
+                {auditorLoading ? (
                   <div className="flex items-center gap-2">
                     <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary-foreground border-t-transparent" />
                     Autenticando...

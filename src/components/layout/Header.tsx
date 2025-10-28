@@ -441,6 +441,7 @@ const Header = () => {
         { label: 'Análises', path: '/analysis', icon: <PieChart className="w-5 h-5" /> },
         { label: 'Solicitações', path: '/operator-solicitacoes', icon: <FileText className="w-5 h-5" /> },
         { label: 'Ajustes', path: '/operator-ajustes', icon: <Database className="w-5 h-5" /> },
+        { label: 'Recursos de Glosas', path: '/operadora/recursos-glosas', icon: <AlertCircle className="w-5 h-5" /> },
         ...commonItems,
       ];
     } else {

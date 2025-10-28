@@ -12,13 +12,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { 
-  Building2, 
-  Shield, 
-  FileText, 
-  BarChart3, 
-  Users, 
-  Pill, 
+import {
+  Building2,
+  Shield,
+  FileText,
+  BarChart3,
+  Users,
+  Pill,
   Activity,
   LogOut,
   Plus,
@@ -32,7 +32,8 @@ import {
   Check,
   User,
   ShieldCheck,
-  ActivitySquare
+  ActivitySquare,
+  UserCog
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -43,6 +44,7 @@ import Logo from '@/components/Logo';
 // Componentes das seções
 import CadastroClinicas from '@/pages/admin/CadastroClinicas';
 import CadastroOperadoras from '@/pages/admin/CadastroOperadoras';
+import CadastroAuditores from '@/pages/admin/CadastroAuditores';
 import LogsSistema from '@/pages/admin/LogsSistema';
 import DashboardAdmin from '@/pages/admin/DashboardAdmin';
 import GerenciarUsuariosOperadora from '@/pages/admin/GerenciarUsuariosOperadora';
@@ -158,7 +160,19 @@ const AdminControleSistema = () => {
             <Shield className="h-5 w-5" />
             <span>Operadoras</span>
           </button>
-          
+
+          <button
+            onClick={() => setActiveTab('auditores')}
+            className={cn(
+              "nav-link hover-lift flex items-center gap-1",
+              activeTab === 'auditores' && "active",
+              "animate-fade-in"
+            )}
+          >
+            <UserCog className="h-5 w-5" />
+            <span>Auditores</span>
+          </button>
+
           <button
             onClick={() => setActiveTab('usuarios-operadora')}
             className={cn(
@@ -233,6 +247,10 @@ const AdminControleSistema = () => {
 
             <TabsContent value="operadoras" className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
               <CadastroOperadoras />
+            </TabsContent>
+
+            <TabsContent value="auditores" className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-500">
+              <CadastroAuditores />
             </TabsContent>
 
             <TabsContent value="usuarios-operadora" className="space-y-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-500">

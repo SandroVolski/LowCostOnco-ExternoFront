@@ -7,9 +7,11 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { AdminProvider } from "./contexts/AdminContext";
 import { OperadoraAuthProvider } from "./contexts/OperadoraAuthContext";
+import { AuditorAuthProvider } from "./contexts/AuditorAuthContext";
 import { PageTransitionProvider } from "./components/transitions/PageTransitionContext";
 import { PageTransitionWrapper } from "./components/transitions/PageTransitionWrapper";
 import Layout from "./components/layout/Layout";
+import AuditorLayout from "./components/layout/AuditorLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
@@ -43,6 +45,12 @@ import AdminControleSistema from "./pages/AdminControleSistema";
 import { useAdmin } from "./contexts/AdminContext";
 import CadastroClinicas from "./pages/admin/CadastroClinicas";
 import CadastroOperadoras from "./pages/admin/CadastroOperadoras";
+import AuditorLogin from "./pages/auditor/AuditorLogin";
+import AuditorDashboard from "./pages/auditor/AuditorDashboard";
+import AuditorRecursos from "./pages/auditor/AuditorRecursos";
+import AuditorRecursoDetalhe from "./pages/auditor/AuditorRecursoDetalhe";
+import OperadoraRecursosGlosasList from "./pages/operadora/RecursosGlosasList";
+import OperadoraRecursoGlosaDetalhe from "./pages/operadora/RecursoGlosaDetalhe";
 
 const queryClient = new QueryClient();
 
@@ -63,9 +71,10 @@ const App = () => (
         <AuthProvider>
           <AdminProvider>
             <OperadoraAuthProvider>
-              <PageTransitionProvider>
-                <PageTransitionWrapper>
-                <Routes>
+              <AuditorAuthProvider>
+                <PageTransitionProvider>
+                  <PageTransitionWrapper>
+                  <Routes>
                   <Route path="/" element={<Login />} />
                   
                   {/* Rota genérica que redireciona baseado no role */}
@@ -392,21 +401,75 @@ const App = () => (
                     } 
                   />
 
-                  <Route 
-                    path="/operator-ajustes" 
+                  <Route
+                    path="/operator-ajustes"
                     element={
                       <ProtectedRoute allowedRoles={['operator']}>
                         <Layout pageTitle="Ajustes da Operadora">
                           <OperatorAjustes />
                         </Layout>
                       </ProtectedRoute>
-                    } 
+                    }
                   />
-                  
+
+                  {/* Rotas da Operadora para Recursos de Glosas */}
+                  <Route
+                    path="/operadora/recursos-glosas"
+                    element={
+                      <ProtectedRoute allowedRoles={['operator']}>
+                        <Layout pageTitle="Recursos de Glosas">
+                          <OperadoraRecursosGlosasList />
+                        </Layout>
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  <Route
+                    path="/operadora/recursos-glosas/:id"
+                    element={
+                      <ProtectedRoute allowedRoles={['operator']}>
+                        <Layout pageTitle="Recurso de Glosa">
+                          <OperadoraRecursoGlosaDetalhe />
+                        </Layout>
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  {/* Rotas do Auditor */}
+                  {/* <Route path="/auditor/login" element={<AuditorLogin />} /> */}
+
+                  <Route
+                    path="/auditor/dashboard"
+                    element={
+                      <AuditorLayout>
+                        <AuditorDashboard />
+                      </AuditorLayout>
+                    }
+                  />
+
+                  <Route
+                    path="/auditor/recursos"
+                    element={
+                      <AuditorLayout>
+                        <AuditorRecursos />
+                      </AuditorLayout>
+                    }
+                  />
+
+                  <Route
+                    path="/auditor/recursos/:id"
+                    element={
+                      <AuditorLayout>
+                        <AuditorRecursoDetalhe />
+                      </AuditorLayout>
+                    }
+                  />
+
                   <Route path="*" element={<NotFound />} />
-                </Routes>
-                </PageTransitionWrapper>
-              </PageTransitionProvider>
+                  </Routes>
+                  </PageTransitionWrapper>
+                </PageTransitionProvider>
+              </AuditorAuthProvider>
             </OperadoraAuthProvider>
           </AdminProvider>
         </AuthProvider>
