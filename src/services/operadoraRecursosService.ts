@@ -1,4 +1,5 @@
 import config from '@/config/environment';
+import { operadoraAuthService } from './operadoraAuthService';
 
 export interface RecursoGlosaOperadora {
   id: number;
@@ -44,20 +45,11 @@ export interface DashboardOperadoraRecursos {
 }
 
 export class OperadoraRecursosService {
-  private static getAuthHeaders() {
-    const token = localStorage.getItem('operadora_access_token');
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-  }
 
   static async getDashboard(): Promise<DashboardOperadoraRecursos> {
-    const response = await fetch(`${config.API_BASE_URL}/operadora/recursos-glosas/dashboard`, {
-      headers: this.getAuthHeaders()
-    });
+    const response = await operadoraAuthService.authorizedFetch(`${config.API_BASE_URL}/operadora/recursos-glosas/dashboard`);
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       throw new Error('Erro ao carregar dashboard');
     }
 
@@ -70,11 +62,9 @@ export class OperadoraRecursosService {
       ? `${config.API_BASE_URL}/operadora/recursos-glosas/recursos?status=${status}`
       : `${config.API_BASE_URL}/operadora/recursos-glosas/recursos`;
 
-    const response = await fetch(url, {
-      headers: this.getAuthHeaders()
-    });
+    const response = await operadoraAuthService.authorizedFetch(url);
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       throw new Error('Erro ao listar recursos');
     }
 
@@ -83,11 +73,9 @@ export class OperadoraRecursosService {
   }
 
   static async buscarRecurso(id: number) {
-    const response = await fetch(`${config.API_BASE_URL}/operadora/recursos-glosas/recursos/${id}`, {
-      headers: this.getAuthHeaders()
-    });
+    const response = await operadoraAuthService.authorizedFetch(`${config.API_BASE_URL}/operadora/recursos-glosas/recursos/${id}`);
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       throw new Error('Erro ao buscar recurso');
     }
 
@@ -96,12 +84,11 @@ export class OperadoraRecursosService {
   }
 
   static async receberRecurso(id: number) {
-    const response = await fetch(`${config.API_BASE_URL}/operadora/recursos-glosas/recursos/${id}/receber`, {
-      method: 'POST',
-      headers: this.getAuthHeaders()
+    const response = await operadoraAuthService.authorizedFetch(`${config.API_BASE_URL}/operadora/recursos-glosas/recursos/${id}/receber`, {
+      method: 'POST'
     });
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       const error = await response.json();
       throw new Error(error.message || 'Erro ao receber recurso');
     }
@@ -110,13 +97,15 @@ export class OperadoraRecursosService {
   }
 
   static async aprovarRecurso(id: number, observacao?: string) {
-    const response = await fetch(`${config.API_BASE_URL}/operadora/recursos-glosas/recursos/${id}/aprovar`, {
+    const response = await operadoraAuthService.authorizedFetch(`${config.API_BASE_URL}/operadora/recursos-glosas/recursos/${id}/aprovar`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ observacao })
     });
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       const error = await response.json();
       throw new Error(error.message || 'Erro ao aprovar recurso');
     }
@@ -125,13 +114,15 @@ export class OperadoraRecursosService {
   }
 
   static async negarRecurso(id: number, motivo: string) {
-    const response = await fetch(`${config.API_BASE_URL}/operadora/recursos-glosas/recursos/${id}/negar`, {
+    const response = await operadoraAuthService.authorizedFetch(`${config.API_BASE_URL}/operadora/recursos-glosas/recursos/${id}/negar`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ motivo })
     });
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       const error = await response.json();
       throw new Error(error.message || 'Erro ao negar recurso');
     }
@@ -140,16 +131,18 @@ export class OperadoraRecursosService {
   }
 
   static async solicitarParecer(id: number, auditorId: number, observacao?: string) {
-    const response = await fetch(`${config.API_BASE_URL}/operadora/recursos-glosas/recursos/${id}/solicitar-parecer`, {
+    const response = await operadoraAuthService.authorizedFetch(`${config.API_BASE_URL}/operadora/recursos-glosas/recursos/${id}/solicitar-parecer`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({
         auditor_id: auditorId,
         observacao
       })
     });
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       const error = await response.json();
       throw new Error(error.message || 'Erro ao solicitar parecer');
     }
@@ -158,11 +151,9 @@ export class OperadoraRecursosService {
   }
 
   static async listarAuditores(): Promise<AuditorInfo[]> {
-    const response = await fetch(`${config.API_BASE_URL}/operadora/recursos-glosas/auditores`, {
-      headers: this.getAuthHeaders()
-    });
+    const response = await operadoraAuthService.authorizedFetch(`${config.API_BASE_URL}/operadora/recursos-glosas/auditores`);
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       throw new Error('Erro ao listar auditores');
     }
 
@@ -171,13 +162,15 @@ export class OperadoraRecursosService {
   }
 
   static async enviarMensagem(id: number, mensagem: string) {
-    const response = await fetch(`${config.API_BASE_URL}/operadora/recursos-glosas/recursos/${id}/chat`, {
+    const response = await operadoraAuthService.authorizedFetch(`${config.API_BASE_URL}/operadora/recursos-glosas/recursos/${id}/chat`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ mensagem })
     });
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       const error = await response.json();
       throw new Error(error.message || 'Erro ao enviar mensagem');
     }
@@ -186,11 +179,9 @@ export class OperadoraRecursosService {
   }
 
   static async listarMensagens(id: number) {
-    const response = await fetch(`${config.API_BASE_URL}/operadora/recursos-glosas/recursos/${id}/chat`, {
-      headers: this.getAuthHeaders()
-    });
+    const response = await operadoraAuthService.authorizedFetch(`${config.API_BASE_URL}/operadora/recursos-glosas/recursos/${id}/chat`);
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       throw new Error('Erro ao listar mensagens');
     }
 

@@ -21,7 +21,8 @@ import {
   X,
   Sun,
   Moon,
-  Settings
+  Settings,
+  User
 } from 'lucide-react';
 import Logo from '@/components/Logo';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -64,12 +65,17 @@ const AuditorLayout = ({ children }: AuditorLayoutProps) => {
       label: 'Recursos',
       path: '/auditor/recursos',
       icon: <FileText className="h-5 w-5" />
+    },
+    {
+      label: 'Histórico do Paciente',
+      path: '/auditor/historico-paciente',
+      icon: <User className="h-5 w-5" />
     }
   ];
 
   const handleLogout = () => {
     logout();
-    navigate('/auditor/login');
+    navigate('/');
   };
 
   const handleMobileNavClick = (path: string) => {

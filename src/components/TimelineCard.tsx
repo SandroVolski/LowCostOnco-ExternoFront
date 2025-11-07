@@ -15,14 +15,59 @@ interface TimelineCardProps {
 }
 
 const TimelineCard: React.FC<TimelineCardProps> = ({ items, getStatusConfig }) => {
-  // Agrupar itens por data
-  const itemsByDate = items.reduce((acc, item) => {
-    const date = new Date(item.data);
-    const dateKey = date.toLocaleDateString('pt-BR', {
+  // Helpers para lidar com timestamps do MySQL (sem fuso) sem aplicar deslocamento indevido
+  const parseNaiveParts = (value?: string | null) => {
+    if (typeof value !== 'string') return null;
+    const m = value.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?/);
+    if (!m) return null;
+    const [, y, mo, d, h, mi, s] = m;
+    return {
+      year: Number(y),
+      month: Number(mo),
+      day: Number(d),
+      hour: Number(h),
+      minute: Number(mi),
+      second: Number(s || '0'),
+    };
+  };
+
+  const isZoned = (value?: string | null) => typeof value === 'string' && /[zZ]|[+-]\d{2}:?\d{2}$/.test(value);
+
+  const makeDateForDisplay = (value?: string | null): Date => {
+    if (!value) return new Date();
+    if (isZoned(value)) return new Date(value);
+    const parts = parseNaiveParts(value);
+    if (parts) {
+      return new Date(Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second));
+    }
+    return new Date(value);
+  };
+
+  const formatNaiveTime = (value?: string | null): string | null => {
+    if (isZoned(value)) {
+      return null;
+    }
+    const p = parseNaiveParts(value);
+    if (!p) return null;
+    const naiveUtc = new Date(Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second));
+    return new Intl.DateTimeFormat('pt-BR', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+      timeZone: 'America/Sao_Paulo',
+    }).format(naiveUtc);
+  };
+
+  // Agrupar itens por data (dia)
+  const itemsByDate = items.reduce((acc, item: any) => {
+    const raw = item?.data ?? item?.created_at ?? null;
+    const date = makeDateForDisplay(raw);
+    const dateKey = new Intl.DateTimeFormat('pt-BR', {
       day: '2-digit',
       month: 'short',
       year: 'numeric',
-    });
+      timeZone: 'America/Sao_Paulo',
+    }).format(date);
 
     if (!acc[dateKey]) {
       acc[dateKey] = [];
@@ -37,9 +82,9 @@ const TimelineCard: React.FC<TimelineCardProps> = ({ items, getStatusConfig }) =
   let globalItemIndex = 0;
 
   return (
-    <div className="relative py-8">
-      {/* Linha central verde */}
-      <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-green-500 dark:bg-green-600 -translate-x-1/2" />
+    <div className="relative pt-16 pb-8">
+      {/* Linha central */}
+      <div className="absolute left-1/2 top-0 bottom-0 w-0.5 bg-gradient-to-b from-primary/40 via-border to-transparent -translate-x-1/2" />
 
       {/* Itens agrupados por data */}
       {dateKeys.map((dateKey, dateIndex) => {
@@ -48,16 +93,19 @@ const TimelineCard: React.FC<TimelineCardProps> = ({ items, getStatusConfig }) =
         const date = new Date(firstItem.data);
 
         return (
-          <div key={dateKey} className="relative mb-8">
+          <div key={dateKey} className="relative mb-10">
             {/* Badge de data centralizado na linha */}
             <div className="absolute left-1/2 -translate-x-1/2 z-20 -top-4">
-              <Badge className="bg-green-600 dark:bg-green-700 text-white px-4 py-1.5 font-semibold text-sm shadow-md">
+              <Badge className="px-3 py-1 font-semibold text-xs rounded-md shadow-md border bg-primary/15 border-primary/30 text-foreground backdrop-blur-sm">
                 {dateKey}
               </Badge>
             </div>
 
+            {/* Espaçador para evitar sobreposição do badge com o primeiro item */}
+            <div className="h-4" />
+
             {/* Items da data */}
-            <div className="mt-6 space-y-6">
+            <div className="mt-8 space-y-8">
               {itemsForDate.map((item, itemIndex) => {
                 const config = getStatusConfig(item.status);
                 const isActive = globalItemIndex === items.length - 1;
@@ -67,73 +115,73 @@ const TimelineCard: React.FC<TimelineCardProps> = ({ items, getStatusConfig }) =
                 return (
                   <div
                     key={`${dateKey}-${itemIndex}`}
-                    className="relative flex items-center min-h-[140px]"
+                    className="relative flex items-center min-h-[120px]"
                   >
                     {isLeft ? (
                       <>
                         {/* Lado esquerdo - Conteúdo */}
-                        <div className="w-1/2 pr-8 text-right">
-                          <Card className="inline-block text-left bg-card dark:bg-card border-2 border-border rounded-xl p-5 shadow-md hover:shadow-lg transition-all">
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="p-1.5 rounded-lg bg-muted dark:bg-muted/50">
+                        <div className="w-1/2 pr-6 text-right">
+                          <Card className="inline-block text-left bg-card border border-border rounded-lg p-4 shadow-sm hover:shadow-md transition-all">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <div className="p-1.5 rounded-md bg-muted">
                                 {config.icon}
                               </div>
-                              <h3 className="font-bold text-foreground dark:text-foreground">
+                              <h3 className="font-semibold text-foreground">
                                 {config.label}
                               </h3>
                             </div>
-                            <p className="text-sm text-muted-foreground leading-relaxed">
-                              {item.observacao || config.description}
-                            </p>
+                            {(item.observacao || config.description) && (
+                              <p className="text-sm text-muted-foreground leading-relaxed">
+                                {item.observacao || config.description}
+                              </p>
+                            )}
                           </Card>
                         </div>
 
                         {/* Centro - Nó circular */}
-                        <div className="absolute left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-6 h-6 rounded-full bg-green-600 dark:bg-green-700 border-4 border-background dark:border-background shadow-lg" />
+                        <div className="absolute left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-[18px] h-[18px] rounded-full bg-primary border-[6px] border-background shadow-lg" />
 
                         {/* Lado direito - Data/Hora */}
-                        <div className="w-1/2 pl-8">
-                          <div className="inline-block bg-muted/50 dark:bg-muted/30 rounded-lg px-4 py-2 border border-border">
-                            <div className="text-xs text-muted-foreground font-mono">
-                              {date.toLocaleTimeString('pt-BR', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </div>
+                        <div className="w-1/2 pl-6">
+                          <div className="inline-flex items-center gap-2 bg-muted/40 rounded-md px-3 py-1.5 border border-border shadow-sm">
+                            <Clock className="h-3.5 w-3.5 text-primary" />
+                            <span className="text-xs text-muted-foreground font-mono tracking-tight">
+                              {formatNaiveTime(item?.data ?? item?.created_at) ?? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Sao_Paulo' }).format(makeDateForDisplay(item?.data ?? item?.created_at))}
+                            </span>
                           </div>
                         </div>
                       </>
                     ) : (
                       <>
                         {/* Lado esquerdo - Data/Hora */}
-                        <div className="w-1/2 pr-8 text-right">
-                          <div className="inline-block bg-muted/50 dark:bg-muted/30 rounded-lg px-4 py-2 border border-border">
-                            <div className="text-xs text-muted-foreground font-mono">
-                              {date.toLocaleTimeString('pt-BR', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </div>
+                        <div className="w-1/2 pr-6 text-right">
+                          <div className="inline-flex items-center gap-2 bg-muted/40 rounded-md px-3 py-1.5 border border-border shadow-sm">
+                            <Clock className="h-3.5 w-3.5 text-primary" />
+                            <span className="text-xs text-muted-foreground font-mono tracking-tight">
+                              {formatNaiveTime(item?.data ?? item?.created_at) ?? new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'America/Sao_Paulo' }).format(makeDateForDisplay(item?.data ?? item?.created_at))}
+                            </span>
                           </div>
                         </div>
 
                         {/* Centro - Nó circular */}
-                        <div className="absolute left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-6 h-6 rounded-full bg-green-600 dark:bg-green-700 border-4 border-background dark:border-background shadow-lg" />
+                        <div className="absolute left-1/2 -translate-x-1/2 z-10 flex items-center justify-center w-[18px] h-[18px] rounded-full bg-primary border-[6px] border-background shadow-lg" />
 
                         {/* Lado direito - Conteúdo */}
-                        <div className="w-1/2 pl-8">
-                          <Card className="inline-block bg-card dark:bg-card border-2 border-border rounded-xl p-5 shadow-md hover:shadow-lg transition-all">
-                            <div className="flex items-center gap-2 mb-2">
-                              <div className="p-1.5 rounded-lg bg-muted dark:bg-muted/50">
+                        <div className="w-1/2 pl-6">
+                          <Card className="inline-block bg-card border border-border rounded-lg p-4 shadow-sm hover:shadow-md transition-all">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <div className="p-1.5 rounded-md bg-muted">
                                 {config.icon}
                               </div>
-                              <h3 className="font-bold text-foreground dark:text-foreground">
+                              <h3 className="font-semibold text-foreground">
                                 {config.label}
                               </h3>
                             </div>
-                            <p className="text-sm text-muted-foreground leading-relaxed">
-                              {item.observacao || config.description}
-                            </p>
+                            {(item.observacao || config.description) && (
+                              <p className="text-sm text-muted-foreground leading-relaxed">
+                                {item.observacao || config.description}
+                              </p>
+                            )}
                           </Card>
                         </div>
                       </>

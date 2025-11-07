@@ -149,7 +149,7 @@ const Analysis = () => {
         const pacientesUnicosCount = (() => {
           const ids = new Set<any>();
           for (const p of pacientesFiltrados) {
-            const pid = p.id || p.paciente_id || p.Codigo || `${p.Paciente_Nome}-${p.Data_Nascimento}`;
+            const pid = p.id || p.paciente_id || p.numero_carteirinha || `${p.Paciente_Nome}-${p.Data_Nascimento}`;
             if (pid) ids.add(pid);
           }
           return ids.size;

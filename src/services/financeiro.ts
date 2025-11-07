@@ -27,6 +27,7 @@ axios.interceptors.request.use(
 
 export interface LoteFinanceiro {
   id: number;
+  lote_id?: number;
   clinica_id: number;
   operadora_registro_ans: string;
   operadora_nome: string;
@@ -37,7 +38,24 @@ export interface LoteFinanceiro {
   valor_total: number;
   status: 'pendente' | 'pago' | 'glosado';
   arquivo_xml: string;
+  // Campos do cabeçalho TISS
+  tipo_transacao?: string;
+  sequencial_transacao?: string;
+  data_registro_transacao?: string;
+  hora_registro_transacao?: string;
+  cnpj_prestador?: string;
+  nome_prestador?: string;
+  registro_ans?: string;
+  padrao_tiss?: string;
+  hash_lote?: string;
+  cnes?: string;
   created_at: string;
+}
+
+export interface Operadora {
+  id: number;
+  nome: string;
+  codigo: string;
 }
 
 export interface GuiaFinanceira {
@@ -67,6 +85,18 @@ export interface ProcessarXMLResponse {
 }
 
 export const FinanceiroService = {
+  /**
+   * Buscar operadoras ativas
+   */
+  async getOperadoras(): Promise<Operadora[]> {
+    try {
+      const response = await axios.get(`${API_URL}/operadora-auth/operadoras`);
+      return response.data.data;
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || 'Erro ao buscar operadoras');
+    }
+  },
+
   /**
    * Upload e processamento de arquivo XML TISS
    */
@@ -307,6 +337,40 @@ export const FinanceiroService = {
       return response.data;
     } catch (error: any) {
       throw new Error(error.response?.data?.message || 'Erro ao buscar XML do lote');
+    }
+  },
+
+  /**
+   * Download do arquivo XML de um lote
+   */
+  async downloadXMLLote(loteId: number): Promise<void> {
+    try {
+      const xmlData = await this.getXMLLote(loteId);
+      
+      if (!xmlData.success || !xmlData.rawContent) {
+        throw new Error('XML não encontrado ou inválido');
+      }
+
+      // Criar blob com o conteúdo XML
+      const blob = new Blob([xmlData.rawContent], { type: 'application/xml' });
+      
+      // Criar URL temporária
+      const url = window.URL.createObjectURL(blob);
+      
+      // Criar link de download
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = xmlData.fileName || `lote_${loteId}.xml`;
+      
+      // Adicionar ao DOM, clicar e remover
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Liberar URL
+      window.URL.revokeObjectURL(url);
+    } catch (error: any) {
+      throw new Error(error.response?.data?.message || error.message || 'Erro ao baixar XML');
     }
   },
 };

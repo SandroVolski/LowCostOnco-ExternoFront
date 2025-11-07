@@ -35,7 +35,7 @@ export const AuditorAuthProvider: React.FC<{ children: ReactNode }> = ({ childre
   const logout = () => {
     AuditorService.logout();
     setAuditor(null);
-    navigate('/auditor/login');
+    navigate('/');
     toast.success('Logout realizado com sucesso!');
   };
 

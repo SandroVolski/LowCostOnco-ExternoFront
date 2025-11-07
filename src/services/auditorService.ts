@@ -1,4 +1,5 @@
 import config from '@/config/environment';
+import { auditorAuthService } from './auditorAuthService';
 
 export interface Auditor {
   id: number;
@@ -34,6 +35,14 @@ export interface RecursoGlosaAuditor {
   updated_at: string;
 }
 
+export interface PacienteAuditorResumo {
+  numero_carteira: string;
+  beneficiario_nome?: string;
+  clinica_nome?: string;
+  total_recursos: number;
+  ultimo_recurso: string;
+}
+
 export interface Parecer {
   parecer_tecnico: string;
   recomendacao: 'aprovar' | 'negar' | 'solicitar_documentos' | 'parcial';
@@ -58,13 +67,6 @@ export interface MensagemChat {
 }
 
 export class AuditorService {
-  private static getAuthHeaders() {
-    const token = localStorage.getItem('auditor_token');
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`
-    };
-  }
 
   static async login(username: string, password: string) {
     const response = await fetch(`${config.API_BASE_URL}/auditor/login`, {
@@ -107,11 +109,9 @@ export class AuditorService {
   }
 
   static async getDashboard() {
-    const response = await fetch(`${config.API_BASE_URL}/auditor/dashboard`, {
-      headers: this.getAuthHeaders()
-    });
+    const response = await auditorAuthService.authorizedFetch(`${config.API_BASE_URL}/auditor/dashboard`);
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       throw new Error('Erro ao carregar dashboard');
     }
 
@@ -124,11 +124,9 @@ export class AuditorService {
       ? `${config.API_BASE_URL}/auditor/recursos?status=${status}`
       : `${config.API_BASE_URL}/auditor/recursos`;
 
-    const response = await fetch(url, {
-      headers: this.getAuthHeaders()
-    });
+    const response = await auditorAuthService.authorizedFetch(url);
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       throw new Error('Erro ao listar recursos');
     }
 
@@ -137,11 +135,9 @@ export class AuditorService {
   }
 
   static async buscarRecurso(id: number) {
-    const response = await fetch(`${config.API_BASE_URL}/auditor/recursos/${id}`, {
-      headers: this.getAuthHeaders()
-    });
+    const response = await auditorAuthService.authorizedFetch(`${config.API_BASE_URL}/auditor/recursos/${id}`);
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       throw new Error('Erro ao buscar recurso');
     }
 
@@ -150,13 +146,15 @@ export class AuditorService {
   }
 
   static async emitirParecer(id: number, parecer: Parecer) {
-    const response = await fetch(`${config.API_BASE_URL}/auditor/recursos/${id}/parecer`, {
+    const response = await auditorAuthService.authorizedFetch(`${config.API_BASE_URL}/auditor/recursos/${id}/parecer`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify(parecer)
     });
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       const error = await response.json();
       throw new Error(error.message || 'Erro ao emitir parecer');
     }
@@ -166,11 +164,9 @@ export class AuditorService {
   }
 
   static async listarMensagens(id: number): Promise<MensagemChat[]> {
-    const response = await fetch(`${config.API_BASE_URL}/auditor/recursos/${id}/chat`, {
-      headers: this.getAuthHeaders()
-    });
+    const response = await auditorAuthService.authorizedFetch(`${config.API_BASE_URL}/auditor/recursos/${id}/chat`);
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       throw new Error('Erro ao listar mensagens');
     }
 
@@ -179,18 +175,57 @@ export class AuditorService {
   }
 
   static async enviarMensagem(id: number, mensagem: string, anexos?: any) {
-    const response = await fetch(`${config.API_BASE_URL}/auditor/recursos/${id}/chat`, {
+    const response = await auditorAuthService.authorizedFetch(`${config.API_BASE_URL}/auditor/recursos/${id}/chat`, {
       method: 'POST',
-      headers: this.getAuthHeaders(),
+      headers: {
+        'Content-Type': 'application/json'
+      },
       body: JSON.stringify({ mensagem, anexos })
     });
 
-    if (!response.ok) {
+    if (!response || !response.ok) {
       const error = await response.json();
       throw new Error(error.message || 'Erro ao enviar mensagem');
     }
 
     const result = await response.json();
     return result;
+  }
+
+  static async buscarHistoricoPorCarteira(carteira: string) {
+    const response = await auditorAuthService.authorizedFetch(
+      `${config.API_BASE_URL}/auditor/historico-paciente?carteira=${encodeURIComponent(carteira)}`
+    );
+
+    if (!response || !response.ok) {
+      throw new Error('Erro ao buscar histórico do paciente');
+    }
+
+    const result = await response.json();
+    return result.data as RecursoGlosaAuditor[];
+  }
+
+  static async getGuiaCompleta(recursoId: number) {
+    const response = await auditorAuthService.authorizedFetch(
+      `${config.API_BASE_URL}/auditor/recursos/${recursoId}/guia-completa`
+    );
+
+    if (!response || !response.ok) {
+      throw new Error('Erro ao carregar dados completos da guia');
+    }
+
+    const result = await response.json();
+    return result.data;
+  }
+
+  static async listarPacientes(): Promise<PacienteAuditorResumo[]> {
+    const response = await auditorAuthService.authorizedFetch(`${config.API_BASE_URL}/auditor/pacientes`);
+
+    if (!response || !response.ok) {
+      throw new Error('Erro ao listar pacientes atendidos');
+    }
+
+    const result = await response.json();
+    return result.data as PacienteAuditorResumo[];
   }
 }

@@ -236,6 +236,7 @@ const Header = () => {
   const [glosasHover, setGlosasHover] = useState(false);
   const [chatHover, setChatHover] = useState(false);
   const [solicitacoesMenuHover, setSolicitacoesMenuHover] = useState(false);
+  const [financeiroMenuHover, setFinanceiroMenuHover] = useState(false);
   
   // Handle scroll effect
   useEffect(() => {
@@ -404,7 +405,7 @@ const Header = () => {
         {
           label: 'Solicitações',
           path: '/ajustes-negociacao',
-          icon: <SolicitacaoGifIcon hovered={solicitacoesMenuHover} active={isMenuActive('/ajustes-negociacao', ['/ajustes-negociacao', '/ajustes-corpo-clinico', '/recursos-glosas'])} />,
+          icon: <SolicitacaoGifIcon hovered={solicitacoesMenuHover} active={isMenuActive('/ajustes-negociacao', ['/ajustes-negociacao', '/ajustes-corpo-clinico'])} />,
           submenu: [
             {
               label: 'Ajustes Corpo Clínico',
@@ -416,17 +417,29 @@ const Header = () => {
               path: '/ajustes-negociacao',
               icon: <FileText className="h-5 w-5" />,
             },
-            {
-              label: 'Recursos de Glosas',
-              path: '/recursos-glosas',
-              icon: <AlertCircle className="h-5 w-5" />,
-            },
           ],
         },
         {
           label: 'Financeiro',
           path: '/financeiro',
-          icon: <DollarSign className={cn("h-5 w-5", location.pathname === '/financeiro' && "text-primary")} />,
+          icon: <DollarSign className={cn("h-5 w-5", isMenuActive('/financeiro', ['/financeiro', '/recursos-glosas', '/financeiro/tabelas']) && "text-primary")} />,
+          submenu: [
+            {
+              label: 'Faturamento',
+              path: '/financeiro',
+              icon: <FileText className="h-5 w-5" />,
+            },
+            {
+              label: 'Recurso de Glosa',
+              path: '/recursos-glosas',
+              icon: <AlertCircle className="h-5 w-5" />,
+            },
+            {
+              label: 'Tabelas',
+              path: '/financeiro/tabelas',
+              icon: <Database className="h-5 w-5" />,
+            },
+          ],
         },
         // {
         //   label: 'Finanças',
@@ -596,6 +609,25 @@ const Header = () => {
                 <span
                   onMouseEnter={() => setSolicitacoesMenuHover(true)}
                   onMouseLeave={() => setSolicitacoesMenuHover(false)}
+                  style={{ display: 'inline-flex', alignItems: 'center' }}
+                >
+                  <TransitionLink
+                    to={item.path}
+                    className={cn(
+                      "nav-link hover-lift flex items-center gap-1",
+                      isMenuActive(item.path, item.submenu?.map(sub => sub.path)) && "active",
+                      "animate-fade-in"
+                    )}
+                  >
+                    {item.icon}
+                    <span>{item.label}</span>
+                    <svg className="ml-1 w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                  </TransitionLink>
+                </span>
+              ) : item.label === 'Financeiro' ? (
+                <span
+                  onMouseEnter={() => setFinanceiroMenuHover(true)}
+                  onMouseLeave={() => setFinanceiroMenuHover(false)}
                   style={{ display: 'inline-flex', alignItems: 'center' }}
                 >
                   <TransitionLink
@@ -788,7 +820,27 @@ const Header = () => {
                 to={item.path}
                 className={cn(
                   "nav-link hover-lift flex items-center gap-1",
-                  (location.pathname === item.path || location.pathname === '/ajustes-corpo-clinico' || location.pathname === '/recursos-glosas') && "active",
+                  (location.pathname === item.path || location.pathname === '/ajustes-corpo-clinico') && "active",
+                  "animate-fade-in"
+                )}
+              >
+                {item.icon}
+                <span>{item.label}</span>
+                
+              </TransitionLink>
+            </span>
+          ) : item.label === 'Financeiro' ? (
+            <span
+              key={item.path}
+              onMouseEnter={() => setFinanceiroMenuHover(true)}
+              onMouseLeave={() => setFinanceiroMenuHover(false)}
+              style={{ display: 'inline-flex', alignItems: 'center' }}
+            >
+              <TransitionLink
+                to={item.path}
+                className={cn(
+                  "nav-link hover-lift flex items-center gap-1",
+                  (location.pathname === item.path || location.pathname === '/recursos-glosas' || location.pathname === '/financeiro/tabelas') && "active",
                   "animate-fade-in"
                 )}
               >

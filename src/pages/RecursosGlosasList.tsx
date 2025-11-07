@@ -38,7 +38,7 @@ interface RecursoGlosa {
   lote_id: number;
   clinica_id: number;
   justificativa: string;
-  status_recurso: 'pendente' | 'em_analise' | 'deferido' | 'indeferido';
+  status_recurso: 'pendente' | 'em_analise' | 'em_analise_operadora' | 'em_analise_auditor' | 'deferido' | 'indeferido';
   created_at: string;
   updated_at: string;
 
@@ -68,6 +68,7 @@ const RecursosGlosasList: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('todos');
   const [filterCompetencia, setFilterCompetencia] = useState<string>('todos');
+  const [filterOperadora, setFilterOperadora] = useState<string>('todos');
 
   useEffect(() => {
     carregarRecursos();
@@ -130,6 +131,24 @@ const RecursosGlosasList: React.FC = () => {
           color: 'bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-200 border-blue-200 dark:border-blue-800',
           icon: <Eye className="h-4 w-4 text-blue-700 dark:text-blue-300" />
         };
+      case 'em_analise_auditor':
+        return {
+          label: 'Em Análise (Auditor)',
+          color: 'bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-200 border-blue-200 dark:border-blue-800',
+          icon: <Eye className="h-4 w-4 text-blue-700 dark:text-blue-300" />
+        };
+      case 'em_analise_operadora':
+        return {
+          label: 'Em Análise (Operadora)',
+          color: 'bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-200 border-blue-200 dark:border-blue-800',
+          icon: <Eye className="h-4 w-4 text-blue-700 dark:text-blue-300" />
+        };
+      case 'parecer_emitido':
+        return {
+          label: 'Parecer Emitido',
+          color: 'bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-200 border-green-200 dark:border-green-800',
+          icon: <CheckCircle className="h-4 w-4 text-green-700 dark:text-green-300" />
+        };
       case 'deferido':
         return {
           label: 'Deferido',
@@ -166,18 +185,21 @@ const RecursosGlosasList: React.FC = () => {
 
     const matchStatus = filterStatus === 'todos' || recurso.status_recurso === filterStatus;
     const matchCompetencia = filterCompetencia === 'todos' || recurso.competencia === filterCompetencia;
+    const matchOperadora = filterOperadora === 'todos' || recurso.operadora_nome === filterOperadora;
 
-    return matchSearch && matchStatus && matchCompetencia;
+    return matchSearch && matchStatus && matchCompetencia && matchOperadora;
   });
 
   // Extrair competências únicas para o filtro
   const competencias = Array.from(new Set(recursos.map(r => r.competencia))).sort().reverse();
+  // Extrair operadoras únicas para o filtro
+  const operadoras = Array.from(new Set(recursos.map(r => r.operadora_nome).filter(Boolean))).sort();
 
   // Estatísticas
   const stats = {
     total: recursos.length,
     pendente: recursos.filter(r => r.status_recurso === 'pendente').length,
-    em_analise: recursos.filter(r => r.status_recurso === 'em_analise').length,
+    em_analise: recursos.filter(r => ['em_analise','em_analise_operadora','em_analise_auditor'].includes(r.status_recurso as any)).length,
     deferido: recursos.filter(r => r.status_recurso === 'deferido').length,
     indeferido: recursos.filter(r => r.status_recurso === 'indeferido').length,
     valor_total: recursos.reduce((sum, r) => sum + (parseFloat(String(r.valor_guia || 0))), 0)
@@ -288,7 +310,7 @@ const RecursosGlosasList: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {/* Pesquisa */}
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -324,6 +346,19 @@ const RecursosGlosasList: React.FC = () => {
                   <SelectItem value="todos">Todas as Competências</SelectItem>
                   {competencias.map(comp => (
                     <SelectItem key={comp} value={comp}>{comp}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {/* Filtro por Operadora */}
+              <Select value={filterOperadora} onValueChange={setFilterOperadora}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Operadora" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todas as Operadoras</SelectItem>
+                  {operadoras.map(operadora => (
+                    <SelectItem key={operadora} value={operadora}>{operadora}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -364,7 +399,7 @@ const RecursosGlosasList: React.FC = () => {
                   >
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between mb-2">
-                        <div className={`p-2.5 rounded-lg ${config.color.replace('text-', 'bg-').replace('-800', '-100')} group-hover:scale-110 transition-transform`}>
+                        <div className="p-2.5 rounded-lg bg-muted border border-border group-hover:scale-110 transition-transform">
                           {config.icon}
                         </div>
                         <Badge className={`${config.color} flex items-center gap-1 text-xs`}>

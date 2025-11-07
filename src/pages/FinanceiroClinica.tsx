@@ -59,10 +59,12 @@ import {
   CheckCircle,
   X,
 } from 'lucide-react';
-import { FinanceiroService, LoteFinanceiro, GuiaFinanceira } from '@/services/financeiro';
+import { FinanceiroService, LoteFinanceiro, GuiaFinanceira, Operadora } from '@/services/financeiro';
 import AnimatedSection from '@/components/AnimatedSection';
 import XMLViewerModal from '@/components/XMLViewerModal';
 import XMLTISSDetailedViewer from '@/components/XMLTISSDetailedViewer';
+import XMLTISSDetailedViewerV2 from '@/components/XMLTISSDetailedViewerV2';
+import { buildFinanceiroVisualization } from '@/utils/financeiroVisualization';
 
 const FinanceiroClinica = () => {
   const { user } = useAuth();
@@ -72,6 +74,13 @@ const FinanceiroClinica = () => {
   const [lotes, setLotes] = useState<LoteFinanceiro[]>([]);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  
+  // Estados para operadoras (mantido para possíveis usos futuros)
+  const [operadoras, setOperadoras] = useState<Operadora[]>([]);
+  
+  // Estado para competência (ano e mês separados)
+  const [anoCompetencia, setAnoCompetencia] = useState<string>('');
+  const [mesCompetencia, setMesCompetencia] = useState<string>('');
   
   // Estados para filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -90,12 +99,18 @@ const FinanceiroClinica = () => {
 
   // Estados para sistema de resposta de guias (pago/glosado/em análise)
   type StatusResposta = 'em-analise' | 'pago' | 'glosado';
+  type StatusAprovacao = 'sem-status' | 'aprovado' | 'rejeitado';
   const [statusRespostaGuias, setStatusRespostaGuias] = useState<Record<number, StatusResposta>>({});
   const [guiasComAnexo, setGuiasComAnexo] = useState<Record<number, File[]>>({});
+  const [statusAprovacaoGuias, setStatusAprovacaoGuias] = useState<Record<number, StatusAprovacao>>({});
 
   // Estados para confirmação de glosa
   const [confirmGlosaDialogOpen, setConfirmGlosaDialogOpen] = useState(false);
   const [guiaParaGlosar, setGuiaParaGlosar] = useState<GuiaFinanceira | null>(null);
+  const [itemParaGlosar, setItemParaGlosar] = useState<{numeroGuia: string; itemId: string; item: any} | null>(null);
+  const [loteAtualParaGlosa, setLoteAtualParaGlosa] = useState<LoteFinanceiro | null>(null);
+  const [loteIdAtual, setLoteIdAtual] = useState<number | null>(null);
+  const [guiasOriginaisMap, setGuiasOriginaisMap] = useState<Map<string, any>>(new Map());
 
   // Navegação
   const navigate = useNavigate();
@@ -110,13 +125,15 @@ const FinanceiroClinica = () => {
   } | null>(null);
   const [showXMLVisualization, setShowXMLVisualization] = useState(false);
   const [xmlData, setXmlData] = useState<any>(null);
-  
+  const [useViewerV2, setUseViewerV2] = useState(true); // Flag para usar o novo viewer
+
   // Estado para drag & drop
   const [isDragOver, setIsDragOver] = useState(false);
 
   // Carregar dados iniciais
   useEffect(() => {
       loadLotes();
+      loadOperadoras();
   }, []);
 
   // Recarregar guias quando a janela ganhar foco (voltando de outra página)
@@ -150,6 +167,20 @@ const FinanceiroClinica = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadOperadoras = async () => {
+    try {
+      const data = await FinanceiroService.getOperadoras();
+      setOperadoras(data);
+    } catch (error) {
+      console.error('Erro ao carregar operadoras:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível carregar as operadoras.',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -241,14 +272,14 @@ const FinanceiroClinica = () => {
       setGuiasDoLote(guiasConvertidas);
 
       // Atualizar statusRespostaGuias com os status do banco
-      const novosStatus: Record<number, 'pago' | 'em_analise' | 'glosado'> = {};
+      const novosStatus: Record<number, StatusResposta> = {};
       guiasConvertidas.forEach(guia => {
         if (guia.status_pagamento === 'glosado') {
           novosStatus[guia.id] = 'glosado';
         } else if (guia.status_pagamento === 'pago') {
           novosStatus[guia.id] = 'pago';
         } else {
-          novosStatus[guia.id] = 'em_analise';
+          novosStatus[guia.id] = 'em-analise';
         }
       });
       setStatusRespostaGuias(novosStatus);
@@ -374,31 +405,222 @@ const FinanceiroClinica = () => {
     setConfirmGlosaDialogOpen(true);
   };
 
+  // Handler para quando o usuário marca um item como glosado no XMLTISSDetailedViewerV2
+  const handleGlosarItem = async (numeroGuia: string, itemId: string, item: any, loteIdFromComponent?: number) => {
+    try {
+      // Usar o loteId passado do componente, ou do estado, ou buscar do selectedLote
+      const loteIdFinal = loteIdFromComponent || loteIdAtual || loteAtualParaGlosa?.id || selectedLote?.id;
+      
+      if (!loteIdFinal) {
+        console.error('Lote não encontrado:', {
+          loteIdFromComponent,
+          loteIdAtual,
+          loteAtualParaGlosa: loteAtualParaGlosa?.id,
+          selectedLote: selectedLote?.id
+        });
+        toast({
+          title: 'Erro',
+          description: 'Lote não encontrado. Por favor, feche e reabra o modal de visualização.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Buscar o lote completo se não tivermos em memória
+      let loteData = loteAtualParaGlosa;
+      if (!loteData || loteData.id !== loteIdFinal) {
+        loteData = await FinanceiroService.getLoteById(loteIdFinal);
+        setLoteAtualParaGlosa(loteData);
+      }
+
+      // Primeiro, tentar buscar no mapa de guias originais (mais rápido)
+      let guiaData = guiasOriginaisMap.get(String(numeroGuia).trim());
+      
+      // Se não encontrou no mapa, buscar no banco
+      if (!guiaData) {
+        const allItems: any[] = await FinanceiroService.getGuiasByLoteId(loteIdFinal);
+        
+        // Tentar diferentes formatos de comparação
+        guiaData = allItems.find(i => {
+          if (i.tipo_item !== 'guia') return false;
+          const numGuia = String(i.numero_guia_prestador || '').trim();
+          const numBuscado = String(numeroGuia || '').trim();
+          return numGuia === numBuscado || 
+                 numGuia === numeroGuia || 
+                 i.numero_guia_prestador === numeroGuia;
+        });
+
+        // Se ainda não encontrou, tentar buscar qualquer guia do lote (fallback)
+        if (!guiaData && allItems.length > 0) {
+          guiaData = allItems.find(i => i.tipo_item === 'guia');
+          console.warn('Guia não encontrada pelo número exato, usando primeira guia do lote como fallback');
+        }
+      }
+      
+      if (guiaData) {
+        // Converter para o formato GuiaFinanceira
+        const guia: GuiaFinanceira = {
+          id: guiaData.id,
+          lote_id: loteIdFinal,
+          numero_guia_prestador: guiaData.numero_guia_prestador || numeroGuia,
+          numero_guia_operadora: guiaData.numero_guia_operadora || '',
+          numero_carteira: guiaData.numero_carteira || '',
+          data_autorizacao: guiaData.data_autorizacao || '',
+          data_execucao: guiaData.data_execucao || '',
+          valor_total: parseFloat(guiaData.valor_total) || 0,
+          status_pagamento: guiaData.status_pagamento || 'pendente',
+          valor_procedimentos: parseFloat(guiaData.valor_procedimentos) || 0,
+          valor_medicamentos: parseFloat(guiaData.valor_medicamentos) || 0,
+          valor_materiais: parseFloat(guiaData.valor_materiais) || 0,
+          valor_taxas: parseFloat(guiaData.valor_taxas) || 0,
+        };
+
+        setGuiaParaGlosar(guia);
+        setItemParaGlosar({ numeroGuia, itemId, item });
+        setConfirmGlosaDialogOpen(true);
+      } else {
+        console.error('Guia não encontrada:', {
+          numeroGuia,
+          numeroGuiaTipo: typeof numeroGuia,
+          loteId: loteIdFinal,
+          mapaSize: guiasOriginaisMap.size,
+          chavesNoMapa: Array.from(guiasOriginaisMap.keys())
+        });
+        toast({
+          title: 'Erro',
+          description: `Não foi possível encontrar a guia "${numeroGuia}" para glosar. Tente fechar e reabrir o modal.`,
+          variant: 'destructive',
+        });
+      }
+    } catch (error) {
+      console.error('Erro ao buscar guia:', error);
+      toast({
+        title: 'Erro',
+        description: 'Não foi possível processar a glosa.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   // Função para confirmar glosa e enviar para Recursos de Glosas
   const handleConfirmarGlosa = () => {
     if (!guiaParaGlosar) return;
 
-    // Marcar a guia como glosada
+    // Marcar a guia como glosada nos estados locais
     setStatusRespostaGuias(prev => ({
       ...prev,
-      [guiaParaGlosar.id]: 'glosado'
+      [Number(guiaParaGlosar.id)]: 'glosado'
     }));
 
-    // Navegar para Recursos de Glosas com os dados da guia e do lote
+    setGuiasDoLote(prev =>
+      prev.map(guia =>
+        guia.id === guiaParaGlosar.id
+          ? { ...guia, status_pagamento: 'glosado' }
+          : guia
+      )
+    );
+
+    // Atualizar o xmlData localmente para refletir imediatamente
+    setXmlData(prev => {
+      if (!prev?.guias) return prev;
+      return {
+        ...prev,
+        guias: prev.guias.map((guia: any) => {
+          // Se a guia tem o número correspondente, atualizar os itens
+          if (guia.cabecalhoGuia?.numeroGuiaPrestador === guiaParaGlosar.numero_guia_prestador) {
+            return {
+              ...guia,
+              procedimentos: guia.procedimentos?.map((proc: any) =>
+                `proc-${proc.codigo_procedimento}-${proc.data_execucao}` === itemParaGlosar?.itemId
+                  ? { ...proc, status_pagamento: 'glosado' }
+                  : proc
+              ),
+              medicamentos: guia.medicamentos?.map((med: any) =>
+                `med-${med.codigo_medicamento}-${med.data_execucao}` === itemParaGlosar?.itemId
+                  ? { ...med, status_pagamento: 'glosado' }
+                  : med
+              ),
+              materiais: guia.materiais?.map((mat: any) =>
+                `mat-${mat.codigo_material}-${mat.data_execucao}` === itemParaGlosar?.itemId
+                  ? { ...mat, status_pagamento: 'glosado' }
+                  : mat
+              ),
+              taxas: guia.taxas?.map((taxa: any) =>
+                `taxa-${taxa.codigo_taxa}-${taxa.data_execucao}` === itemParaGlosar?.itemId
+                  ? { ...taxa, status_pagamento: 'glosado' }
+                  : taxa
+              ),
+            };
+          }
+          return guia;
+        })
+      };
+    });
+
+    // Fechar o modal de visualização XML se estiver aberto
+    setShowXMLVisualization(false);
+
+    // Navegar para a tela de criação de recurso de glosa com os dados necessários
+    const itemGlosado = itemParaGlosar?.item
+      ? {
+          ...itemParaGlosar.item,
+          id: itemParaGlosar.itemId,
+          valor_total: Number(itemParaGlosar.item?.valor_total ?? itemParaGlosar.item?.valor ?? 0),
+          quantidade: Number(itemParaGlosar.item?.quantidade ?? itemParaGlosar.item?.quantidade_executada ?? 1)
+        }
+      : null;
+
+    const loteOrigem: any = loteAtualParaGlosa || selectedLote || {};
+    const loteParaEnviar = {
+      id: Number(
+        loteOrigem.id ??
+        loteOrigem.lote_id ??
+        loteOrigem?.lote?.id ??
+        loteOrigem?.lote?.lote_id ??
+        loteOrigem?.cabecalho?.lote_id ??
+        loteOrigem?.cabecalho?.id ??
+        selectedLote?.id ??
+        selectedLote?.lote_id ??
+        0
+      ),
+      numero_lote:
+        loteOrigem.numero_lote ??
+        loteOrigem?.lote?.numero_lote ??
+        selectedLote?.numero_lote ??
+        '',
+      competencia:
+        loteOrigem.competencia ??
+        loteOrigem?.lote?.competencia ??
+        selectedLote?.competencia ??
+        '',
+      operadora_nome:
+        loteOrigem.operadora_nome ??
+        loteOrigem?.operadora?.nome ??
+        selectedLote?.operadora_nome ??
+        '',
+      operadora_registro_ans:
+        loteOrigem.operadora_registro_ans ??
+        loteOrigem?.operadora?.registro_ans ??
+        selectedLote?.operadora_registro_ans ??
+        ''
+    };
+
     navigate('/recursos-glosas/novo', {
       state: {
-        guia: guiaParaGlosar,
-        lote: selectedLote
+        guia: { ...guiaParaGlosar, status_pagamento: 'glosado' },
+        lote: loteParaEnviar,
+        item: itemGlosado
       }
     });
 
-    // Fechar o dialog
+    // Fechar o dialog de confirmação
     setConfirmGlosaDialogOpen(false);
     setGuiaParaGlosar(null);
+    setItemParaGlosar(null);
 
     toast({
       title: 'Guia Glosada',
-      description: 'A guia foi marcada como glosada e enviada para Recursos de Glosas.',
+      description: 'A guia foi marcada como glosada. Você será direcionado para registrar a glosa.',
     });
   };
 
@@ -469,7 +691,7 @@ const FinanceiroClinica = () => {
       const result = await response.json();
 
       if (result.success) {
-        toast({
+      toast({
           title: 'Sucesso',
           description: `${arquivosSelecionados.length} documento(s) anexado(s) à guia ${guiaSelecionada.numero_guia_prestador}`,
         });
@@ -507,14 +729,14 @@ const FinanceiroClinica = () => {
       const result = await response.json();
 
       if (result.success) {
-        toast({
+      toast({
           title: 'Sucesso',
           description: `Guia ${guia.numero_guia_prestador} enviada para a operadora`,
-        });
+      });
         
         // Recarregar dados para atualizar a interface
-        if (selectedLote) {
-          loadGuiasDoLote(selectedLote.id);
+      if (selectedLote) {
+        loadGuiasDoLote(selectedLote.id);
         }
       } else {
         throw new Error(result.message || 'Erro ao enviar guia');
@@ -543,257 +765,14 @@ const FinanceiroClinica = () => {
     try {
       setLoading(true);
 
-      // Buscar dados completos do lote e todos os itens
       const loteData = await FinanceiroService.getLoteById(loteId);
+      setLoteAtualParaGlosa(loteData);
+      setLoteIdAtual(loteId);
+
       const allItems: any[] = await FinanceiroService.getGuiasByLoteId(loteId);
+      const { processedData, guiasMap } = buildFinanceiroVisualization(loteData, allItems);
 
-      console.log('=== DEBUG LOTE ===');
-      console.log('Dados do lote COMPLETOS:', loteData);
-      console.log('Todos os itens:', allItems);
-      console.log('Campos do cabeçalho:');
-      console.log('  - tipo_transacao:', loteData.tipo_transacao);
-      console.log('  - sequencial_transacao:', loteData.sequencial_transacao);
-      console.log('  - cnpj_prestador:', loteData.cnpj_prestador);
-      console.log('  - operadora_registro_ans:', loteData.operadora_registro_ans);
-      console.log('  - numero_lote:', loteData.numero_lote);
-      console.log('  - cnes:', loteData.cnes);
-      console.log('==================');
-
-      // Separar guias dos itens filhos
-      const guiasData = allItems.filter(item => item.tipo_item === 'guia');
-
-      // Para cada guia, buscar seus itens filhos
-      const guiasProcessadas = guiasData.map((guia: any) => {
-        // Buscar procedimentos, medicamentos, materiais e taxas desta guia
-        const procedimentos = allItems.filter(item =>
-          item.parent_id === guia.id && item.tipo_item === 'procedimento'
-        );
-
-        const medicamentos = allItems.filter(item =>
-          item.parent_id === guia.id && item.tipo_item === 'despesa' &&
-          (item.codigo_despesa === '02' || item.codigo_item?.startsWith('90'))
-        );
-
-        const materiais = allItems.filter(item =>
-          item.parent_id === guia.id && item.tipo_item === 'despesa' &&
-          (item.codigo_despesa === '03' || item.codigo_item?.startsWith('7'))
-        );
-
-        const taxas = allItems.filter(item =>
-          item.parent_id === guia.id && item.tipo_item === 'despesa' &&
-          (item.codigo_despesa === '07' || item.codigo_item?.startsWith('6'))
-        );
-
-        console.log(`Guia ${guia.id}:`, {
-          procedimentos: procedimentos.length,
-          medicamentos: medicamentos.length,
-          materiais: materiais.length,
-          taxas: taxas.length
-        });
-
-        return {
-          cabecalhoGuia: {
-            numeroGuiaPrestador: guia.numero_guia_prestador || 'N/A',
-          },
-          dadosBeneficiario: {
-            numeroCarteira: guia.numero_carteira || 'N/A',
-          },
-          dadosAutorizacao: {
-            dataAutorizacao: guia.data_autorizacao || 'N/A',
-            senha: guia.senha || guia.numero_guia_prestador || 'N/A',
-          },
-          dadosSolicitante: {
-            profissional: {
-              nomeProfissional: guia.profissional_nome || 'N/A',
-              conselhoProfissional: guia.profissional_conselho || 'N/A',
-              numeroConselhoProfissional: guia.profissional_numero_conselho || 'N/A',
-            },
-          },
-          dadosSolicitacao: {
-            indicacaoClinica: guia.indicacao_clinica || 'N/A',
-          },
-          procedimentos: procedimentos.map((proc: any) => ({
-            data_execucao: proc.data_execucao,
-            codigo_procedimento: proc.codigo_item,
-            descricao_procedimento: proc.descricao_item,
-            quantidade_executada: parseFloat(proc.quantidade_executada) || 0,
-            unidade_medida: proc.unidade_medida,
-            valor_total: parseFloat(proc.valor_total) || 0,
-          })),
-          medicamentos: medicamentos.map((med: any) => ({
-            data_execucao: med.data_execucao,
-            codigo_medicamento: med.codigo_item,
-            descricao: med.descricao_item,
-            quantidade_executada: parseFloat(med.quantidade_executada) || 0,
-            unidade_medida: med.unidade_medida,
-            valor_total: parseFloat(med.valor_total) || 0,
-          })),
-          materiais: materiais.map((mat: any) => ({
-            data_execucao: mat.data_execucao,
-            codigo_material: mat.codigo_item,
-            descricao: mat.descricao_item,
-            quantidade_executada: parseFloat(mat.quantidade_executada) || 0,
-            unidade_medida: mat.unidade_medida,
-            valor_total: parseFloat(mat.valor_total) || 0,
-          })),
-          taxas: taxas.map((taxa: any) => ({
-            data_execucao: taxa.data_execucao,
-            codigo_taxa: taxa.codigo_item,
-            descricao: taxa.descricao_item,
-            quantidade_executada: parseFloat(taxa.quantidade_executada) || 0,
-            valor_total: parseFloat(taxa.valor_total) || 0,
-          })),
-          profissionais: guia.executante_nome ? [{
-            nome: guia.executante_nome,
-            conselho: guia.executante_conselho,
-            numero_conselho: guia.executante_numero_conselho,
-            uf: guia.executante_uf,
-            cbos: guia.executante_cbos,
-          }] : [],
-          valorTotal: {
-            valorProcedimentos: procedimentos.reduce((sum: number, item: any) => sum + (parseFloat(item.valor_total) || 0), 0),
-            valorMedicamentos: medicamentos.reduce((sum: number, item: any) => sum + (parseFloat(item.valor_total) || 0), 0),
-            valorMateriais: materiais.reduce((sum: number, item: any) => sum + (parseFloat(item.valor_total) || 0), 0),
-            valorTaxasAlugueis: taxas.reduce((sum: number, item: any) => sum + (parseFloat(item.valor_total) || 0), 0),
-            valorTotalGeral: parseFloat(guia.valor_total) || 0,
-          },
-        };
-      });
-
-      // Calcular totais consolidados de todas as guias
-      const totalProcedimentos = guiasProcessadas.reduce((sum, guia) =>
-        sum + (guia.valorTotal?.valorProcedimentos || 0), 0
-      );
-      const totalMedicamentos = guiasProcessadas.reduce((sum, guia) =>
-        sum + (guia.valorTotal?.valorMedicamentos || 0), 0
-      );
-      const totalMateriais = guiasProcessadas.reduce((sum, guia) =>
-        sum + (guia.valorTotal?.valorMateriais || 0), 0
-      );
-      const totalTaxas = guiasProcessadas.reduce((sum, guia) =>
-        sum + (guia.valorTotal?.valorTaxasAlugueis || 0), 0
-      );
-
-      // Coletar todos os profissionais únicos de todas as guias
-      const todosProfissionais: any[] = [];
-      guiasProcessadas.forEach((guia: any) => {
-        // Buscar dados da guia original do banco (contém UF e CBOS)
-        const guiaOriginal = guiasData.find(g => g.numero_guia_prestador === guia.cabecalhoGuia?.numeroGuiaPrestador);
-
-        // Adicionar profissional solicitante
-        if (guia.dadosSolicitante?.profissional?.nomeProfissional &&
-            guia.dadosSolicitante.profissional.nomeProfissional !== 'N/A') {
-          const profExiste = todosProfissionais.find(p =>
-            p.nome === guia.dadosSolicitante.profissional.nomeProfissional &&
-            p.guia === guia.cabecalhoGuia?.numeroGuiaPrestador
-          );
-          if (!profExiste) {
-            todosProfissionais.push({
-              nome: guia.dadosSolicitante.profissional.nomeProfissional,
-              conselho: guia.dadosSolicitante.profissional.conselhoProfissional,
-              numero_conselho: guia.dadosSolicitante.profissional.numeroConselhoProfissional,
-              uf: guiaOriginal?.profissional_uf || 'N/A',
-              cbos: guiaOriginal?.profissional_cbos || 'N/A',
-              guia: guia.cabecalhoGuia?.numeroGuiaPrestador || 'N/A',  // ✅ Adicionar número da guia
-            });
-          }
-        }
-
-        // Adicionar profissionais executantes dos procedimentos
-        const procedimentos = allItems.filter(item =>
-          item.parent_id === guiaOriginal?.id && item.tipo_item === 'procedimento'
-        );
-
-        procedimentos.forEach((proc: any) => {
-          if (proc.executante_nome && proc.executante_nome !== 'N/A') {
-            const profExiste = todosProfissionais.find(p =>
-              p.nome === proc.executante_nome &&
-              p.guia === guia.cabecalhoGuia?.numeroGuiaPrestador
-            );
-            if (!profExiste) {
-              todosProfissionais.push({
-                nome: proc.executante_nome,
-                conselho: proc.executante_conselho || 'N/A',
-                numero_conselho: proc.executante_numero_conselho || 'N/A',
-                uf: proc.executante_uf || 'N/A',
-                cbos: proc.executante_cbos || 'N/A',
-                guia: guia.cabecalhoGuia?.numeroGuiaPrestador || 'N/A',  // ✅ Adicionar número da guia
-              });
-            }
-          }
-        });
-      });
-
-      // Se o backend já retornou dados estruturados, usar eles diretamente
-      // Caso contrário, montar a estrutura manualmente
-      const usarDadosBackend = loteData.cabecalho && loteData.lote;
-
-      const processedData = usarDadosBackend ? {
-        // Usar dados já estruturados do backend
-        cabecalho: {
-          ...loteData.cabecalho,
-          registroANS: loteData.operadora?.registro_ans || loteData.cabecalho.registroANS,
-        },
-        lote: loteData.lote,
-        guias: guiasProcessadas,  // SEMPRE usar guiasProcessadas (tem estrutura correta)
-        totais: {
-          totalGuias: guiasData.length,
-          totalMedicamentos: totalMedicamentos,
-          totalProcedimentos: totalProcedimentos,
-          totalMateriais: totalMateriais,
-          totalTaxas: totalTaxas,
-          valorTotalGeral: parseFloat(loteData.lote?.valor_total || '0'),
-          periodoInicio: loteData.lote?.data_envio,
-          periodoFim: loteData.lote?.data_envio,
-        },
-        profissionais: todosProfissionais,
-      } : {
-        // Montar estrutura manualmente (fallback)
-        cabecalho: {
-          tipoTransacao: loteData.tipo_transacao || 'ENVIO_LOTE_GUIAS',
-          sequencialTransacao: loteData.sequencial_transacao || loteData.numero_lote,
-          dataRegistroTransacao: loteData.data_registro_transacao || loteData.data_envio,
-          horaRegistroTransacao: loteData.hora_registro_transacao || new Date(loteData.created_at || loteData.data_envio).toLocaleTimeString('pt-BR'),
-          cnpjPrestador: loteData.cnpj_prestador || 'Não informado',
-          registroANS: loteData.operadora_registro_ans,
-          numeroLote: loteData.numero_lote,
-          padrao: loteData.padrao_tiss || '4.01.00',
-          nomePrestador: loteData.nome_prestador || loteData.operadora_nome || 'Não informado',
-          cnes: loteData.cnes || 'Não informado',
-          hash: loteData.hash_lote || 'N/A',
-        },
-        lote: {
-          numeroLote: loteData.numero_lote,
-        },
-        guias: guiasProcessadas,
-        totais: {
-          totalGuias: guiasData.length,
-          totalMedicamentos: totalMedicamentos,
-          totalProcedimentos: totalProcedimentos,
-          totalMateriais: totalMateriais,
-          totalTaxas: totalTaxas,
-          valorTotalGeral: loteData.valor_total,
-          periodoInicio: loteData.data_envio,
-          periodoFim: loteData.data_envio,
-        },
-        profissionais: todosProfissionais,
-      };
-
-      console.log('=== DADOS ENVIADOS PARA VISUALIZAÇÃO ===');
-      console.log('Usando dados do backend?', usarDadosBackend);
-      console.log('Cabeçalho:', processedData.cabecalho);
-      console.log('Totais:', processedData.totais);
-      console.log('Quantidade de guias:', processedData.guias?.length);
-      if (processedData.guias && processedData.guias.length > 0) {
-        console.log('Primeira guia (detalhes COMPLETOS):', JSON.stringify(processedData.guias[0], null, 2));
-        console.log('  - Procedimentos:', processedData.guias[0].procedimentos?.length || 0, processedData.guias[0].procedimentos);
-        console.log('  - Medicamentos:', processedData.guias[0].medicamentos?.length || 0, processedData.guias[0].medicamentos);
-        console.log('  - Materiais:', processedData.guias[0].materiais?.length || 0, processedData.guias[0].materiais);
-        console.log('  - Taxas:', processedData.guias[0].taxas?.length || 0, processedData.guias[0].taxas);
-        console.log('  - Valor Total:', processedData.guias[0].valorTotal);
-      }
-      console.log('Profissionais:', processedData.profissionais);
-      console.log('========================================');
+      setGuiasOriginaisMap(guiasMap);
       setXmlData(processedData);
       setShowXMLVisualization(true);
     } catch (error) {
@@ -801,6 +780,27 @@ const FinanceiroClinica = () => {
       toast({
         title: 'Erro ao processar XML',
         description: 'Não foi possível processar os dados para visualização.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Função para download do XML
+  const handleDownloadXML = async (loteId: number) => {
+    try {
+      setLoading(true);
+      await FinanceiroService.downloadXMLLote(loteId);
+      toast({
+        title: 'Download iniciado',
+        description: 'O arquivo XML está sendo baixado.',
+      });
+    } catch (error: any) {
+      console.error('Erro ao baixar XML:', error);
+      toast({
+        title: 'Erro ao baixar XML',
+        description: error.message || 'Não foi possível baixar o arquivo XML.',
         variant: 'destructive',
       });
     } finally {
@@ -865,10 +865,25 @@ const FinanceiroClinica = () => {
       };
       reader.readAsText(file);
 
+      // Validar competência
+      if (!anoCompetencia || !mesCompetencia) {
+        toast({
+          title: 'Competência obrigatória',
+          description: 'Por favor, selecione o ano e o mês da competência antes de fazer o upload do XML.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      // Formatar competência como AAAAMM
+      const competenciaTrimmed = `${anoCompetencia}${mesCompetencia}`;
+
       // Processar o arquivo
+      // O backend busca a operadora automaticamente pelo registroANS do XML
       const formData = new FormData();
       formData.append('xml', file);
       formData.append('clinica_id', (user?.id || 0).toString());
+      formData.append('competencia', competenciaTrimmed);
 
       const result = await FinanceiroService.uploadXML(formData);
       
@@ -877,6 +892,10 @@ const FinanceiroClinica = () => {
         description: `XML processado com sucesso! Lote ${result.numero_lote} criado.`,
       });
 
+      // Limpar campos após sucesso
+      setAnoCompetencia('');
+      setMesCompetencia('');
+      
       // Recarregar a lista de lotes
       await loadLotes();
       
@@ -985,14 +1004,12 @@ const FinanceiroClinica = () => {
         <div className="relative overflow-hidden rounded-lg bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/10 p-8">
           <div className="absolute inset-0 bg-grid-white/10" />
           <div className="relative">
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold tracking-tighter bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                Financeiro
-              </h1>
-              <p className="text-muted-foreground text-sm md:text-base max-w-2xl">
-                Gerencie lotes financeiros e visualize dados XML TISS
-              </p>
-            </div>
+            <h1 className="text-3xl font-bold tracking-tighter bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+              Faturamento
+            </h1>
+            <p className="text-muted-foreground text-sm md:text-base max-w-2xl">
+              Gerencie lotes financeiros e visualize dados XML TISS
+            </p>
           </div>
         </div>
       </AnimatedSection>
@@ -1075,6 +1092,95 @@ const FinanceiroClinica = () => {
           </CardHeader>
           <CardContent className="p-6">
             <div className="space-y-6">
+              {/* Campo de Competência */}
+              <div className="space-y-4">
+                <Card className="border-2 border-primary/10 shadow-lg bg-gradient-to-br from-card to-muted/10">
+                  <CardHeader className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 border-b-2 border-primary/20 pb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-primary/10">
+                        <Calendar className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <CardTitle className="text-lg font-bold flex items-center gap-2">
+                          Competência
+                          <span className="text-destructive text-base">*</span>
+                        </CardTitle>
+                        <CardDescription className="text-sm mt-1">
+                          Selecione o período de referência para o faturamento
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-6">
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Ano */}
+                      <div className="space-y-2">
+                        <Label htmlFor="ano-competencia" className="text-sm font-semibold text-foreground flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Ano</span>
+                        </Label>
+                        <Select value={anoCompetencia} onValueChange={setAnoCompetencia}>
+                          <SelectTrigger className="h-12 border-2 border-border/50 bg-background hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/30 transition-all duration-300 shadow-sm">
+                            <SelectValue placeholder="Selecione o ano" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Array.from({ length: 5 }, (_, i) => {
+                              const ano = new Date().getFullYear() - i;
+                              return (
+                                <SelectItem key={ano} value={ano.toString()}>
+                                  {ano}
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Mês */}
+                      <div className="space-y-2">
+                        <Label htmlFor="mes-competencia" className="text-sm font-semibold text-foreground flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Mês</span>
+                        </Label>
+                        <Select value={mesCompetencia} onValueChange={setMesCompetencia} disabled={!anoCompetencia}>
+                          <SelectTrigger className={`h-12 border-2 bg-background hover:border-primary/50 focus:border-primary focus:ring-2 focus:ring-primary/30 transition-all duration-300 shadow-sm ${
+                            !anoCompetencia ? 'opacity-50 cursor-not-allowed' : 'border-border/50'
+                          }`}>
+                            <SelectValue placeholder={anoCompetencia ? "Selecione o mês" : "Selecione o ano primeiro"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {[
+                              { value: '01', label: 'Janeiro' },
+                              { value: '02', label: 'Fevereiro' },
+                              { value: '03', label: 'Março' },
+                              { value: '04', label: 'Abril' },
+                              { value: '05', label: 'Maio' },
+                              { value: '06', label: 'Junho' },
+                              { value: '07', label: 'Julho' },
+                              { value: '08', label: 'Agosto' },
+                              { value: '09', label: 'Setembro' },
+                              { value: '10', label: 'Outubro' },
+                              { value: '11', label: 'Novembro' },
+                              { value: '12', label: 'Dezembro' },
+                            ].map((mes) => (
+                              <SelectItem key={mes.value} value={mes.value}>
+                                {mes.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    {anoCompetencia && mesCompetencia && (
+                      <div className="mt-4 p-3 rounded-lg bg-primary/5 border border-primary/20">
+                        <p className="text-sm text-foreground">
+                          <span className="font-semibold">Competência selecionada:</span>{' '}
+                          <span className="font-mono text-primary">{anoCompetencia}{mesCompetencia}</span>
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
               {/* Área de Drag & Drop */}
               <div
                 className={`
@@ -1122,12 +1228,12 @@ const FinanceiroClinica = () => {
                   
                   {!uploading && (
                     <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                      <FileText className="h-4 w-4" />
+                    <FileText className="h-4 w-4" />
                       <span>Apenas arquivos .xml são aceitos</span>
-                    </div>
-                  )}
-                </div>
-                
+                  </div>
+                )}
+              </div>
+              
                 {/* Efeito de brilho quando em drag */}
                 {isDragOver && (
                   <div className="absolute inset-0 rounded-xl bg-gradient-to-r from-primary/10 via-transparent to-primary/10 animate-pulse" />
@@ -1149,15 +1255,15 @@ const FinanceiroClinica = () => {
                         </p>
                       </div>
                     </div>
-                    <Button
+                <Button
                       onClick={handlePreviewXML}
                       variant="outline"
                       className="text-primary border-primary/30 hover:bg-primary/10 hover:border-primary/50"
                     >
                       <Eye className="h-4 w-4 mr-2" />
                       Visualizar XML
-                    </Button>
-                  </div>
+                </Button>
+              </div>
                 </div>
               )}
             </div>
@@ -1177,7 +1283,7 @@ const FinanceiroClinica = () => {
                   <CardTitle className="flex items-center gap-2 text-foreground">
                     <Package className="h-6 w-6 text-primary" />
                     Lotes Financeiros TISS
-                  </CardTitle>
+            </CardTitle>
                   <CardDescription className="text-muted-foreground">
                     Visualize e gerencie os lotes de guias TISS com informações completas
                   </CardDescription>
@@ -1185,28 +1291,28 @@ const FinanceiroClinica = () => {
                 <div className="flex items-center gap-3">
                   <div className="flex items-center gap-2">
                     <Search className="h-4 w-4 text-muted-foreground" />
-                    <Input
+                  <Input
                       placeholder="Buscar lotes..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="w-64"
-                    />
-                  </div>
+                  />
+                </div>
                   <Select value={filterCompetencia} onValueChange={setFilterCompetencia}>
                     <SelectTrigger className="w-40">
                       <SelectValue placeholder="Competência" />
-                    </SelectTrigger>
-                    <SelectContent>
+                  </SelectTrigger>
+                  <SelectContent>
                       <SelectItem value="all">Todas</SelectItem>
                       {competencias.map(comp => (
                         <SelectItem key={comp} value={comp}>
                           {comp}
                         </SelectItem>
                       ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                  </SelectContent>
+                </Select>
               </div>
+            </div>
             </CardHeader>
             <CardContent className="p-6">
               <div className="space-y-4">
@@ -1214,7 +1320,7 @@ const FinanceiroClinica = () => {
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary-green" />
                 <span className="ml-2 text-muted-foreground">Carregando lotes...</span>
-              </div>
+                </div>
             ) : filteredLotes.length === 0 ? (
               <Card className="text-center py-12">
                 <CardContent>
@@ -1226,144 +1332,93 @@ const FinanceiroClinica = () => {
                     {searchTerm || filterCompetencia 
                       ? 'Tente ajustar os filtros de busca.'
                       : 'Faça upload de um arquivo XML para começar.'
-                    }
-                  </p>
+                  }
+                </p>
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-6">
+              <div className="grid gap-4">
                 {filteredLotes.map((lote) => (
-                  <Card key={lote.id} className="group relative overflow-hidden bg-gradient-to-r from-card to-card/50 border border-border/50 hover:border-primary/30 shadow-lg hover:shadow-2xl transition-all duration-500 hover:scale-[1.02]">
-                    {/* Efeito de brilho no hover */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                    
-                    <CardContent className="relative p-8">
-                      <div className="grid grid-cols-1 xl:grid-cols-12 gap-8 items-center">
+                  <Card key={lote.id} className="group border border-border/50 hover:border-primary/30 transition-all duration-200 hover:shadow-md">
+                    <CardContent className="p-5">
+                      <div className="flex items-center justify-between gap-6">
                         {/* Informações Principais */}
-                        <div className="xl:col-span-4 space-y-4">
-                          <div className="flex items-start gap-4">
-                            <div className="p-3 bg-primary/10 rounded-xl group-hover:bg-primary/20 transition-colors duration-300">
-                              <Package className="h-6 w-6 text-primary" />
-                            </div>
-                            <div className="space-y-2">
-                              <h3 className="text-2xl font-bold text-foreground group-hover:text-primary transition-colors duration-300">
+                        <div className="flex items-center gap-4 flex-1 min-w-0">
+                          <div className="p-2.5 rounded-lg bg-primary/5 border border-primary/10 flex-shrink-0">
+                            <Package className="h-5 w-5 text-primary" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="text-lg font-semibold text-foreground">
                                 Lote #{lote.numero_lote}
                               </h3>
-                              <p className="text-muted-foreground font-medium">
-                                {lote.operadora_nome || `Operadora ANS ${lote.operadora_registro_ans}`}
-                              </p>
-                              <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                <div className="w-1.5 h-1.5 bg-primary rounded-full" />
-                                <span>Registro ANS: {lote.operadora_registro_ans}</span>
-                              </div>
+                              <Badge className={`${getStatusColor(lote.status)} flex items-center gap-1.5 text-xs font-medium px-2.5 py-1`}>
+                                {getStatusIcon(lote.status)}
+                                <span>
+                                  {lote.status === 'pendente' && 'Pendente'}
+                                  {lote.status === 'pago' && 'Pago'}
+                                  {lote.status === 'glosado' && 'Glosado'}
+                                </span>
+                              </Badge>
                             </div>
-                          </div>
-                          
-                          <div className="flex items-center gap-6 text-sm">
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <Calendar className="h-4 w-4" />
-                              <span className="font-medium">{formatDate(lote.data_envio)}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-muted-foreground">
-                              <FileText className="h-4 w-4" />
-                              <span className="font-medium">{lote.quantidade_guias} guias</span>
+                            <div className="flex items-center gap-5 text-sm text-muted-foreground">
+                              <span className="font-medium truncate">{lote.operadora_nome || `ANS ${lote.operadora_registro_ans}`}</span>
+                              <span className="flex items-center gap-1.5">
+                                <Calendar className="h-4 w-4" />
+                                {formatDate(lote.data_envio)}
+                              </span>
+                              <span className="flex items-center gap-1.5">
+                                <FileText className="h-4 w-4" />
+                                {lote.quantidade_guias} {lote.quantidade_guias === 1 ? 'guia' : 'guias'}
+                              </span>
                             </div>
                           </div>
                         </div>
 
                         {/* Detalhes Financeiros */}
-                        <div className="xl:col-span-3 space-y-4">
-                          <div className="bg-gradient-to-r from-primary/5 to-accent/5 rounded-xl p-4 border border-primary/10">
-                            <div className="space-y-3">
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm font-medium text-muted-foreground">Valor Total</span>
-                                <span className="text-2xl font-bold text-foreground group-hover:text-primary transition-colors duration-300">
-                                  {formatCurrency(lote.valor_total)}
-                                </span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-sm font-medium text-muted-foreground">Competência</span>
-                                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/30 font-medium">
-                                  {lote.competencia}
-                                </Badge>
-                              </div>
+                        <div className="flex items-center gap-8 flex-shrink-0">
+                          <div className="text-right">
+                            <div className="text-xs font-medium text-muted-foreground mb-1.5 uppercase tracking-wide flex items-center justify-end gap-1.5">
+                              <DollarSign className="h-3 w-3" />
+                              Valor Total
+                            </div>
+                            <div className="text-2xl font-bold text-primary group-hover:text-primary/90 transition-colors">
+                              {formatCurrency(lote.valor_total)}
                             </div>
                           </div>
-                        </div>
-
-                        {/* Status e Indicadores */}
-                        <div className="xl:col-span-2 space-y-4">
-                          <div className="flex flex-col items-center space-y-3">
-                            <Badge className={`${getStatusColor(lote.status)} flex items-center gap-2 px-4 py-2 text-sm font-medium`}>
-                              {getStatusIcon(lote.status)}
-                              {lote.status === 'pendente' && 'Pendente'}
-                              {lote.status === 'pago' && 'Pago'}
-                              {lote.status === 'glosado' && 'Glosado'}
+                          <div className="text-right">
+                            <div className="text-xs font-medium text-muted-foreground mb-1 uppercase tracking-wide">Competência</div>
+                            <Badge variant="outline" className="text-sm font-semibold px-3 py-1 border-primary/30 bg-primary/5">
+                              {lote.competencia}
                             </Badge>
-                            
-                            {lote.status === 'pendente' && (
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <Clock className="h-3 w-3" />
-                                <span>Aguardando processamento</span>
-                              </div>
-                            )}
                           </div>
                         </div>
 
                         {/* Ações */}
-                        <div className="xl:col-span-3">
-                          <div className="flex flex-col sm:flex-row gap-3">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => processXMLForVisualization(lote.id)}
-                              className="flex-1 gap-2 text-primary border-primary/30 hover:bg-primary/10 hover:border-primary/50 transition-all duration-300"
-                            >
-                              <FileText className="h-4 w-4" />
-                              Ver XML
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                setSelectedLote(lote);
-                                setDialogOpen(true);
-                                loadGuiasDoLote(lote.id);
-                              }}
-                              className="flex-1 gap-2 text-foreground border-border hover:bg-accent/10 hover:border-accent/30 transition-all duration-300"
-                            >
-                              <Eye className="h-4 w-4" />
-                              Detalhes
-                            </Button>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="gap-2 text-secondary border-secondary/30 hover:bg-secondary/10 hover:border-secondary/50 transition-all duration-300"
-                              onClick={() => {
-                                toast({
-                                  title: 'Download',
-                                  description: 'Funcionalidade de download será implementada.',
-                                });
-                              }}
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
-                          </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              processXMLForVisualization(lote.id);
+                            }}
+                            className="h-9 px-4 text-sm border-primary/30 hover:bg-primary/10 hover:border-primary/50"
+                          >
+                            <FileText className="h-4 w-4 mr-2" />
+                            Detalhes
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-9 w-9 p-0 border-border/50 hover:bg-accent/50"
+                            onClick={() => handleDownloadXML(lote.id)}
+                            disabled={loading}
+                            title="Download XML"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
                         </div>
                       </div>
-
-                      {/* Barra de Progresso (se aplicável) */}
-                      {lote.status === 'pendente' && (
-                        <div className="mt-6 pt-4 border-t border-border/50">
-                          <div className="flex justify-between text-sm text-muted-foreground mb-2">
-                            <span className="font-medium">Status do Processamento</span>
-                            <span className="text-primary">Em análise</span>
-                          </div>
-                          <div className="w-full bg-muted/50 rounded-full h-2 overflow-hidden">
-                            <div className="bg-gradient-to-r from-primary to-primary/80 h-2 rounded-full transition-all duration-300" style={{ width: '60%' }}></div>
-                          </div>
-                        </div>
-                      )}
                     </CardContent>
                   </Card>
                 ))}
@@ -1378,15 +1433,15 @@ const FinanceiroClinica = () => {
       {/* Modal de Detalhes do Lote */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-6xl h-[95vh] overflow-hidden flex flex-col">
-              <DialogHeader>
+                              <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-card-foreground">
               <Package className="h-5 w-5 text-primary" />
               Detalhes do Lote {selectedLote?.numero_lote}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Informações completas sobre o lote e suas guias
-                </DialogDescription>
-              </DialogHeader>
+                                </DialogDescription>
+                              </DialogHeader>
           
           <div className="flex-1 overflow-auto">
             {selectedLote && (
@@ -1401,11 +1456,11 @@ const FinanceiroClinica = () => {
                       <div>
                         <p className="text-sm text-muted-foreground">Número do Lote</p>
                         <p className="font-medium text-card-foreground">{selectedLote.numero_lote}</p>
-                    </div>
+                                  </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Operadora</p>
                         <p className="font-medium text-card-foreground">{selectedLote.operadora_nome}</p>
-                  </div>
+                                  </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Competência</p>
                         <p className="font-medium text-card-foreground">{selectedLote.competencia}</p>
@@ -1485,9 +1540,9 @@ const FinanceiroClinica = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
                             <TableHead className="text-card-foreground">Status Resposta</TableHead>
                             <TableHead className="text-card-foreground">Guia Prestador</TableHead>
                             <TableHead className="text-card-foreground">Guia Operadora</TableHead>
@@ -1500,9 +1555,9 @@ const FinanceiroClinica = () => {
                             <TableHead className="text-card-foreground">Taxas</TableHead>
                             <TableHead className="text-card-foreground">Valor Total</TableHead>
                             <TableHead className="text-card-foreground">Status</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
                           {guiasDoLote.flatMap((guia) => {
                             const statusAtual = statusRespostaGuias[guia.id] || 'em-analise';
                             const configStatus = getStatusRespostaConfig(statusAtual);
@@ -1572,17 +1627,17 @@ const FinanceiroClinica = () => {
                               </TableCell>
 
                               <TableCell className="font-medium text-card-foreground align-top">
-                                    {guia.numero_guia_prestador}
-                                  </TableCell>
+                                            {guia.numero_guia_prestador}
+                                          </TableCell>
                               <TableCell className="text-muted-foreground">
                                 {guia.numero_guia_operadora}
-                                  </TableCell>
+                                          </TableCell>
                               <TableCell className="text-muted-foreground">
                                 {guia.numero_carteira}
-                                  </TableCell>
+                                          </TableCell>
                               <TableCell className="text-muted-foreground">
                                 {formatDate(guia.data_autorizacao)}
-                                  </TableCell>
+                                          </TableCell>
                               <TableCell className="text-muted-foreground">
                                 {formatDate(guia.data_execucao)}
                                   </TableCell>
@@ -1606,106 +1661,22 @@ const FinanceiroClinica = () => {
                                       {getStatusIcon(guia.status_pagamento)}
                                       {guia.status_pagamento}
                                     </Badge>
-                                  </TableCell>
-                                </TableRow>
+                                          </TableCell>
+                                        </TableRow>
                             ];
-
-                            // Adicionar linha de anexos se necessário
-                            if (mostrarCamposAnexo) {
-                              rows.push(
-                                <TableRow key={`guia-${guia.id}-anexos`} className="bg-muted/30">
-                                    <TableCell colSpan={12} className="p-6">
-                                      <Card className="border-2 border-dashed">
-                                        <CardHeader>
-                                          <div className="flex items-center justify-between">
-                                            <CardTitle className="text-sm flex items-center gap-2">
-                                              <Paperclip className="h-4 w-4" />
-                                              Anexar Documentos e Enviar Resposta
-                                            </CardTitle>
-                                            <Badge className={`${configStatus.color}`}>{configStatus.label}</Badge>
-                                          </div>
-                                          <CardDescription>
-                                            Selecione os documentos que deseja anexar à guia
-                                          </CardDescription>
-                                        </CardHeader>
-                                        <CardContent className="space-y-4">
-                                          {/* Input de arquivos */}
-                                          <div>
-                                            <Label htmlFor={`file-input-${guia.id}`} className="text-sm font-medium">
-                                              Selecionar Arquivos
-                                            </Label>
-                                            <Input
-                                              id={`file-input-${guia.id}`}
-                                              type="file"
-                                              multiple
-                                              onChange={(e) => {
-                                                const files = Array.from(e.target.files || []);
-                                                handleAnexarArquivosGuia(guia.id, files);
-                                              }}
-                                              className="mt-2"
-                                            />
-                                          </div>
-
-                                          {/* Lista de arquivos anexados */}
-                                          {arquivosAnexados.length > 0 && (
-                                            <div className="space-y-2">
-                                              <Label className="text-sm font-medium">
-                                                Arquivos Anexados ({arquivosAnexados.length})
-                                              </Label>
-                                              <div className="space-y-2">
-                                                {arquivosAnexados.map((arquivo, index) => (
-                                                  <div key={index} className="flex items-center justify-between p-2 bg-background rounded border">
-                                                    <div className="flex items-center gap-2">
-                                                      <Paperclip className="h-4 w-4 text-muted-foreground" />
-                                                      <span className="text-sm">{arquivo.name}</span>
-                                                      <span className="text-xs text-muted-foreground">
-                                                        ({(arquivo.size / 1024).toFixed(2)} KB)
-                                                      </span>
-                                                    </div>
-                                                    <Button
-                                                      variant="ghost"
-                                                      size="sm"
-                                                      onClick={() => handleRemoverArquivoGuia(guia.id, index)}
-                                                      className="text-destructive hover:text-destructive"
-                                                    >
-                                                      <X className="h-4 w-4" />
-                                                    </Button>
-                                                  </div>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          )}
-
-                                          {/* Botão de enviar */}
-                                          <div className="flex justify-end">
-                                            <Button
-                                              onClick={() => handleEnviarRespostaGuia(guia.id)}
-                                              disabled={arquivosAnexados.length === 0}
-                                              className="gap-2"
-                                            >
-                                              <Send className="h-4 w-4" />
-                                              Enviar Resposta
-                                            </Button>
-                                          </div>
-                                        </CardContent>
-                                      </Card>
-                                    </TableCell>
-                                  </TableRow>
-                              );
-                            }
 
                             return rows;
                           })}
-                          </TableBody>
-                        </Table>
+                                    </TableBody>
+                                  </Table>
                       </div>
                   </CardContent>
                 </Card>
               </div>
-          )}
-          </div>
-        </DialogContent>
-      </Dialog>
+                                )}
+                              </div>
+                            </DialogContent>
+                          </Dialog>
 
       {/* Modal de Visualização XML */}
       {xmlViewerData && (
@@ -1725,7 +1696,7 @@ const FinanceiroClinica = () => {
               Confirmar Glosa
             </DialogTitle>
             <DialogDescription>
-              Você está prestes a marcar esta guia como <strong className="text-destructive">GLOSADA</strong>.
+              Você está prestes a marcar {itemParaGlosar ? 'um item desta guia' : 'esta guia'} como <strong className="text-destructive">GLOSADA</strong>.
             </DialogDescription>
           </DialogHeader>
 
@@ -1750,19 +1721,25 @@ const FinanceiroClinica = () => {
                     {formatCurrency(parseFloat(guiaParaGlosar.valor_total as any) || 0)}
                   </span>
                 </div>
+                {itemParaGlosar && (
+                  <div className="mt-2 p-2 bg-muted/50 rounded border border-border">
+                    <div className="text-xs text-muted-foreground">Item específico será glosado</div>
+                  </div>
+                )}
               </div>
 
               <Separator />
 
-              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 space-y-2">
-                <p className="text-sm font-medium text-destructive flex items-center gap-2">
+              <div className="bg-destructive/10 dark:bg-destructive/20 border border-destructive/20 dark:border-destructive/30 rounded-lg p-4 space-y-2">
+                <p className="text-sm font-medium text-destructive dark:text-destructive flex items-center gap-2">
                   <AlertCircle className="h-4 w-4" />
                   Esta ação irá:
                 </p>
-                <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
-                  <li>Marcar esta guia como <strong>GLOSADA</strong></li>
+                <ul className="text-sm text-muted-foreground dark:text-muted-foreground space-y-1 ml-6 list-disc">
+                  <li>Marcar {itemParaGlosar ? 'o item selecionado' : 'esta guia'} como <strong>GLOSADA</strong></li>
                   <li>Enviar uma cópia para <strong>Recursos de Glosas</strong></li>
                   <li>Permitir que você anexe documentos e justificativas</li>
+                  <li>Redirecionar para a página de cadastro de recurso de glosa</li>
                 </ul>
               </div>
             </div>
@@ -1774,13 +1751,17 @@ const FinanceiroClinica = () => {
               onClick={() => {
                 setConfirmGlosaDialogOpen(false);
                 setGuiaParaGlosar(null);
+                setItemParaGlosar(null);
               }}
             >
               Cancelar
             </Button>
             <Button
               variant="destructive"
-              onClick={handleConfirmarGlosa}
+              onClick={() => {
+                handleConfirmarGlosa();
+                setItemParaGlosar(null);
+              }}
               className="gap-2"
             >
               <XCircle className="h-4 w-4" />
@@ -1797,17 +1778,29 @@ const FinanceiroClinica = () => {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-card-foreground">
                 <FileText className="h-5 w-5 text-primary" />
-                Visualização Detalhada XML TISS
+                Modificar Detalhes - Análise por Guia e Itens
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">
-                Análise completa dos dados do arquivo XML
+                Visualize e modifique o status de pagamento de cada item individualmente por guia
               </DialogDescription>
             </DialogHeader>
             <div className="flex-1 overflow-auto">
-              <XMLTISSDetailedViewer
-          data={xmlData}
-          onClose={() => setShowXMLVisualization(false)}
-        />
+              {useViewerV2 ? (
+                <XMLTISSDetailedViewerV2
+                  data={xmlData}
+                  onClose={() => {
+                    setShowXMLVisualization(false);
+                    // Não limpar o loteId para manter disponível durante a glosa
+                  }}
+                  loteId={loteIdAtual || loteAtualParaGlosa?.id}
+                  onGlosarItem={handleGlosarItem}
+                />
+              ) : (
+                <XMLTISSDetailedViewer
+                  data={xmlData}
+                  onClose={() => setShowXMLVisualization(false)}
+                />
+              )}
             </div>
           </DialogContent>
         </Dialog>
@@ -1905,8 +1898,8 @@ const FinanceiroClinica = () => {
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+              </div>
+            )}
             </div>
 
             {/* Tipos de Documentos Necessários */}
@@ -1920,8 +1913,8 @@ const FinanceiroClinica = () => {
                   <li>• Exames complementares (se aplicável)</li>
                   <li>• Comprovante de pagamento (se aplicável)</li>
                 </ul>
-              </CardContent>
-            </Card>
+          </CardContent>
+        </Card>
           </div>
 
           <DialogFooter className="gap-2">

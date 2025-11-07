@@ -30,6 +30,10 @@ const AuditorRecursos = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'todos');
+  const [operadoraFilter, setOperadoraFilter] = useState('todas');
+  const [clinicaFilter, setClinicaFilter] = useState('todas');
+  const [operadorasDisponiveis, setOperadorasDisponiveis] = useState<string[]>([]);
+  const [clinicasDisponiveis, setClinicasDisponiveis] = useState<string[]>([]);
 
   useEffect(() => {
     loadRecursos();
@@ -41,6 +45,20 @@ const AuditorRecursos = () => {
       const status = statusFilter === 'todos' ? undefined : statusFilter;
       const data = await AuditorService.listarRecursos(status);
       setRecursos(data);
+
+      const operadoras = Array.from(new Set(data.map(item => item.operadora_nome).filter(Boolean))) as string[];
+      const clinicas = Array.from(new Set(data.map(item => item.clinica_nome).filter(Boolean))) as string[];
+
+      setOperadorasDisponiveis(operadoras.sort((a, b) => a.localeCompare(b)));
+      setClinicasDisponiveis(clinicas.sort((a, b) => a.localeCompare(b)));
+
+      if (operadoraFilter !== 'todas' && !operadoras.includes(operadoraFilter)) {
+        setOperadoraFilter('todas');
+      }
+
+      if (clinicaFilter !== 'todas' && !clinicas.includes(clinicaFilter)) {
+        setClinicaFilter('todas');
+      }
     } catch (error: any) {
       toast.error(error?.message || 'Erro ao carregar recursos');
     } finally {
@@ -49,17 +67,55 @@ const AuditorRecursos = () => {
   };
 
   const getStatusBadge = (status: string) => {
-    const badges: Record<string, { label: string; variant: 'default' | 'secondary' | 'outline' | 'destructive'; color: string }> = {
-      'em_analise_auditor': { label: 'Em Análise', variant: 'default', color: 'bg-blue-500' },
-      'parecer_emitido': { label: 'Parecer Emitido', variant: 'secondary', color: 'bg-green-500' },
-      'solicitado_parecer': { label: 'Aguardando', variant: 'outline', color: 'bg-yellow-500' }
+    // Define paleta coesa para todos os elementos do card
+    const badges: Record<string, {
+      label: string;
+      barHex: string;            // barra lateral
+      chipClass: string;         // Badge de status
+      iconClass: string;         // cor do ícone
+      iconContainerClass: string;// bg do container do ícone
+    }> = {
+      'em_analise_auditor': {
+        label: 'Em Análise',
+        barHex: '#3b82f6',
+        chipClass: 'bg-blue-500/15 text-blue-600 border border-blue-500/30',
+        iconClass: 'text-blue-500',
+        iconContainerClass: 'bg-blue-500/10'
+      },
+      'parecer_emitido': {
+        label: 'Parecer Emitido',
+        barHex: '#22c55e',
+        chipClass: 'bg-green-500/15 text-green-600 border border-green-500/30',
+        iconClass: 'text-green-500',
+        iconContainerClass: 'bg-green-500/10'
+      },
+      'solicitado_parecer': {
+        label: 'Aguardando',
+        barHex: '#f59e0b',
+        chipClass: 'bg-amber-500/15 text-amber-600 border border-amber-500/30',
+        iconClass: 'text-amber-500',
+        iconContainerClass: 'bg-amber-500/10'
+      }
     };
 
-    const badge = badges[status] || { label: status, variant: 'outline', color: 'bg-gray-500' };
-    return badge;
+    return badges[status] || {
+      label: status,
+      barHex: '#6b7280',
+      chipClass: 'bg-muted text-foreground border border-border',
+      iconClass: 'text-muted-foreground',
+      iconContainerClass: 'bg-muted/50'
+    };
   };
 
   const filteredRecursos = recursos.filter(recurso => {
+    if (operadoraFilter !== 'todas' && recurso.operadora_nome !== operadoraFilter) {
+      return false;
+    }
+
+    if (clinicaFilter !== 'todas' && recurso.clinica_nome !== clinicaFilter) {
+      return false;
+    }
+
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
     return (
@@ -83,17 +139,23 @@ const AuditorRecursos = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto px-4 md:px-6">
+    <div className="space-y-6 max-w-screen-2xl mx-auto px-4 md:px-6">
       {/* Header */}
       <AnimatedSection delay={0}>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">
-              Recursos de Glosas
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Gerencie e analise recursos de glosas atribuídos
-            </p>
+        <div className="relative overflow-hidden rounded-lg bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/10 p-8">
+          <div className="absolute inset-0 bg-grid-white/10" />
+          <div className="relative">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tighter bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent flex items-center gap-3">
+                  <FileText className="h-8 w-8 text-primary" />
+                  Recursos de Glosas
+                </h1>
+                <p className="text-muted-foreground mt-2">
+                  Gerencie e analise recursos de glosas atribuídos
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </AnimatedSection>
@@ -108,7 +170,7 @@ const AuditorRecursos = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -128,6 +190,34 @@ const AuditorRecursos = () => {
                   <SelectItem value="em_analise_auditor">Em Análise</SelectItem>
                   <SelectItem value="parecer_emitido">Parecer Emitido</SelectItem>
                   <SelectItem value="solicitado_parecer">Aguardando</SelectItem>
+                </SelectContent>
+              </Select>
+
+              <Select value={operadoraFilter} onValueChange={setOperadoraFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filtrar por operadora" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas as Operadoras</SelectItem>
+                  {operadorasDisponiveis.map((nome) => (
+                    <SelectItem key={nome} value={nome}>
+                      {nome}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={clinicaFilter} onValueChange={setClinicaFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filtrar por clínica" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas as Clínicas</SelectItem>
+                  {clinicasDisponiveis.map((nome) => (
+                    <SelectItem key={nome} value={nome}>
+                      {nome}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -156,18 +246,16 @@ const AuditorRecursos = () => {
             const statusBadge = getStatusBadge(recurso.status_recurso);
             return (
               <AnimatedSection key={recurso.id} delay={200 + index * 50}>
-                <Card className="hover:shadow-lg transition-all duration-300 cursor-pointer group h-full flex flex-col border-l-4"
-                  style={{ borderLeftColor: statusBadge.color }}
+                <Card className="relative hover:shadow-lg hover:-translate-y-1 transition-all duration-300 cursor-pointer group h-full flex flex-col"
                   onClick={() => navigate(`/auditor/recursos/${recurso.id}`)}
                 >
+                  <div className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-md" style={{ backgroundColor: statusBadge.barHex }} />
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between mb-2">
-                      <div className={`p-2.5 rounded-lg ${statusBadge.color}/10 group-hover:scale-110 transition-transform`}>
-                        <FileText className={`h-5 w-5 ${statusBadge.color.replace('bg-', 'text-')}`} />
+                      <div className={`p-2.5 rounded-lg ${statusBadge.iconContainerClass} group-hover:scale-110 transition-transform`}>
+                        <FileText className={`h-5 w-5 ${statusBadge.iconClass}`} />
                       </div>
-                      <Badge variant={statusBadge.variant as any} className="text-xs">
-                        {statusBadge.label}
-                      </Badge>
+                      <Badge className={`text-xs ${statusBadge.chipClass}`}>{statusBadge.label}</Badge>
                     </div>
                     <CardTitle className="text-base line-clamp-1">
                       Guia {recurso.numero_guia_prestador}

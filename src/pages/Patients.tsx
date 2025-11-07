@@ -119,7 +119,6 @@ interface Patient {
   status: string;
   authorizations: Authorization[];
   Paciente_Nome: string;
-  Codigo: string;
   cpf: string;
   rg: string;
   Data_Nascimento: string;
@@ -984,7 +983,6 @@ const emptyPatient: Patient = {
   status: '',
   authorizations: [],
   Paciente_Nome: '',
-  Codigo: '',
   cpf: '',
   rg: '',
   Data_Nascimento: '',
@@ -1437,13 +1435,13 @@ const Patients = () => {
 
     // Filtrar apenas para dados locais
     let filtered = patients.filter(patient => {
-      // Filtro de busca (nome, diagnóstico, código, CPF, operadora)
+      // Filtro de busca (nome, diagnóstico, número da carteirinha, CPF, operadora)
       if (searchTerm && searchTerm.trim() !== '') {
         const term = searchTerm.toLowerCase().trim();
         const matchesSearch = 
           patient.name.toLowerCase().includes(term) ||
           patient.diagnosis.toLowerCase().includes(term) ||
-          patient.Codigo.toLowerCase().includes(term) ||
+          patient.numero_carteirinha?.toLowerCase().includes(term) ||
           patient.cpf?.toLowerCase().includes(term) ||
           getOperadoraName(patient.Operadora).toLowerCase().includes(term);
         
@@ -1815,10 +1813,6 @@ const Patients = () => {
         // Capitalizar apenas a primeira letra, mantendo o resto como digitado
         formattedValue = value.charAt(0).toUpperCase() + value.slice(1);
         break;
-      case 'Codigo':
-        // Remover espaços e converter para maiúsculas
-        formattedValue = value.replace(/\s+/g, '').toUpperCase();
-        break;
       case 'Cid_Diagnostico':
         // Para arrays de CIDs, não aplicar formatação aqui (será feita pelo componente)
         formattedValue = value;
@@ -2105,23 +2099,6 @@ const Patients = () => {
                     />
                     {validationErrors.Paciente_Nome && (
                       <p className="text-sm text-red-500 mt-1">{validationErrors.Paciente_Nome}</p>
-                    )}
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="Codigo">Código do Paciente</Label>
-                    <Input
-                      id="Codigo"
-                      name="Codigo"
-                      value={currentPatient.Codigo}
-                      onChange={handleInputChange}
-                      placeholder="Código interno do paciente"
-                      className={`transition-all duration-300 focus:border-primary ${
-                        validationErrors.Codigo ? 'border-red-500' : ''
-                      }`}
-                    />
-                    {validationErrors.Codigo && (
-                      <p className="text-sm text-red-500 mt-1">{validationErrors.Codigo}</p>
                     )}
                   </div>
                   
@@ -2693,7 +2670,9 @@ const Patients = () => {
                   <Badge variant={selectedPatient.status === 'Em tratamento' ? 'default' : selectedPatient.status === 'Em remissão' ? 'secondary' : 'outline'}>
                     {selectedPatient.status}
                   </Badge>
-                  <span className="text-muted-foreground">Código: {selectedPatient.Codigo}</span>
+                  {selectedPatient.numero_carteirinha && (
+                    <span className="text-muted-foreground">Carteirinha: {selectedPatient.numero_carteirinha}</span>
+                  )}
                   <span className="text-muted-foreground">Idade: {selectedPatient.age} anos</span>
                 </div>
               </div>

@@ -33,6 +33,7 @@ const RecursosGlosasList = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'todos');
+  const [clinicaFilter, setClinicaFilter] = useState<string>('todos');
 
   useEffect(() => {
     loadRecursos();
@@ -94,20 +95,30 @@ const RecursosGlosasList = () => {
   };
 
   const filteredRecursos = recursos.filter(recurso => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
-      recurso.numero_guia_prestador?.toLowerCase().includes(search) ||
-      recurso.numero_guia_operadora?.toLowerCase().includes(search) ||
-      recurso.clinica_nome?.toLowerCase().includes(search) ||
-      recurso.numero_carteira?.toLowerCase().includes(search)
-    );
+    // Filtro de busca
+    const matchSearch = !searchTerm || (() => {
+      const search = searchTerm.toLowerCase();
+      return (
+        recurso.numero_guia_prestador?.toLowerCase().includes(search) ||
+        recurso.numero_guia_operadora?.toLowerCase().includes(search) ||
+        recurso.clinica_nome?.toLowerCase().includes(search) ||
+        recurso.numero_carteira?.toLowerCase().includes(search)
+      );
+    })();
+
+    // Filtro por clínica
+    const matchClinica = clinicaFilter === 'todos' || recurso.clinica_nome === clinicaFilter;
+
+    return matchSearch && matchClinica;
   });
+
+  // Extrair clínicas únicas para o filtro
+  const clinicas = Array.from(new Set(recursos.map(r => r.clinica_nome).filter(Boolean))).sort();
 
   const stats = {
     total: recursos.length,
     pendente: recursos.filter(r => r.status_recurso === 'pendente').length,
-    em_analise: recursos.filter(r => r.status_recurso === 'em_analise_operadora').length,
+    em_analise: recursos.filter(r => ['em_analise_operadora','em_analise_auditor','solicitado_parecer','parecer_emitido'].includes(r.status_recurso as any)).length,
     solicitado_parecer: recursos.filter(r => r.status_recurso === 'solicitado_parecer').length,
     parecer_emitido: recursos.filter(r => r.status_recurso === 'parecer_emitido').length,
     deferido: recursos.filter(r => r.status_recurso === 'deferido').length,
@@ -226,7 +237,7 @@ const RecursosGlosasList = () => {
             </div>
           </CardHeader>
           <CardContent className="p-6 space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Pesquisa */}
               <div className="relative group">
                 <label className="block text-sm font-semibold mb-2 text-foreground flex items-center gap-2">
@@ -270,6 +281,25 @@ const RecursosGlosasList = () => {
                     <SelectItem value="parecer_emitido">Parecer Recebido</SelectItem>
                     <SelectItem value="deferido">Deferido</SelectItem>
                     <SelectItem value="indeferido">Indeferido</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Filtro por Clínica */}
+              <div className="group">
+                <label className="block text-sm font-semibold mb-2 text-foreground flex items-center gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Clínica
+                </label>
+                <Select value={clinicaFilter} onValueChange={setClinicaFilter}>
+                  <SelectTrigger className="h-11 border-2 group-hover:border-primary/50 transition-all duration-300">
+                    <SelectValue placeholder="Selecione uma clínica" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todas as Clínicas</SelectItem>
+                    {clinicas.map(clinica => (
+                      <SelectItem key={clinica} value={clinica}>{clinica}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

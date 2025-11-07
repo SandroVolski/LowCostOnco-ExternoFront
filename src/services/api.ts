@@ -79,7 +79,6 @@ export interface PatientFromAPI {
   Paciente_Nome?: string;
   Operadora?: number;
   Prestador?: number;
-  Codigo?: string;
   Data_Nascimento?: string;
   Sexo?: string;
   Cid_Diagnostico?: string;
@@ -187,7 +186,6 @@ const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
 
   // Fallbacks para suportar ambos os esquemas
   const name = (apiPatient.Paciente_Nome || (apiPatient as any).nome || '').toString();
-  const code = (apiPatient.Codigo || (apiPatient as any).codigo || '').toString();
   const sexo = apiPatient.Sexo || (apiPatient as any).sexo || '';
   const nasc = apiPatient.Data_Nascimento || (apiPatient as any).data_nascimento || '';
   const cid = apiPatient.Cid_Diagnostico || (apiPatient as any).cid_diagnostico || '';
@@ -227,7 +225,6 @@ const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
     
     // Dados adicionais do backend
     Paciente_Nome: name,
-    Codigo: code,
     cpf: apiPatient.cpf || '',
     rg: apiPatient.rg || '',
     Data_Nascimento: convertDateFromISO(nasc || null), // Converter para exibição

@@ -6,7 +6,6 @@ export interface Patient {
   Paciente_Nome: string;
   Operadora: string;
   Prestador: string;
-  Codigo: string;
   Data_Nascimento: string;
   Sexo: string;
   Cid_Diagnostico: string;
@@ -28,7 +27,6 @@ export const emptyPatient: Omit<Patient, 'id' | 'clinica_id' | 'created_at' | 'u
   Paciente_Nome: '',
   Operadora: '',
   Prestador: '',
-  Codigo: '',
   Data_Nascimento: '',
   Sexo: '',
   Cid_Diagnostico: '',

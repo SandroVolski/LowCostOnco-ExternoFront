@@ -39,6 +39,8 @@ import CadastroDocumentos from "./pages/CadastroDocumentos";
 import Procedimentos from "./pages/Procedimentos";
 import FinanceiroClinica from "./pages/FinanceiroClinica";
 import FinancasClinica from "./pages/FinancasClinica";
+import Tabelas from "./pages/Tabelas";
+import TabelasPrecos from "./pages/TabelasPrecos";
 import ClinicRegisterAdmin from "./pages/ClinicRegisterAdmin";
 import AdminLogin from "./pages/AdminLogin";
 import AdminControleSistema from "./pages/AdminControleSistema";
@@ -49,6 +51,7 @@ import AuditorLogin from "./pages/auditor/AuditorLogin";
 import AuditorDashboard from "./pages/auditor/AuditorDashboard";
 import AuditorRecursos from "./pages/auditor/AuditorRecursos";
 import AuditorRecursoDetalhe from "./pages/auditor/AuditorRecursoDetalhe";
+import HistoricoPaciente from "./pages/auditor/HistoricoPaciente";
 import OperadoraRecursosGlosasList from "./pages/operadora/RecursosGlosasList";
 import OperadoraRecursoGlosaDetalhe from "./pages/operadora/RecursoGlosaDetalhe";
 
@@ -322,12 +325,34 @@ const App = () => (
                     } 
                   />
 
-                  <Route 
-                    path="/financeiro" 
+                  <Route
+                    path="/financeiro"
                     element={
                       <ProtectedRoute allowedRoles={['clinic']}>
-                        <Layout pageTitle="Financeiro">
+                        <Layout pageTitle="Faturamento">
                           <FinanceiroClinica />
+                        </Layout>
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  <Route
+                    path="/financeiro/tabelas-precos"
+                    element={
+                      <ProtectedRoute allowedRoles={['clinic']}>
+                        <Layout pageTitle="Tabelas de Preços">
+                          <TabelasPrecos />
+                        </Layout>
+                      </ProtectedRoute>
+                    }
+                  />
+
+                  <Route
+                    path="/financeiro/tabelas"
+                    element={
+                      <ProtectedRoute allowedRoles={['clinic']}>
+                        <Layout pageTitle="Tabelas">
+                          <Tabelas />
                         </Layout>
                       </ProtectedRoute>
                     } 
@@ -461,6 +486,15 @@ const App = () => (
                     element={
                       <AuditorLayout>
                         <AuditorRecursoDetalhe />
+                      </AuditorLayout>
+                    }
+                  />
+
+                  <Route
+                    path="/auditor/historico-paciente"
+                    element={
+                      <AuditorLayout>
+                        <HistoricoPaciente />
                       </AuditorLayout>
                     }
                   />
