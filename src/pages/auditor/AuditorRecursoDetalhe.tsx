@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuditorAuth } from '@/contexts/AuditorAuthContext';
 import { AuditorService, MensagemChat, Parecer } from '@/services/auditorService';
@@ -8,7 +8,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -34,6 +33,7 @@ import { ptBR } from 'date-fns/locale';
 import XMLTISSDetailedViewerV2 from '@/components/XMLTISSDetailedViewerV2';
 import { buildFinanceiroVisualization } from '@/utils/financeiroVisualization';
 import AnimatedSection from '@/components/AnimatedSection';
+import { formatCurrency } from '@/utils/formatCurrency';
 
 const AuditorRecursoDetalhe = () => {
   const navigate = useNavigate();
@@ -61,6 +61,66 @@ const AuditorRecursoDetalhe = () => {
     valor_recomendado: '',
     justificativa_tecnica: ''
   });
+
+  const itensGlosadosBrutos = useMemo(() => {
+    const raw = recurso?.itens_glosados;
+    if (!raw) return [] as any[];
+
+    if (Array.isArray(raw)) return raw;
+
+    if (typeof raw === 'string') {
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (err) {
+        console.warn('Não foi possível parsear itens_glosados do recurso', err);
+        return [];
+      }
+    }
+
+    if (typeof raw === 'object') {
+      return [raw];
+    }
+
+    return [] as any[];
+  }, [recurso]);
+
+  const itensGlosadosNormalizados = useMemo(() => {
+    console.log('🔍 DEBUG Normalizando itens glosados:', {
+      itensGlosadosBrutos,
+      quantidade: itensGlosadosBrutos.length
+    });
+    
+    return itensGlosadosBrutos.map((item, index) => {
+      // Extrair código - tentar múltiplas fontes
+      const codigo = item?.codigo ?? item?.codigo_item ?? item?.codigo_procedimento ?? '';
+      const codigoStr = codigo ? String(codigo).trim() : '';
+      
+      // Extrair descrição - tentar múltiplas fontes
+      const descricao = item?.descricao ?? item?.descricao_item ?? item?.descricao_procedimento ?? '';
+      const descricaoStr = descricao ? String(descricao).trim() : '';
+      
+      // Extrair tipo
+      const tipo = (item?.tipo ?? item?.tipo_item ?? 'item').toLowerCase().trim();
+      
+      // Extrair ID - usar código como fallback se não tiver ID
+      const idBase = item?.id ?? item?.item_id ?? (codigoStr || `glosado-${index}`);
+      
+      const quantidadeRaw = item?.quantidade ?? item?.quantidade_executada ?? 1;
+      const valorRaw = item?.valor_total ?? item?.valor ?? 0;
+
+      return {
+        id: String(idBase),
+        item_id: item?.item_id ? String(item.item_id) : undefined,
+        codigo: codigoStr || undefined,
+        descricao: descricaoStr,
+        tipo: tipo,
+        quantidade: Number.isFinite(Number(quantidadeRaw)) ? Number(quantidadeRaw) : 1,
+        valor_total: Number.isFinite(Number(valorRaw)) ? Number(valorRaw) : 0,
+        observacao: item?.observacao_glosa ?? item?.observacao ?? '',
+      };
+    });
+  }, [itensGlosadosBrutos]);
 
   useEffect(() => {
     if (id) {
@@ -561,7 +621,21 @@ ${parecer.justificativa_tecnica || ''}
                     </div>
                   ) : guiaVisualizacao && guiaVisualizacao.guias && guiaVisualizacao.guias.length > 0 ? (
                     <div className="rounded-xl border border-border overflow-hidden">
-                      <XMLTISSDetailedViewerV2 data={guiaVisualizacao} onClose={() => {}} />
+                      {(() => {
+                        console.log('🔦 Passando para XMLTISSDetailedViewerV2:', {
+                          highlightedItems: itensGlosadosNormalizados,
+                          quantidade: itensGlosadosNormalizados.length,
+                          allowStatusActions: false
+                        });
+                        return (
+                          <XMLTISSDetailedViewerV2 
+                            data={guiaVisualizacao} 
+                            onClose={() => {}} 
+                            allowStatusActions={false} 
+                            highlightedItems={itensGlosadosNormalizados} 
+                          />
+                        );
+                      })()}
                     </div>
                   ) : (
                     <div className="text-sm text-muted-foreground py-6 text-center">

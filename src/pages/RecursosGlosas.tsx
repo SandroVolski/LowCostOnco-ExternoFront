@@ -96,6 +96,7 @@ const RecursosGlosas: React.FC = () => {
   const [itensGlosados, setItensGlosados] = useState<any[]>([]);
   const [documentoVisualizacao, setDocumentoVisualizacao] = useState<{ url: string, nome: string, tipo: string } | null>(null);
   const [loadingDocumento, setLoadingDocumento] = useState(false);
+  const [itemSelecionado, setItemSelecionado] = useState<any | null>(null);
 
   useEffect(() => {
     const carregarDados = async () => {
@@ -104,6 +105,7 @@ const RecursosGlosas: React.FC = () => {
       // Se há um ID na URL, carregar o recurso existente
       if (id) {
         await carregarRecursoPorId(parseInt(id));
+        setItemSelecionado(null);
       }
       // Senão, verificar se há dados no state (criação de novo recurso)
       else if (location.state?.guia && location.state?.lote) {
@@ -114,8 +116,10 @@ const RecursosGlosas: React.FC = () => {
         setGuia(guiaState);
         setLote(loteState);
 
+        let normalizado: any = null;
+
         if (itemState) {
-          const normalizado = {
+          normalizado = {
             id: itemState.id ?? itemState.item_id ?? itemState.codigo,
             codigo: itemState.codigo ?? itemState.codigo_procedimento ?? itemState.codigo_item ?? 'N/A',
             descricao: itemState.descricao ?? itemState.descricao_procedimento ?? itemState.descricao_item ?? '',
@@ -124,14 +128,16 @@ const RecursosGlosas: React.FC = () => {
             tipo: itemState.tipo ?? itemState.tipo_item ?? 'procedimento',
           };
           setItensGlosados([normalizado]);
+          setItemSelecionado(normalizado);
         } else {
           setItensGlosados([]);
+          setItemSelecionado(null);
         }
 
-        // Verificar se já existe um recurso para esta guia
-        await verificarRecursoExistente(guiaState.id);
+        await verificarRecursoExistente(guiaState.id, normalizado || itemState);
       } else {
         setItensGlosados([]);
+        setItemSelecionado(null);
       }
 
       setLoading(false);
@@ -218,16 +224,51 @@ const RecursosGlosas: React.FC = () => {
   };
 
   // Verificar se já existe recurso
-  const verificarRecursoExistente = async (guiaId: number) => {
+  const verificarRecursoExistente = async (guiaId: number, itemAtual?: any) => {
     try {
       const response = await authorizedFetch(`${config.API_BASE_URL}/financeiro/recursos-glosas/guia/${guiaId}`);
 
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.data) {
-          setRecursoExistente(result.data);
-          setItensGlosados(result.data.itens_glosados || []);
-          setModoVisualizacao(true);
+          const itensExistentes = Array.isArray(result.data.itens_glosados)
+            ? result.data.itens_glosados
+            : [];
+
+          let itemJaPresente = false;
+          if (itemAtual) {
+            const codigoAtual = String(itemAtual.codigo || '').trim();
+            const idAtual = String(itemAtual.id || '').trim();
+
+            itemJaPresente = itensExistentes.some((it: any) => {
+              const codigoIt = String(it.codigo_item || it.codigo || '').trim();
+              const idIt = String(it.item_id || it.id || '').trim();
+
+              if (codigoAtual && codigoIt && codigoAtual === codigoIt) return true;
+              if (idAtual && idIt && idAtual === idIt) return true;
+              return false;
+            });
+          }
+
+          if (!itemAtual || itemJaPresente) {
+            setRecursoExistente(result.data);
+            setItensGlosados(result.data.itens_glosados || []);
+            setModoVisualizacao(true);
+            if (itemJaPresente) {
+              setItemSelecionado(itemAtual);
+            }
+            return;
+          }
+
+          console.info('Recurso existente para a guia, mas o item atual não foi encontrado. Permitindo criação de novo recurso.');
+          toast({
+            title: 'Novo recurso',
+            description: 'Já existe recurso para esta guia, porém o item selecionado ainda não foi glosado. Um novo recurso será criado.',
+          });
+          setRecursoExistente(null);
+          setItensGlosados([itemAtual]);
+          setItemSelecionado(itemAtual);
+          setModoVisualizacao(false);
           return;
         }
       }

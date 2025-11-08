@@ -77,14 +77,104 @@ interface XMLTISSDetailedViewerV2Props {
   onClose: () => void;
   onGlosarItem?: (numeroGuia: string, itemId: string, item: ItemFinanceiro, loteId: number) => void;
   loteId?: number;
+  allowStatusActions?: boolean;
+  highlightedItems?: Array<{
+    id?: string;
+    codigo?: string;
+    descricao?: string;
+    tipo?: string;
+    quantidade?: number;
+    valor_total?: number;
+    observacao?: string;
+  }>;
 }
 
 const XMLTISSDetailedViewerV2: React.FC<XMLTISSDetailedViewerV2Props> = ({
   data,
   onClose,
   onGlosarItem,
-  loteId
+  loteId,
+  allowStatusActions = true,
+  highlightedItems = [],
 }) => {
+  const highlightedLookup = React.useMemo(() => {
+    if (!highlightedItems || highlightedItems.length === 0) {
+      return {
+        byId: new Map<string, (typeof highlightedItems)[number]>(),
+        byCodigo: new Map<string, (typeof highlightedItems)[number]>(),
+      };
+    }
+
+    const byId = new Map<string, (typeof highlightedItems)[number]>();
+    const byCodigo = new Map<string, (typeof highlightedItems)[number]>();
+
+    highlightedItems.forEach((item) => {
+      if (item?.id) {
+        byId.set(String(item.id), item);
+      }
+      const codigo = item?.codigo;
+      if (codigo) {
+        byCodigo.set(String(codigo), item);
+      }
+    });
+
+    return { byId, byCodigo };
+  }, [highlightedItems]);
+
+  const getHighlightedInfo = React.useCallback(
+    (item: ItemFinanceiro) => {
+      if (!highlightedItems || highlightedItems.length === 0) {
+        return undefined;
+      }
+
+      const byId = highlightedLookup.byId;
+      const byCodigo = highlightedLookup.byCodigo;
+
+      // Tentar match por ID primeiro
+      const possibleIds = [item.id, (item as any).item_id].filter(Boolean).map(String);
+      for (const id of possibleIds) {
+        if (byId.has(id)) {
+          return byId.get(id);
+        }
+      }
+
+      // Tentar match por código (com normalização e trim)
+      const itemCodigo = item.codigo ? String(item.codigo).trim() : '';
+      if (itemCodigo && itemCodigo !== 'N/A') {
+        // Tentar no mapa primeiro
+        if (byCodigo.has(itemCodigo)) {
+          return byCodigo.get(itemCodigo);
+        }
+        
+        // Tentar match direto nos highlightedItems (caso o código tenha variações)
+        for (const highlighted of highlightedItems) {
+          const highlightedCodigo = highlighted.codigo ? String(highlighted.codigo).trim() : '';
+          if (highlightedCodigo && highlightedCodigo === itemCodigo) {
+            return highlighted;
+          }
+        }
+      }
+
+      // Fallback: match por tipo + descrição (normalizado)
+      const itemTipo = String(item.tipo || '').trim().toLowerCase();
+      const itemDesc = String(item.descricao || '').trim().toLowerCase();
+      
+      if (itemTipo && itemDesc && itemDesc !== 'n/a') {
+        for (const highlighted of highlightedItems) {
+          const highlightedTipo = String(highlighted.tipo || '').trim().toLowerCase();
+          const highlightedDesc = String(highlighted.descricao || '').trim().toLowerCase();
+          
+          if (highlightedTipo === itemTipo && highlightedDesc === itemDesc) {
+            return highlighted;
+          }
+        }
+      }
+
+      return undefined;
+    },
+    [highlightedLookup, highlightedItems]
+  );
+
   // Processar dados para agrupar por guia
   const processarDadosPorGuia = (): GuiaData[] => {
     if (!data.guias) return [];
@@ -632,213 +722,279 @@ const XMLTISSDetailedViewerV2: React.FC<XMLTISSDetailedViewerV2Props> = ({
                       </Badge>
                     </div>
 
-                    {guia.itens.map((item, itemIdx) => (
-                      <div
-                        key={item.id}
-                        className="group relative overflow-hidden rounded-xl bg-gradient-to-br from-card to-muted/20 dark:from-card dark:to-muted/30 border-2 border-border hover:border-primary/50 dark:hover:border-primary/40 transition-all duration-300 shadow-sm hover:shadow-md"
-                      >
-                        <div className="p-5">
-                          <div className="flex items-start gap-4">
-                            {/* Tipo e Status - Barra Lateral */}
-                            <div className="flex flex-col gap-3 items-center min-w-[100px]">
-                              <div className={`${getTipoColor(item.tipo)} px-3 py-2 rounded-lg border-2 flex flex-col items-center gap-1.5 shadow-sm w-full`}>
-                                {getTipoIcon(item.tipo)}
-                                <span className="text-xs font-bold capitalize">{item.tipo}</span>
-                              </div>
-                              <div className={`${getStatusColor(item.status_pagamento)} px-2 py-1 rounded-md flex items-center gap-1.5 text-xs font-medium w-full justify-center`}>
-                                {getStatusIcon(item.status_pagamento)}
-                                <span className="capitalize">
-                                  {item.status_pagamento === 'pago' ? 'Pago' : 
-                                   item.status_pagamento === 'glosado' ? 'Glosado' : 
-                                   item.status_pagamento === 'nao_pago' ? 'Não Pago' : 'Pendente'}
-                                </span>
-                              </div>
-                            </div>
+                    {guia.itens.map((item, itemIdx) => {
+                      const highlightedInfo = getHighlightedInfo(item);
+                      const isHighlighted = Boolean(highlightedInfo);
+                      // Para auditor (allowStatusActions=false), destacar APENAS itens em highlightedItems
+                      // Para clínica (allowStatusActions=true), destacar itens glosados também
+                      const showRedBorder = isHighlighted || (allowStatusActions && item.status_pagamento === 'glosado');
 
-                            {/* Informações do Item */}
-                            <div className="flex-1 space-y-3">
-                              <div>
-                                <div className="font-bold text-lg text-foreground mb-2 leading-tight">{item.descricao}</div>
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                  <div className="space-y-1">
-                                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Código</div>
-                                    <div className="text-sm font-bold text-foreground bg-muted/50 dark:bg-muted/30 px-2 py-1 rounded border border-border inline-block">
-                                      {item.codigo}
-                                    </div>
-                                  </div>
-                                  <div className="space-y-1">
-                                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Quantidade</div>
-                                    <div className="text-sm font-medium text-foreground">
-                                      {item.quantidade} {item.unidade_medida && <span className="text-muted-foreground">({item.unidade_medida})</span>}
-                                    </div>
-                                  </div>
-                                  <div className="space-y-1">
-                                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Data Execução</div>
-                                    <div className="text-sm font-medium text-foreground">{formatDate(item.data_execucao)}</div>
-                                  </div>
-                                  <div className="space-y-1">
-                                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Valor</div>
-                                    <div className="text-lg font-bold text-primary dark:text-primary">
-                                      {formatCurrency(item.valor_total)}
-                                    </div>
-                                  </div>
+                      // Debug apenas para o primeiro item
+                      if (itemIdx === 0) {
+                        console.log('🔍 DEBUG Matching item:', {
+                          itemCodigo: item.codigo,
+                          itemDescricao: item.descricao,
+                          itemTipo: item.tipo,
+                          itemStatus: item.status_pagamento,
+                          highlightedItemsLength: highlightedItems?.length || 0,
+                          isHighlighted,
+                          showRedBorder,
+                          allowStatusActions,
+                          highlightedInfo
+                        });
+                      }
+
+                      return (
+                        <div
+                          key={item.id}
+                          className={`group relative overflow-hidden rounded-xl border-2 transition-all duration-300 shadow-sm hover:shadow-md ${
+                            showRedBorder
+                              ? 'border-destructive bg-gradient-to-br from-destructive/10 via-background to-destructive/5 dark:from-destructive/20 dark:via-background dark:to-destructive/10 ring-2 ring-destructive/40 ring-offset-2 ring-offset-background'
+                              : 'bg-gradient-to-br from-card to-muted/20 dark:from-card dark:to-muted/30 border-border hover:border-primary/50 dark:hover:border-primary/40'
+                          }`}
+                        >
+                          {showRedBorder && (
+                            <div className="absolute top-3 right-3">
+                              <Badge variant="destructive" className="flex items-center gap-1 text-[10px] tracking-wide uppercase">
+                                <AlertCircle className="h-3 w-3" />
+                                Item em análise
+                              </Badge>
+                            </div>
+                          )}
+
+                          <div className="p-5">
+                            <div className="flex items-start gap-4">
+                              {/* Tipo e Status - Barra Lateral */}
+                              <div className="flex flex-col gap-3 items-center min-w-[100px]">
+                                <div className={`${getTipoColor(item.tipo)} px-3 py-2 rounded-lg border-2 flex flex-col items-center gap-1.5 shadow-sm w-full`}>
+                                  {getTipoIcon(item.tipo)}
+                                  <span className="text-xs font-bold capitalize">{item.tipo}</span>
+                                </div>
+                                <div className={`${getStatusColor(item.status_pagamento)} px-2 py-1 rounded-md flex items-center gap-1.5 text-xs font-medium w-full justify-center`}>
+                                  {getStatusIcon(item.status_pagamento)}
+                                  <span className="capitalize">
+                                    {item.status_pagamento === 'pago' ? 'Pago' : 
+                                     item.status_pagamento === 'glosado' ? 'Glosado' : 
+                                     item.status_pagamento === 'nao_pago' ? 'Não Pago' : 'Pendente'}
+                                  </span>
                                 </div>
                               </div>
 
-                              {/* Controles de Status */}
-                              <div className="pt-3 border-t border-border/50">
-                                <div className="flex items-center justify-between flex-wrap gap-3">
-                                  <div className="flex items-center gap-3">
-                                    <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Alterar Status:</div>
-                                    <div className="flex gap-2">
-                                      <Button
-                                        size="sm"
-                                        variant={item.status_pagamento === 'pago' ? 'default' : 'outline'}
-                                        className={`h-8 text-xs font-medium transition-all ${
-                                          item.status_pagamento === 'pago' 
-                                            ? 'bg-green-600 hover:bg-green-700 text-white shadow-md' 
-                                            : 'hover:bg-green-50 dark:hover:bg-green-950/20 hover:border-green-300 dark:hover:border-green-700'
-                                        }`}
-                                        onClick={() => handleStatusChange(guia.numero_guia, item.id!, 'pago', item)}
-                                      >
-                                        <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
-                                        Pago
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant={item.status_pagamento === 'glosado' ? 'default' : 'outline'}
-                                        className={`h-8 text-xs font-medium transition-all ${
-                                          item.status_pagamento === 'glosado' 
-                                            ? 'bg-red-600 hover:bg-red-700 text-white shadow-md' 
-                                            : 'hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-300 dark:hover:border-red-700'
-                                        }`}
-                                        onClick={() => handleStatusChange(guia.numero_guia, item.id!, 'glosado', item)}
-                                      >
-                                        <XCircle className="h-3.5 w-3.5 mr-1.5" />
-                                        Glosado
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant={item.status_pagamento === 'nao_pago' ? 'default' : 'outline'}
-                                        className={`h-8 text-xs font-medium transition-all ${
-                                          item.status_pagamento === 'nao_pago' 
-                                            ? 'bg-gray-600 hover:bg-gray-700 text-white shadow-md' 
-                                            : 'hover:bg-gray-50 dark:hover:bg-gray-900/20 hover:border-gray-300 dark:hover:border-gray-700'
-                                        }`}
-                                        onClick={() => handleStatusChange(guia.numero_guia, item.id!, 'nao_pago', item)}
-                                      >
-                                        <X className="h-3.5 w-3.5 mr-1.5" />
-                                        Não Pago
-                                      </Button>
+                              {/* Informações do Item */}
+                              <div className="flex-1 space-y-3">
+                                <div>
+                                  <div className="font-bold text-lg text-foreground mb-2 leading-tight">{item.descricao}</div>
+                                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                    <div className="space-y-1">
+                                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Código</div>
+                                      <div className="text-sm font-bold text-foreground bg-muted/50 dark:bg-muted/30 px-2 py-1 rounded border border-border inline-block">
+                                        {item.codigo}
+                                      </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Quantidade</div>
+                                      <div className="text-sm font-medium text-foreground">
+                                        {item.quantidade} {item.unidade_medida && <span className="text-muted-foreground">({item.unidade_medida})</span>}
+                                      </div>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Data Execução</div>
+                                      <div className="text-sm font-medium text-foreground">{formatDate(item.data_execucao)}</div>
+                                    </div>
+                                    <div className="space-y-1">
+                                      <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Valor</div>
+                                      <div className="text-lg font-bold text-primary dark:text-primary">
+                                        {formatCurrency(item.valor_total)}
+                                      </div>
                                     </div>
                                   </div>
+                                </div>
 
-                                  {/* Botão de Glossário */}
-                                  <Dialog>
-                                    <DialogTrigger asChild>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="h-8 text-xs font-medium hover:bg-primary/10 hover:border-primary/50"
-                                      >
-                                        <Info className="h-3.5 w-3.5 mr-1.5" />
-                                        Glossário
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="max-w-3xl">
-                                      <DialogHeader className="pb-4 border-b border-border">
-                                        <DialogTitle className="flex items-center gap-3 text-2xl">
-                                          <div className="p-2 rounded-lg bg-primary/10 dark:bg-primary/20">
-                                            <Info className="h-6 w-6 text-primary" />
-                                          </div>
-                                          <span>Glossário TUSS</span>
-                                        </DialogTitle>
-                                        <DialogDescription className="text-base mt-2">
-                                          Informações detalhadas sobre o código de procedimento
-                                        </DialogDescription>
-                                      </DialogHeader>
-                                      <div className="space-y-6 py-4">
-                                        {/* Código e Descrição Principal */}
-                                        <div className="space-y-4">
-                                          <div className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 rounded-xl border-2 border-primary/30 dark:border-primary/40">
-                                            <div className="flex items-center justify-between mb-3">
-                                              <div className="text-xs font-bold text-primary/70 dark:text-primary/60 uppercase tracking-wider">Código TUSS</div>
-                                              <Badge className={`${getTipoColor(item.tipo)} text-sm px-3 py-1`}>
-                                                {getTipoIcon(item.tipo)}
-                                                {item.tipo}
-                                              </Badge>
-                                            </div>
-                                            <div className="text-2xl font-bold text-primary dark:text-primary mb-2">{item.codigo}</div>
-                                            <div className="text-sm text-muted-foreground">Descrição do Procedimento</div>
-                                            <div className="text-base font-medium text-foreground leading-relaxed">{item.descricao}</div>
-                                          </div>
+                                {/* Controles de Status */}
+                                <div className="pt-3 border-t border-border/50">
+                                  {allowStatusActions ? (
+                                    <div className="flex items-center justify-between flex-wrap gap-3">
+                                      <div className="flex items-center gap-3">
+                                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Alterar Status:</div>
+                                        <div className="flex gap-2">
+                                          <Button
+                                            size="sm"
+                                            variant={item.status_pagamento === 'pago' ? 'default' : 'outline'}
+                                            className={`h-8 text-xs font-medium transition-all ${
+                                              item.status_pagamento === 'pago' 
+                                                ? 'bg-green-600 hover:bg-green-700 text-white shadow-md' 
+                                                : 'hover:bg-green-50 dark:hover:bg-green-950/20 hover:border-green-300 dark:hover:border-green-700'
+                                            }`}
+                                            onClick={() => handleStatusChange(guia.numero_guia, item.id!, 'pago', item)}
+                                          >
+                                            <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                                            Pago
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant={item.status_pagamento === 'glosado' ? 'default' : 'outline'}
+                                            className={`h-8 text-xs font-medium transition-all ${
+                                              item.status_pagamento === 'glosado' 
+                                                ? 'bg-red-600 hover:bg-red-700 text-white shadow-md' 
+                                                : 'hover:bg-red-50 dark:hover:bg-red-950/20 hover:border-red-300 dark:hover:border-red-700'
+                                            }`}
+                                            onClick={() => handleStatusChange(guia.numero_guia, item.id!, 'glosado', item)}
+                                          >
+                                            <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                                            Glosado
+                                          </Button>
+                                          <Button
+                                            size="sm"
+                                            variant={item.status_pagamento === 'nao_pago' ? 'default' : 'outline'}
+                                            className={`h-8 text-xs font-medium transition-all ${
+                                              item.status_pagamento === 'nao_pago' 
+                                                ? 'bg-gray-600 hover:bg-gray-700 text-white shadow-md' 
+                                                : 'hover:bg-gray-50 dark:hover:bg-gray-900/20 hover:border-gray-300 dark:hover:border-gray-700'
+                                            }`}
+                                            onClick={() => handleStatusChange(guia.numero_guia, item.id!, 'nao_pago', item)}
+                                          >
+                                            <X className="h-3.5 w-3.5 mr-1.5" />
+                                            Não Pago
+                                          </Button>
                                         </div>
+                                      </div>
 
-                                        {/* Informações Detalhadas */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                          <div className="p-4 bg-card rounded-xl border border-border/50 shadow-sm">
-                                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Quantidade</div>
-                                            <div className="text-lg font-bold text-foreground">
-                                              {item.quantidade} {item.unidade_medida && <span className="text-sm font-normal text-muted-foreground">({item.unidade_medida})</span>}
+                                      {/* Botão de Glossário */}
+                                      <Dialog>
+                                        <DialogTrigger asChild>
+                                          <Button
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8 text-xs font-medium hover:bg-primary/10 hover:border-primary/50"
+                                          >
+                                            <Info className="h-3.5 w-3.5 mr-1.5" />
+                                            Glossário
+                                          </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="max-w-3xl">
+                                          <DialogHeader className="pb-4 border-b border-border">
+                                            <DialogTitle className="flex items-center gap-3 text-2xl">
+                                              <div className="p-2 rounded-lg bg-primary/10 dark:bg-primary/20">
+                                                <Info className="h-6 w-6 text-primary" />
+                                              </div>
+                                              <span>Glossário TUSS</span>
+                                            </DialogTitle>
+                                            <DialogDescription className="text-base mt-2">
+                                              Informações detalhadas sobre o código de procedimento
+                                            </DialogDescription>
+                                          </DialogHeader>
+                                          <div className="py-4">
+                                            {/* Código e Descrição Principal */}
+                                            <div className="space-y-4">
+                                              <div className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 rounded-xl border-2 border-primary/30 dark:border-primary/40">
+                                                <div className="flex items-center justify-between mb-3">
+                                                  <div className="text-xs font-bold text-primary/70 dark:text-primary/60 uppercase tracking-wider">Código TUSS</div>
+                                                  <Badge className={`${getTipoColor(item.tipo)} text-sm px-3 py-1`}>
+                                                    {getTipoIcon(item.tipo)}
+                                                    {item.tipo}
+                                                  </Badge>
+                                                </div>
+                                                <div className="text-2xl font-bold text-primary dark:text-primary mb-2">{item.codigo}</div>
+                                                <div className="text-sm text-muted-foreground">Descrição do Procedimento</div>
+                                                <div className="text-base font-medium text-foreground leading-relaxed">{item.descricao}</div>
+                                              </div>
                                             </div>
-                                          </div>
-                                          <div className="p-4 bg-card rounded-xl border border-border/50 shadow-sm">
-                                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Valor Unitário</div>
-                                            <div className="text-lg font-bold text-primary dark:text-primary">
-                                              {item.valor_unitario ? formatCurrency(item.valor_unitario) : formatCurrency(item.valor_total / (item.quantidade || 1))}
-                                            </div>
-                                          </div>
-                                          <div className="p-4 bg-card rounded-xl border border-border/50 shadow-sm">
-                                            <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Data de Execução</div>
-                                            <div className="text-lg font-medium text-foreground">{formatDate(item.data_execucao)}</div>
-                                          </div>
-                                          <div className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 rounded-xl border-2 border-primary/30 dark:border-primary/40 shadow-md">
-                                            <div className="text-xs font-semibold text-primary/70 dark:text-primary/60 uppercase tracking-wide mb-2">Valor Total</div>
-                                            <div className="text-2xl font-bold text-primary dark:text-primary">
-                                              {formatCurrency(item.valor_total)}
-                                            </div>
-                                          </div>
-                                        </div>
 
-                                        {/* Informações Adicionais */}
-                                        <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-                                          <div className="flex items-start gap-3">
-                                            <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-                                            <div>
-                                              <div className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-1">Informações Técnicas</div>
-                                              <div className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
-                                                Este código faz parte da tabela TUSS (Terminologia Unificada da Saúde Suplementar). 
-                                                Para informações adicionais sobre cobertura, autorização prévia ou outras especificações, 
-                                                consulte a tabela TUSS oficial ou entre em contato com a operadora.
+                                            {/* Informações Detalhadas */}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                              <div className="p-4 bg-card rounded-xl border border-border/50 shadow-sm">
+                                                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Quantidade</div>
+                                                <div className="text-lg font-bold text-foreground">
+                                                  {item.quantidade} {item.unidade_medida && <span className="text-sm font-normal text-muted-foreground">({item.unidade_medida})</span>}
+                                                </div>
+                                              </div>
+                                              <div className="p-4 bg-card rounded-xl border border-border/50 shadow-sm">
+                                                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Valor Unitário</div>
+                                                <div className="text-lg font-bold text-primary dark:text-primary">
+                                                  {item.valor_unitario ? formatCurrency(item.valor_unitario) : formatCurrency(item.valor_total / (item.quantidade || 1))}
+                                                </div>
+                                              </div>
+                                              <div className="p-4 bg-card rounded-xl border border-border/50 shadow-sm">
+                                                <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Data de Execução</div>
+                                                <div className="text-lg font-medium text-foreground">{formatDate(item.data_execucao)}</div>
+                                              </div>
+                                              <div className="p-4 bg-gradient-to-br from-primary/10 to-primary/5 dark:from-primary/20 dark:to-primary/10 rounded-xl border-2 border-primary/30 dark:border-primary/40 shadow-md">
+                                                <div className="text-xs font-semibold text-primary/70 dark:text-primary/60 uppercase tracking-wide mb-2">Valor Total</div>
+                                                <div className="text-2xl font-bold text-primary dark:text-primary">
+                                                  {formatCurrency(item.valor_total)}
+                                                </div>
+                                              </div>
+                                            </div>
+
+                                            {/* Informações Adicionais */}
+                                            <div className="p-4 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/30 dark:to-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                                              <div className="flex items-start gap-3">
+                                                <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                                                <div>
+                                                  <div className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-1">Informações Técnicas</div>
+                                                  <div className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
+                                                    Este código faz parte da tabela TUSS (Terminologia Unificada da Saúde Suplementar). 
+                                                    Para informações adicionais sobre cobertura, autorização prévia ou outras especificações, 
+                                                    consulte a tabela TUSS oficial ou entre em contato com a operadora.
+                                                  </div>
+                                                </div>
                                               </div>
                                             </div>
                                           </div>
-                                        </div>
+                                        </DialogContent>
+                                      </Dialog>
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col gap-2 text-sm text-muted-foreground">
+                                      <div className="flex items-center gap-2">
+                                        <Info className="h-4 w-4 text-primary" />
+                                        <span>
+                                          Status do item: <span className="font-semibold text-foreground capitalize">{item.status_pagamento || 'pendente'}</span>
+                                        </span>
                                       </div>
-                                    </DialogContent>
-                                  </Dialog>
+                                      {isHighlighted ? (
+                                        <div className="flex flex-col gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-destructive-foreground dark:text-destructive">
+                                          <div className="flex items-center gap-2 text-xs font-semibold uppercase">
+                                            <AlertCircle className="h-4 w-4" />
+                                            Item apontado para glosa pela clínica
+                                          </div>
+                                          {highlightedInfo?.observacao && (
+                                            <p className="text-xs leading-relaxed text-destructive/80 dark:text-destructive/90">
+                                              {highlightedInfo.observacao}
+                                            </p>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        item.status_pagamento === 'glosado' && (
+                                          <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-xs">
+                                            <AlertCircle className="h-4 w-4" />
+                                            <span>Item marcado como glosado na origem.</span>
+                                          </div>
+                                        )
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
-                              </div>
 
-                              {/* Indicador visual de item glosado - sem campo de texto editável */}
-                              {item.status_pagamento === 'glosado' && (
-                                <div className="mt-4 pt-4 border-t-2 border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20 rounded-lg p-4">
-                                  <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
-                                    <AlertCircle className="h-5 w-5" />
-                                    <p className="text-sm font-semibold">
-                                      Este item foi glosado e encaminhado para recurso.
+                                {allowStatusActions && item.status_pagamento === 'glosado' && (
+                                  <div className="mt-4 pt-4 border-t-2 border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20 rounded-lg p-4">
+                                    <div className="flex items-center gap-2 text-red-700 dark:text-red-400">
+                                      <AlertCircle className="h-5 w-5" />
+                                      <p className="text-sm font-semibold">
+                                        Este item foi glosado e encaminhado para recurso.
+                                      </p>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-2">
+                                      A justificativa completa está disponível no recurso de glosa registrado.
                                     </p>
                                   </div>
-                                  <p className="text-xs text-muted-foreground mt-2">
-                                    A justificativa completa está disponível no recurso de glosa registrado.
-                                  </p>
-                                </div>
-                              )}
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
 
                   {/* Resumo de Valores da Guia */}
