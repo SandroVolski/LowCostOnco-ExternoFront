@@ -77,19 +77,13 @@ class ChatService {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       const result = await response.json();
-      
-      console.log('🔧 [CHAT SERVICE] Dados recebidos do backend:', result.data);
-      
+
       // Mapear os dados do backend para o formato do frontend
       const mappedChats = (result.data || []).map((chat: any) => {
-        console.log('🔧 [CHAT SERVICE] Chat individual do backend:', chat);
-        
         // Tentar diferentes campos para os nomes (com letra minúscula)
         const operadoraNome = chat.operadora_nome || chat.operadoraNome || chat.operadora_nome || '';
         const clinicaNome = chat.clinica_nome || chat.clinicaNome || chat.clinica_nome || '';
-        
-        console.log('🔧 [CHAT SERVICE] Nomes extraídos:', { operadoraNome, clinicaNome });
-        
+
         return {
           id: chat.id,
           name: chat.nome_conversa || `${operadoraNome} - ${clinicaNome}`,
@@ -109,9 +103,7 @@ class ChatService {
           updated_at: chat.updated_at
         };
       });
-      
-      console.log('🔧 [CHAT SERVICE] Chats mapeados:', mappedChats);
-      
+
       return mappedChats;
     } catch (error) {
       console.error('Erro ao buscar chats:', error);
@@ -168,24 +160,15 @@ class ChatService {
       queryParams.append('limit', limit.toString());
       queryParams.append('offset', offset.toString());
       if (lastId && lastId > 0) queryParams.append('last_id', String(lastId));
-      
+
       const response = await authorizedFetch(`${config.API_BASE_URL}/chat/chats/${chatId}/messages?${queryParams.toString()}`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       const result = await response.json();
-      
-      console.log('🔧 [FRONTEND] Resposta do backend:', result);
-      
+
       // Mapear mensagens do formato backend para frontend
       const mappedMessages = result.data.messages.map((msg: any) => {
-        console.log('🔧 [CHAT_SERVICE] Processando mensagem do backend:', {
-          id: msg.id,
-          tipo_mensagem: msg.tipo_mensagem,
-          conteudo: msg.conteudo,
-          length: msg.conteudo?.length
-        });
-        
         return {
           id: msg.id,
           chat_id: msg.conversa_id,
@@ -199,9 +182,7 @@ class ChatService {
           updated_at: msg.updated_at
         };
       });
-      
-      console.log('🔧 [FRONTEND] Mensagens mapeadas:', mappedMessages);
-      
+
       return {
         messages: mappedMessages,
         pagination: result.data.pagination
@@ -225,14 +206,12 @@ class ChatService {
           message_type: messageType
         }),
       });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       const result = await response.json();
-      
-      console.log('🔧 [FRONTEND] Resposta do sendMessage:', result);
-      
+
       // Mapear mensagem do formato backend para frontend
       const msg = result.data;
       const mappedMessage = {
@@ -247,9 +226,7 @@ class ChatService {
         created_at: msg.created_at,
         updated_at: msg.updated_at
       };
-      
-      console.log('🔧 [FRONTEND] Mensagem mapeada:', mappedMessage);
-      
+
       return mappedMessage;
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
@@ -262,19 +239,17 @@ class ChatService {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      
+
       const response = await authorizedFetch(`${config.API_BASE_URL}/chat/chats/${chatId}/upload`, {
         method: 'POST',
         body: formData,
       });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       const result = await response.json();
-      
-      console.log('🔧 [FRONTEND] Resposta do upload:', result);
-      
+
       // Mapear mensagem do formato backend para frontend
       const msg = result.data;
       const mappedMessage = {
@@ -290,9 +265,7 @@ class ChatService {
         updated_at: msg.updated_at,
         fileInfo: result.data.fileInfo
       };
-      
-      console.log('🔧 [FRONTEND] Mensagem com arquivo mapeada:', mappedMessage);
-      
+
       return mappedMessage;
     } catch (error) {
       console.error('Erro ao fazer upload do arquivo:', error);

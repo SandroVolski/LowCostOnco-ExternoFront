@@ -25,20 +25,15 @@ export const InteractiveAnatomy = ({ filters, TooltipComponent, onOrganSelect }:
       try {
         setLoading(true);
         setError(null);
-        
-        console.log('🔧 Carregando dados de análise por órgão...', filters);
-        
+
         const analysisData = await AnalysisService.getOrganAnalysisData(filters);
-        console.log('✅ Dados de análise carregados:', analysisData.length, 'órgãos');
-        console.log('🔧 Dados brutos do backend:', analysisData);
-        
+
         // Converter dados de análise para formato de órgão
         const convertedData = convertAnalysisToOrganData(analysisData);
-        
+
         // Sem fallback: se não houver dados, manter vazio (defaultOrganData com zeros)
         const mergedData = { ...defaultOrganData, ...convertedData };
         setOrganDataState(mergedData);
-        
       } catch (err) {
         console.error('❌ Erro ao carregar dados de análise:', err);
         setError('Erro ao carregar dados de análise');
@@ -73,41 +68,27 @@ export const InteractiveAnatomy = ({ filters, TooltipComponent, onOrganSelect }:
   };
 
   const handleClick = (organId: string) => {
-    console.log('🔧 handleClick chamado para:', organId);
-    console.log('🔧 selectedOrganId atual:', selectedOrganId);
-    console.log('🔧 organDataState[organId]:', organDataState[organId]);
-    console.log('🔧 onOrganSelect disponível:', !!onOrganSelect);
-    
     if (selectedOrganId === organId) {
-      // Clicar novamente no mesmo órgão deseleciona
-      console.log('🔧 Mesmo órgão clicado, deselecionando');
       setSelectedOrganId(null);
       setSelectedPosition(null);
       setHoveredOrgan(null);
       onOrganSelect?.(null); // Passar null para deselecionar
       return;
     }
-    
-    console.log('🔧 Atualizando selectedOrganId para:', organId);
+
     setSelectedOrganId(organId);
     // Congelar posição atual do mouse para o tooltip fixo
     setSelectedPosition(mousePosition);
     setHoveredOrgan(organDataState[organId]);
-    
+
     // Chamar callback se fornecido
     if (onOrganSelect && organDataState[organId]) {
-      console.log('🔧 Chamando onOrganSelect com:', organDataState[organId]);
       try {
         onOrganSelect(organDataState[organId]);
-        console.log('✅ onOrganSelect executado com sucesso');
       } catch (error) {
         console.error('❌ Erro ao executar onOrganSelect:', error);
       }
-    } else {
-      console.log('🔧 onOrganSelect não disponível ou organDataState[organId] não existe');
-      console.log('🔧 onOrganSelect:', onOrganSelect);
-      console.log('🔧 organDataState[organId]:', organDataState[organId]);
-    }
+    } else {}
   };
 
   // Mostrar loading

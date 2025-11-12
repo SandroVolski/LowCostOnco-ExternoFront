@@ -60,27 +60,23 @@ export class OperadoraService {
   // Listar todas as operadoras (usa admin quando disponível)
   static async getAllOperadoras(): Promise<Operadora[]> {
     try {
-      console.log('🔧 OperadoraService.getAllOperadoras() iniciado');
-      console.log('🔧 API_BASE_URL:', API_BASE_URL);
       const adminToken = localStorage.getItem('adminToken');
       const url = adminToken ? `${API_BASE_URL}/operadoras/admin` : `${API_BASE_URL}/operadoras`;
-      console.log('🔧 URL completa:', url);
-      
+
       const response = adminToken
         ? await fetch(url, { headers: { 'Authorization': `Bearer ${adminToken}` }})
         : await authorizedFetch(url);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const result: ApiResponse<Operadora[]> = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar operadoras');
       }
-      
-      console.log('✅ Operadoras obtidas com sucesso:', result.data);
+
       return result.data || [];
     } catch (error) {
       console.error('❌ Erro no OperadoraService.getAllOperadoras():', error);
@@ -91,25 +87,21 @@ export class OperadoraService {
   // Buscar operadora vinculada a uma clínica específica
   static async getOperadoraByClinica(clinicaId: number): Promise<Operadora | null> {
     try {
-      console.log('🔧 OperadoraService.getOperadoraByClinica() - clinicaId:', clinicaId);
-      
       const response = await authorizedFetch(`${API_BASE_URL}/operadoras/clinica/${clinicaId}`);
-      
+
       if (!response.ok) {
         if (response.status === 404) {
-          console.log('⚠️ Nenhuma operadora vinculada a esta clínica');
           return null;
         }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const result: ApiResponse<Operadora> = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar operadora da clínica');
       }
-      
-      console.log('✅ Operadora da clínica obtida:', result.data);
+
       return result.data || null;
     } catch (error) {
       console.error('❌ Erro no OperadoraService.getOperadoraByClinica():', error);
@@ -252,25 +244,21 @@ export class OperadoraService {
   // Buscar operadora de uma clínica específica
   static async getOperadoraByClinica(clinicaId: number): Promise<Operadora | null> {
     try {
-      console.log('🔧 OperadoraService.getOperadoraByClinica() iniciado para clínica:', clinicaId);
-      
       const response = await authorizedFetch(`${API_BASE_URL}/operadoras/clinica/${clinicaId}`);
-      
+
       if (!response.ok) {
         if (response.status === 404) {
-          console.log('⚠️ Operadora não encontrada para esta clínica');
           return null;
         }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const result: ApiResponse<Operadora> = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar operadora da clínica');
       }
-      
-      console.log('✅ Operadora da clínica encontrada:', result.data);
+
       return result.data || null;
     } catch (error) {
       console.error('❌ Erro no OperadoraService.getOperadoraByClinica():', error);

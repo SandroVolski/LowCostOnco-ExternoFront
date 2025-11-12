@@ -443,39 +443,30 @@ const RecursosGlosas: React.FC = () => {
 
     // Extrair IDs com logs detalhados
     const guiaId = Number((guia as any)?.id ?? (guia as any)?.guia_id ?? (guia as any)?.numero_guia_id);
-    
+
     // Tentar múltiplas formas de extrair o lote_id
     let loteId = 0;
-    
+
     // 1. Tentar id direto
     if ((lote as any)?.id) {
       loteId = Number((lote as any).id);
-      console.log('📌 lote_id de lote.id:', loteId);
     }
     // 2. Tentar lote_id direto
     else if ((lote as any)?.lote_id) {
       loteId = Number((lote as any).lote_id);
-      console.log('📌 lote_id de lote.lote_id:', loteId);
     }
     // 3. Tentar lote aninhado
     else if ((lote as any)?.lote?.id) {
       loteId = Number((lote as any).lote.id);
-      console.log('📌 lote_id de lote.lote.id:', loteId);
     }
     // 4. Tentar cabecalho
     else if ((lote as any)?.cabecalho?.lote_id) {
       loteId = Number((lote as any).cabecalho.lote_id);
-      console.log('📌 lote_id de lote.cabecalho.lote_id:', loteId);
     }
     // 5. Tentar pegar da guia
     else if ((guia as any)?.lote_id) {
       loteId = Number((guia as any).lote_id);
-      console.log('📌 lote_id de guia.lote_id:', loteId);
     }
-    
-    console.log('🔍 Objeto lote completo:', lote);
-    console.log('🔍 Objeto guia completo:', guia);
-    console.log('📊 IDs extraídos - guiaId:', guiaId, 'loteId:', loteId);
 
     if (!Number.isFinite(guiaId) || !Number.isFinite(loteId)) {
       toast({
@@ -502,19 +493,6 @@ const RecursosGlosas: React.FC = () => {
       formData.append('justificativa', justificativa);
       formData.append('motivos_glosa', JSON.stringify(motivosGlosa));
       formData.append('itens_glosados', JSON.stringify(itensGlosados));
-
-      // Log para debug
-      console.log('📤 Enviando recurso de glosa:', {
-        guia_id: guiaId,
-        lote_id: loteId,
-        clinica_id: clinicaId,
-        guia_original: guia,
-        lote_original: lote,
-        justificativa: justificativa.substring(0, 50) + '...',
-        motivos_glosa: motivosGlosa,
-        itens_glosados: itensGlosados,
-        arquivos_count: arquivos.length
-      });
 
       // Anexar arquivos
       arquivos.forEach(arquivo => {
@@ -546,7 +524,6 @@ const RecursosGlosas: React.FC = () => {
       // Atualizar com os dados do backend
       setRecursoExistente(result.data);
       setModoVisualizacao(true);
-
     } catch (error: any) {
       console.error('Erro ao criar recurso:', error);
       toast({
@@ -678,7 +655,7 @@ const RecursosGlosas: React.FC = () => {
 
   return (
     <div className="space-y-6">
-        {/* Header */}
+      {/* Header */}
       <AnimatedSection delay={100}>
         <div className="relative overflow-hidden rounded-xl border-2 border-border/60 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 shadow-sm">
           {/* Decor */}
@@ -720,384 +697,378 @@ const RecursosGlosas: React.FC = () => {
           </div>
         </div>
       </AnimatedSection>
+      {/* Informações da Guia */}
+      <AnimatedSection delay={modoVisualizacao ? 200 : 200}>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-primary" />
+              Informações da Guia Glosada
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label className="text-muted-foreground">Guia Prestador</Label>
+                <p className="font-medium">{guia.numero_guia_prestador}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Guia Operadora</Label>
+                <p className="font-medium">{guia.numero_guia_operadora || 'N/A'}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Carteira</Label>
+                <p className="font-medium">{guia.numero_carteira}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">
+                  {itensGlosados.length > 0 ? 'Valor Total dos Itens Glosados' : 'Valor Total da Guia'}
+                </Label>
+                <p className="font-semibold text-lg text-primary">
+                  {formatCurrency(valorTotalGlosado)}
+                </p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Operadora</Label>
+                <p className="font-medium">{lote.operadora_nome}</p>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Lote</Label>
+                <p className="font-medium">{lote.numero_lote}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </AnimatedSection>
+      {/* Timeline - Somente em modo visualização */}
+      {modoVisualizacao && recursoExistente && (
+        <AnimatedSection delay={modoVisualizacao ? 300 : 250}>
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-primary" />
+                Linha do Tempo
+              </CardTitle>
+              <CardDescription>
+                Acompanhe o andamento do seu recurso de glosa
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="bg-background">
+              {(() => {
+                // Status relacionados à auditoria que a clínica não deve ver
+                const statusAuditoria = ['em_analise_auditor', 'parecer_emitido', 'em_parecer_auditor', 'solicitado_parecer'];
+                
+                // Filtrar itens: remover duplicidades e status de auditoria
+                const items = (recursoExistente.historico || [])
+                  .filter((item: any) => {
+                    // Remover status de auditoria
+                    return !statusAuditoria.includes(item?.status);
+                  })
+                  .filter((item: any, idx: number, arr: any[]) => {
+                    // Remover duplicidades consecutivas (mesmo status/data/observacao)
+                    if (idx === 0) return true;
+                    const prev = arr[idx - 1];
+                    return !(
+                      prev?.status === item?.status &&
+                      prev?.data === item?.data &&
+                      (prev?.observacao || '') === (item?.observacao || '')
+                    );
+                  });
 
-        {/* Informações da Guia */}
-        <AnimatedSection delay={modoVisualizacao ? 200 : 200}>
+                return (
+                  <TimelineCard
+                    items={items}
+                    getStatusConfig={getStatusConfig}
+                  />
+                );
+              })()}
+            </CardContent>
+          </Card>
+        </AnimatedSection>
+      )}
+      {itensGlosados.length > 0 && (
+        <AnimatedSection delay={220}>
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-primary" />
-                Informações da Guia Glosada
+                Itens Glosados
               </CardTitle>
+              <CardDescription>
+                Detalhes do(s) item(ns) selecionado(s) para glosa
+              </CardDescription>
             </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">Guia Prestador</Label>
-                  <p className="font-medium">{guia.numero_guia_prestador}</p>
+            <CardContent className="space-y-3">
+              {itensGlosados.map((item, index) => (
+                <div
+                  key={index}
+                  className="rounded-lg border border-border/60 p-4 bg-muted/30"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      <Badge variant="outline" className="text-xs font-medium uppercase">
+                        {item.tipo || item.tipo_item || 'item'}
+                      </Badge>
+                      <div>
+                        <p className="text-sm font-semibold text-foreground">
+                          {item.descricao || 'Item sem descrição'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Código: {item.codigo || item.codigo_procedimento || item.codigo_item || 'N/A'}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Quantidade</p>
+                      <p className="text-sm font-medium text-foreground">
+                        {item.quantidade || item.quantidade_executada || 1}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground">Valor do Item</p>
+                      <p className="text-sm font-semibold text-primary">
+                        {formatCurrency(Number(item.valor_total ?? item.valor ?? 0))}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <Label className="text-muted-foreground">Guia Operadora</Label>
-                  <p className="font-medium">{guia.numero_guia_operadora || 'N/A'}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Carteira</Label>
-                  <p className="font-medium">{guia.numero_carteira}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">
-                    {itensGlosados.length > 0 ? 'Valor Total dos Itens Glosados' : 'Valor Total da Guia'}
-                  </Label>
-                  <p className="font-semibold text-lg text-primary">
-                    {formatCurrency(valorTotalGlosado)}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Operadora</Label>
-                  <p className="font-medium">{lote.operadora_nome}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Lote</Label>
-                  <p className="font-medium">{lote.numero_lote}</p>
-                </div>
-              </div>
+              ))}
             </CardContent>
           </Card>
         </AnimatedSection>
-
-        {/* Timeline - Somente em modo visualização */}
-        {modoVisualizacao && recursoExistente && (
-          <AnimatedSection delay={modoVisualizacao ? 300 : 250}>
+      )}
+      {/* Formulário ou Visualização */}
+      {!modoVisualizacao ? (
+        <>
+          {/* Justificativa */}
+          <AnimatedSection delay={300}>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Clock className="h-5 w-5 text-primary" />
-                  Linha do Tempo
+                  <FileText className="h-5 w-5 text-accent" />
+                  Justificativa do Recurso
                 </CardTitle>
                 <CardDescription>
-                  Acompanhe o andamento do seu recurso de glosa
+                  Explique detalhadamente por que o procedimento não deveria ter sido glosado
                 </CardDescription>
               </CardHeader>
-              <CardContent className="bg-background">
-                {(() => {
-                  // Status relacionados à auditoria que a clínica não deve ver
-                  const statusAuditoria = ['em_analise_auditor', 'parecer_emitido', 'em_parecer_auditor', 'solicitado_parecer'];
-                  
-                  // Filtrar itens: remover duplicidades e status de auditoria
-                  const items = (recursoExistente.historico || [])
-                    .filter((item: any) => {
-                      // Remover status de auditoria
-                      return !statusAuditoria.includes(item?.status);
-                    })
-                    .filter((item: any, idx: number, arr: any[]) => {
-                      // Remover duplicidades consecutivas (mesmo status/data/observacao)
-                      if (idx === 0) return true;
-                      const prev = arr[idx - 1];
-                      return !(
-                        prev?.status === item?.status &&
-                        prev?.data === item?.data &&
-                        (prev?.observacao || '') === (item?.observacao || '')
-                      );
-                    });
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="justificativa">Justificativa *</Label>
+                  <Textarea
+                    id="justificativa"
+                    value={justificativa}
+                    onChange={(e) => setJustificativa(e.target.value)}
+                    placeholder="Descreva os motivos técnicos e clínicos que justificam a reversão da glosa..."
+                    rows={6}
+                    className="mt-2"
+                  />
+                </div>
 
-                  return (
-                    <TimelineCard
-                      items={items}
-                      getStatusConfig={getStatusConfig}
-                    />
-                  );
-                })()}
+                {/* Motivos comuns */}
+                <div>
+                  <Label>Motivos Alegados (opcional)</Label>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                    {[
+                      'Documentação completa apresentada',
+                      'Procedimento coberto pelo plano',
+                      'Autorização prévia emitida',
+                      'Necessidade médica comprovada',
+                      'Prazo de atendimento cumprido',
+                      'CID compatível com procedimento'
+                    ].map(motivo => (
+                      <label key={motivo} className="flex items-center space-x-2 text-sm">
+                        <input
+                          type="checkbox"
+                          className="rounded"
+                          checked={motivosGlosa.includes(motivo)}
+                          onChange={(e) => handleMotivoChange(motivo, e.target.checked)}
+                        />
+                        <span>{motivo}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </AnimatedSection>
-        )}
-        
-        {itensGlosados.length > 0 && (
-          <AnimatedSection delay={220}>
+
+          {/* Upload de Documentos */}
+          <AnimatedSection delay={400}>
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-primary" />
-                  Itens Glosados
+                  <Paperclip className="h-5 w-5 text-secondary" />
+                  Documentos Comprobatórios
                 </CardTitle>
                 <CardDescription>
-                  Detalhes do(s) item(ns) selecionado(s) para glosa
+                  Anexe prontuários, exames, laudos, autorizações e outros documentos
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-3">
-                {itensGlosados.map((item, index) => (
-                  <div
-                    key={index}
-                    className="rounded-lg border border-border/60 p-4 bg-muted/30"
+              <CardContent className="space-y-4">
+                {/* Área de upload */}
+                <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
+                  <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                  <p className="text-sm font-medium mb-1">
+                    Arraste arquivos aqui ou clique para selecionar
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    PDF, PNG, JPG, JPEG - Máximo 5MB por arquivo
+                  </p>
+                  <Input
+                    type="file"
+                    multiple
+                    accept=".pdf,.png,.jpg,.jpeg"
+                    onChange={handleAnexarArquivos}
+                    className="hidden"
+                    id="file-upload"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById('file-upload')?.click()}
                   >
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-3">
-                        <Badge variant="outline" className="text-xs font-medium uppercase">
-                          {item.tipo || item.tipo_item || 'item'}
-                        </Badge>
-                        <div>
-                          <p className="text-sm font-semibold text-foreground">
-                            {item.descricao || 'Item sem descrição'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            Código: {item.codigo || item.codigo_procedimento || item.codigo_item || 'N/A'}
-                          </p>
+                    <Upload className="h-4 w-4 mr-2" />
+                    Selecionar Arquivos
+                  </Button>
+                </div>
+
+                {/* Lista de arquivos */}
+                {arquivos.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Arquivos Anexados ({arquivos.length})</Label>
+                    {arquivos.map((arquivo, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-muted rounded-lg"
+                      >
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm font-medium">{arquivo.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {(arquivo.size / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoverArquivo(index)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
                       </div>
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground">Quantidade</p>
-                        <p className="text-sm font-medium text-foreground">
-                          {item.quantidade || item.quantidade_executada || 1}
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-muted-foreground">Valor do Item</p>
-                        <p className="text-sm font-semibold text-primary">
-                          {formatCurrency(Number(item.valor_total ?? item.valor ?? 0))}
-                        </p>
-                      </div>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </CardContent>
             </Card>
           </AnimatedSection>
-        )}
 
-        {/* Formulário ou Visualização */}
-        {!modoVisualizacao ? (
-          <>
-            {/* Justificativa */}
-            <AnimatedSection delay={300}>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-accent" />
-                    Justificativa do Recurso
-                  </CardTitle>
-                  <CardDescription>
-                    Explique detalhadamente por que o procedimento não deveria ter sido glosado
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="justificativa">Justificativa *</Label>
-                    <Textarea
-                      id="justificativa"
-                      value={justificativa}
-                      onChange={(e) => setJustificativa(e.target.value)}
-                      placeholder="Descreva os motivos técnicos e clínicos que justificam a reversão da glosa..."
-                      rows={6}
-                      className="mt-2"
-                    />
+          {/* Ações */}
+          <AnimatedSection delay={500}>
+            <Card>
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    <p>Ao enviar, seu recurso será encaminhado para análise da operadora</p>
+                    <p className="text-xs mt-1">Você poderá acompanhar o status em tempo real</p>
                   </div>
-
-                  {/* Motivos comuns */}
-                  <div>
-                    <Label>Motivos Alegados (opcional)</Label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
-                      {[
-                        'Documentação completa apresentada',
-                        'Procedimento coberto pelo plano',
-                        'Autorização prévia emitida',
-                        'Necessidade médica comprovada',
-                        'Prazo de atendimento cumprido',
-                        'CID compatível com procedimento'
-                      ].map(motivo => (
-                        <label key={motivo} className="flex items-center space-x-2 text-sm">
-                          <input
-                            type="checkbox"
-                            className="rounded"
-                            checked={motivosGlosa.includes(motivo)}
-                            onChange={(e) => handleMotivoChange(motivo, e.target.checked)}
-                          />
-                          <span>{motivo}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </AnimatedSection>
-
-            {/* Upload de Documentos */}
-            <AnimatedSection delay={400}>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Paperclip className="h-5 w-5 text-secondary" />
-                    Documentos Comprobatórios
-                  </CardTitle>
-                  <CardDescription>
-                    Anexe prontuários, exames, laudos, autorizações e outros documentos
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Área de upload */}
-                  <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
-                    <Upload className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-sm font-medium mb-1">
-                      Arraste arquivos aqui ou clique para selecionar
-                    </p>
-                    <p className="text-xs text-muted-foreground mb-3">
-                      PDF, PNG, JPG, JPEG - Máximo 5MB por arquivo
-                    </p>
-                    <Input
-                      type="file"
-                      multiple
-                      accept=".pdf,.png,.jpg,.jpeg"
-                      onChange={handleAnexarArquivos}
-                      className="hidden"
-                      id="file-upload"
-                    />
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={handleVoltar} disabled={submitting}>
+                      Cancelar
+                    </Button>
                     <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => document.getElementById('file-upload')?.click()}
+                      onClick={handleCriarRecurso}
+                      disabled={submitting}
+                      className="gap-2"
                     >
-                      <Upload className="h-4 w-4 mr-2" />
-                      Selecionar Arquivos
+                      {submitting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Enviando...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4" />
+                          Enviar Recurso
+                        </>
+                      )}
                     </Button>
                   </div>
-
-                  {/* Lista de arquivos */}
-                  {arquivos.length > 0 && (
-                    <div className="space-y-2">
-                      <Label>Arquivos Anexados ({arquivos.length})</Label>
-                      {arquivos.map((arquivo, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between p-3 bg-muted rounded-lg"
-                        >
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                              <p className="text-sm font-medium">{arquivo.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {(arquivo.size / 1024).toFixed(1)} KB
-                              </p>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleRemoverArquivo(index)}
-                            className="text-destructive hover:text-destructive"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </AnimatedSection>
-
-            {/* Ações */}
+                </div>
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+        </>
+      ) : (
+        /* Visualização do Recurso Criado */
+        (<>
+          <AnimatedSection delay={400}>
+            <Card>
+              <CardHeader>
+                <CardTitle>Justificativa Apresentada</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm whitespace-pre-wrap">{recursoExistente?.justificativa}</p>
+              </CardContent>
+            </Card>
+          </AnimatedSection>
+          {recursoExistente && recursoExistente.documentos.length > 0 && (
             <AnimatedSection delay={500}>
               <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm text-muted-foreground">
-                      <p>Ao enviar, seu recurso será encaminhado para análise da operadora</p>
-                      <p className="text-xs mt-1">Você poderá acompanhar o status em tempo real</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" onClick={handleVoltar} disabled={submitting}>
-                        Cancelar
-                      </Button>
-                      <Button
-                        onClick={handleCriarRecurso}
-                        disabled={submitting}
-                        className="gap-2"
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Paperclip className="h-5 w-5" />
+                    Documentos Anexados
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {recursoExistente.documentos.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
                       >
-                        {submitting ? (
-                          <>
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                            Enviando...
-                          </>
-                        ) : (
-                          <>
-                            <Send className="h-4 w-4" />
-                            Enviar Recurso
-                          </>
-                        )}
-                      </Button>
-                    </div>
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <p className="text-sm font-medium">{doc.nome_original}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {(doc.tamanho_arquivo / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleVisualizarDocumento(doc.id, doc.nome_original)}
+                          disabled={loadingDocumento}
+                          className="gap-2"
+                        >
+                          {loadingDocumento ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Carregando...
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="h-4 w-4" />
+                              Visualizar
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    ))}
                   </div>
                 </CardContent>
               </Card>
             </AnimatedSection>
-          </>
-        ) : (
-          /* Visualização do Recurso Criado */
-          <>
-            <AnimatedSection delay={400}>
-              <Card>
-                <CardHeader>
-                  <CardTitle>Justificativa Apresentada</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm whitespace-pre-wrap">{recursoExistente?.justificativa}</p>
-                </CardContent>
-              </Card>
-            </AnimatedSection>
-
-            {recursoExistente && recursoExistente.documentos.length > 0 && (
-              <AnimatedSection delay={500}>
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Paperclip className="h-5 w-5" />
-                      Documentos Anexados
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {recursoExistente.documentos.map((doc) => (
-                        <div
-                          key={doc.id}
-                          className="flex items-center justify-between p-3 bg-muted rounded-lg hover:bg-muted/80 transition-colors"
-                        >
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 text-muted-foreground" />
-                            <div>
-                              <p className="text-sm font-medium">{doc.nome_original}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {(doc.tamanho_arquivo / 1024).toFixed(1)} KB
-                              </p>
-                            </div>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleVisualizarDocumento(doc.id, doc.nome_original)}
-                            disabled={loadingDocumento}
-                            className="gap-2"
-                          >
-                            {loadingDocumento ? (
-                              <>
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Carregando...
-                              </>
-                            ) : (
-                              <>
-                                <Eye className="h-4 w-4" />
-                                Visualizar
-                              </>
-                            )}
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
-              </AnimatedSection>
-            )}
-          </>
-        )}
-
+          )}
+        </>)
+      )}
       {/* Modal de Visualização de Documento */}
       <Dialog open={!!documentoVisualizacao} onOpenChange={(open) => !open && setDocumentoVisualizacao(null)}>
         <DialogContent className="max-w-5xl h-[85vh] flex flex-col">

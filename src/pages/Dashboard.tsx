@@ -147,15 +147,12 @@ const Dashboard = () => {
   const checkConnectionAndLoadData = async () => {
     setLoading(true);
     try {
-      console.log('🔧 Verificando conexão com backend...');
       const connected = await testarConexaoBackend();
       setBackendConnected(connected);
-      
+
       if (connected) {
-        console.log('✅ Backend conectado, carregando dados do dashboard...');
         await loadDashboardData();
       } else {
-        console.log('❌ Backend não conectado');
         toast.error('Backend não conectado', {
           description: 'Dados do dashboard não disponíveis sem conexão com o servidor'
         });
@@ -177,42 +174,16 @@ const Dashboard = () => {
         ProtocoloService.listarProtocolos({ page: 1, limit: 1000 })
       ]);
 
-      console.log('📊 Dados carregados:', {
-        pacientes: patientsResult.data.length,
-        solicitacoes: solicitacoesResult.data.length
-      });
-
       // Processar dados dos pacientes
       const patients = patientsResult.data;
       const solicitacoes = solicitacoesResult.data;
       const protocolos = protocolosResult.data;
-
-      // Log detalhado dos dados dos pacientes
-      console.log('👥 Dados dos pacientes carregados:', patients.map(p => ({
-        id: p.id,
-        nome: p.Paciente_Nome,
-        status: p.status,
-        cid: p.Cid_Diagnostico
-      })));
-
-      // Log detalhado das solicitações
-      console.log('📋 Solicitações carregadas:', solicitacoes.map(s => ({
-        id: s.id,
-        paciente_id: s.paciente_id,
-        cliente_nome: s.cliente_nome,
-        status: s.status,
-        ciclo_atual: s.ciclo_atual,
-        ciclos_previstos: s.ciclos_previstos,
-        finalidade: s.finalidade,
-        dias_aplicacao_intervalo: s.dias_aplicacao_intervalo
-      })));
 
       // Log de status das solicitações
       const statusCount = solicitacoes.reduce((acc, s) => {
         acc[s.status] = (acc[s.status] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
-      console.log('📊 Status das solicitações:', statusCount);
 
       debugJoaoData(solicitacoes);
 
@@ -224,10 +195,9 @@ const Dashboard = () => {
       processUpcomingTreatments(solicitacoes);
       processSolicitacoesPorMes(solicitacoes);
       processActivePrinciples(protocolos);
-      
+
       // Pegar solicitações recentes (limitado a 5)
       setRecentSolicitacoes(solicitacoes.slice(0, 5));
-
     } catch (error) {
       console.error('❌ Erro ao carregar dados do dashboard:', error);
       toast.error('Erro ao carregar dados do dashboard');
@@ -314,8 +284,6 @@ const Dashboard = () => {
 
   // ✅ PROCESSA STATUS REAL DOS PACIENTES
   const processPatientStatusData = (patients: PatientFromAPI[]) => {
-    console.log('🔧 Processando status dos pacientes:', patients.length);
-    
     // Agrupar pacientes por status real
     const statusGroups = patients.reduce((acc, patient) => {
       const status = patient.status || 'ativo';
@@ -357,7 +325,6 @@ const Dashboard = () => {
       percentage: totalPacientes > 0 ? Math.round((count / totalPacientes) * 100) : 0
     }));
 
-    console.log('📊 Status dos pacientes processado:', data);
     setPatientStatusData(data);
   };
 
@@ -424,41 +391,29 @@ const Dashboard = () => {
   // ✅ FUNÇÃO SIMPLIFICADA: Processar tratamentos a vencer com dados reais
   const processUpcomingTreatments = (solicitacoes: SolicitacaoFromAPI[]) => {
     const upcomingData: UpcomingTreatmentData[] = [];
-    
-    console.log('🔧 Processando tratamentos a vencer:', solicitacoes.length, 'solicitações');
-    
+
     // Pegar TODAS as solicitações que tenham dados básicos
     const validSolicitacoes = solicitacoes.filter(s => 
       s.cliente_nome && 
       s.id
     );
 
-    console.log('✅ Solicitações válidas encontradas:', validSolicitacoes.length);
-
     validSolicitacoes.forEach((solicitacao, index) => {
       const cicloAtual = solicitacao.ciclo_atual || 1;
       const ciclosPrevistos = solicitacao.ciclos_previstos || 6;
-      
-      console.log(`📋 Processando ${solicitacao.cliente_nome}:`, {
-        id: solicitacao.id,
-        cicloAtual,
-        ciclosPrevistos,
-        status: solicitacao.status,
-        paciente_id: solicitacao.paciente_id
-      });
-      
+
       // Incluir se ainda há ciclos por fazer OU se é uma solicitação recente
       const isActive = solicitacao.status === 'aprovada' || solicitacao.status === 'em_analise' || solicitacao.status === 'pendente';
       const hasMoreCycles = cicloAtual < ciclosPrevistos;
       const isRecent = solicitacao.created_at && new Date(solicitacao.created_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // Últimos 30 dias
-      
+
       // Verificar se deve incluir este tratamento
       const shouldInclude = (isActive && hasMoreCycles) || isRecent;
-      
+
       if (shouldInclude) {
         // Cálculo real de dias restantes baseado em datas
         let diasRestantes = 21; // Padrão de 21 dias
-        
+
         try {
           const hoje = new Date();
           const dataSolicitacao = new Date(solicitacao.created_at || solicitacao.data_solicitacao || '');
@@ -466,7 +421,7 @@ const Dashboard = () => {
           if (!isNaN(dataSolicitacao.getTime())) {
             // Calcular dias desde a criação da solicitação
             const diasDesdeCriacao = Math.floor((hoje.getTime() - dataSolicitacao.getTime()) / (1000 * 60 * 60 * 24));
-            
+
             // Usar intervalo real se disponível
             if (solicitacao.dias_aplicacao_intervalo) {
               const intervalo = parseIntervaloDias(solicitacao.dias_aplicacao_intervalo);
@@ -491,35 +446,23 @@ const Dashboard = () => {
               const diasParaProximoCiclo = (cicloAtual * intervaloEstimado) - diasDesdeCriacao;
               diasRestantes = diasParaProximoCiclo;
             }
-            
-            console.log(`📅 Cálculo CORRIGIDO para ${solicitacao.cliente_nome}:`, {
-              dataSolicitacao: dataSolicitacao.toISOString().split('T')[0],
-              diasDesdeCriacao,
-              cicloAtual,
-              ciclosPrevistos,
-              diasRestantes,
-              status: diasRestantes <= 0 ? 'ATRASADO' : diasRestantes === 1 ? 'AMANHÃ' : 'FUTURO'
-            });
           }
         } catch (error) {
           console.warn('Erro no cálculo de dias para', solicitacao.cliente_nome, error);
           // Manter o valor padrão de 21 dias
         }
-        
-        console.log(`⏰ Dias calculados para ${solicitacao.cliente_nome}:`, diasRestantes);
-        
+
         // FILTRO: Não incluir tratamentos muito atrasados (mais de 30 dias)
         if (diasRestantes < -30) {
-          console.log(`❌ Tratamento muito atrasado para ${solicitacao.cliente_nome}: ${diasRestantes} dias`);
           return; // Pular este tratamento
         }
-        
+
         // Determinar status
         let status: 'urgent' | 'warning' | 'normal' = 'normal';
         if (diasRestantes <= 0) status = 'urgent'; // Atrasado ou hoje
         else if (diasRestantes <= 3) status = 'urgent';
         else if (diasRestantes <= 7) status = 'warning';
-        
+
         // Determinar tipo de tratamento
         const treatmentTypeMap: Record<string, string> = {
           'neoadjuvante': 'Quimioterapia Neoadjuvante',
@@ -529,9 +472,9 @@ const Dashboard = () => {
           'radioterapia': 'Radioterapia',
           'paliativo': 'Quimioterapia Paliativa'
         };
-        
+
         const treatmentType = treatmentTypeMap[solicitacao.finalidade || ''] || 'Quimioterapia';
-        
+
         const treatmentItem = {
           id: solicitacao.id?.toString() || index.toString(),
           patientName: solicitacao.cliente_nome,
@@ -543,63 +486,54 @@ const Dashboard = () => {
           intervaloOriginal: solicitacao.dias_aplicacao_intervalo || '',
           dataSolicitacao: solicitacao.data_solicitacao || solicitacao.created_at || ''
         };
-        
-        console.log(`✅ Tratamento adicionado:`, treatmentItem);
+
         upcomingData.push(treatmentItem);
       }
     });
 
     // Ordenar por urgência e limitar a 6
     upcomingData.sort((a, b) => a.daysRemaining - b.daysRemaining);
-    
-    console.log('📊 Tratamentos finais a vencer:', upcomingData);
+
     setUpcomingTreatments(upcomingData.slice(0, 6));
   };
 
   // ✅ FUNÇÃO MELHORADA: Parse do intervalo de dias com logs
   const parseIntervaloDias = (intervaloTexto: string): number => {
     if (!intervaloTexto) return 0;
-    
-    console.log(`🔍 Parseando intervalo: "${intervaloTexto}"`);
-    
+
     try {
       const texto = intervaloTexto.toLowerCase();
-      
+
       // Padrão específico para "repetir a cada X dias"
       let match = texto.match(/repetir\s+a\s+cada\s+(\d+)\s+dias?/);
       if (match) {
-        console.log(`   ✅ Match "repetir a cada": ${match[1]} dias`);
         return parseInt(match[1]);
       }
-      
+
       // Padrão "a cada X dias"
       match = texto.match(/(?:a\s+cada\s+|cada\s+)(\d+)\s+dias?/);
       if (match) {
-        console.log(`   ✅ Match "a cada": ${match[1]} dias`);
         return parseInt(match[1]);
       }
-      
+
       // Padrão "X/X dias" (ex: "1/21 dias", "3/28 dias")
       match = texto.match(/\d+\/(\d+)\s+dias?/);
       if (match) {
-        console.log(`   ✅ Match "X/Y dias": ${match[1]} dias`);
         return parseInt(match[1]);
       }
-      
+
       // Padrão "X em X" (ex: "1 em 21", "3 em 28")
       match = texto.match(/\d+\s+em\s+(\d+)/);
       if (match) {
-        console.log(`   ✅ Match "X em Y": ${match[1]} dias`);
         return parseInt(match[1]);
       }
-      
+
       // Padrão só número + dias no final
       match = texto.match(/(\d+)\s+dias?\s*$/);
       if (match) {
-        console.log(`   ✅ Match "X dias": ${match[1]} dias`);
         return parseInt(match[1]);
       }
-      
+
       // Procurar qualquer número que faça sentido para intervalos
       const numeros = texto.match(/\d+/g);
       if (numeros) {
@@ -607,13 +541,11 @@ const Dashboard = () => {
           const num = parseInt(numero);
           // Filtrar números que fazem sentido para intervalos (7-42 dias)
           if (num >= 7 && num <= 42) {
-            console.log(`   ✅ Match número válido: ${num} dias`);
             return num;
           }
         }
       }
-      
-      console.log(`   ❌ Nenhum padrão encontrado em: "${intervaloTexto}"`);
+
       return 0;
     } catch (error) {
       console.error('❌ Erro ao fazer parse do intervalo:', error);
@@ -625,30 +557,17 @@ const Dashboard = () => {
   const debugJoaoData = (solicitacoes: SolicitacaoFromAPI[]) => {
     const joao = solicitacoes.find(s => s.cliente_nome.includes('João'));
     if (joao) {
-      console.log('🔍 DEBUG - Dados do João da Silva:');
-      console.log('   - ID:', joao.id);
-      console.log('   - Ciclo atual:', joao.ciclo_atual);
-      console.log('   - Ciclos previstos:', joao.ciclos_previstos);
-      console.log('   - Status:', joao.status);
-      console.log('   - Finalidade:', joao.finalidade);
-      console.log('   - Intervalo:', joao.dias_aplicacao_intervalo);
-      console.log('   - Data solicitação:', joao.data_solicitacao);
-      console.log('   - Created at:', joao.created_at);
-      
       // Testar parse do intervalo
       if (joao.dias_aplicacao_intervalo) {
         const intervalo = parseIntervaloDias(joao.dias_aplicacao_intervalo);
-        console.log('   - Intervalo parseado:', intervalo, 'dias');
       }
     }
   };
 
   // ✅ PROCESSA SOLICITAÇÕES POR MÊS COM DADOS REAIS
   const processSolicitacoesPorMes = (solicitacoes: SolicitacaoFromAPI[]) => {
-    console.log('🔧 Processando solicitações por mês:', solicitacoes.length);
-    
     const mesesData: Record<string, SolicitacoesPorMesData> = {};
-    
+
     solicitacoes.forEach(solicitacao => {
       try {
         // Usar data_solicitacao ou created_at como fallback
@@ -702,7 +621,6 @@ const Dashboard = () => {
              new Date(parseInt(anoA), getMonthIndex(mesA)).getTime();
     });
 
-    console.log('📊 Solicitações por mês processadas:', sortedData);
     setSolicitacoesPorMes(sortedData);
   };
 
@@ -717,10 +635,8 @@ const Dashboard = () => {
 
   // ✅ PROCESSAMENTO DOS PRINCÍPIOS ATIVOS MAIS UTILIZADOS
   const processActivePrinciples = (protocolos: ProtocoloFromAPI[]) => {
-    console.log('🔧 Processando princípios ativos:', protocolos.length);
-    
     const principleCount: Record<string, ActivePrincipleData> = {};
-    
+
     protocolos.forEach(protocolo => {
       if (protocolo.medicamentos && protocolo.medicamentos.length > 0) {
         protocolo.medicamentos.forEach(medicamento => {
@@ -748,7 +664,7 @@ const Dashboard = () => {
     });
 
     const totalUsage = Object.values(principleCount).reduce((sum, p) => sum + p.totalUsage, 0);
-    
+
     const sortedPrinciples = Object.values(principleCount)
       .sort((a, b) => b.totalUsage - a.totalUsage)
       .slice(0, 10) // Top 10
@@ -757,7 +673,6 @@ const Dashboard = () => {
         percentage: totalUsage > 0 ? Math.round((principle.totalUsage / totalUsage) * 100) : 0
       }));
 
-    console.log('📊 Princípios ativos processados:', sortedPrinciples);
     setActivePrinciples(sortedPrinciples);
   };
 
@@ -820,21 +735,18 @@ const Dashboard = () => {
     }
 
     try {
-      console.log('🔧 Abrindo PDF da solicitação:', solicitacaoId);
-      
       // Toast de loading
       const loadingToast = toast.loading('Gerando PDF...', {
         description: 'Aguarde enquanto o PDF está sendo preparado'
       });
 
       await SolicitacaoService.viewPDF(solicitacaoId);
-      
+
       // Remover loading e mostrar sucesso
       toast.dismiss(loadingToast);
       toast.success('PDF aberto com sucesso!', {
         description: 'O PDF foi aberto em uma nova aba'
       });
-      
     } catch (error) {
       console.error('❌ Erro ao abrir PDF:', error);
       toast.error('Erro ao abrir PDF', {
@@ -1648,10 +1560,9 @@ const Dashboard = () => {
       const queryParams = new URLSearchParams();
       queryParams.append('page', params.page.toString());
       queryParams.append('limit', params.limit.toString());
-      
+
       const url = `/api/pacientes?${queryParams.toString()}`;
-      console.log('🔧 Operadora - Fazendo requisição para:', url);
-      
+
       let response = await operadoraAuthService.authorizedFetch(url);
       if (!response) {
         const token = localStorage.getItem('operadora_access_token') || '';
@@ -1660,7 +1571,7 @@ const Dashboard = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
       }
-      
+
       if (!response || !response.ok) {
         const errorText = await response.text();
         console.error('❌ Operadora - Resposta não OK:', errorText);
@@ -1673,7 +1584,7 @@ const Dashboard = () => {
         console.error('❌ Operadora - Recebeu HTML ao buscar pacientes');
         throw new Error('Resposta HTML do backend (pacientes)');
       }
-      
+
       const result = await response.json();
       return result;
     };
@@ -1682,10 +1593,9 @@ const Dashboard = () => {
       const queryParams = new URLSearchParams();
       queryParams.append('page', params.page.toString());
       queryParams.append('limit', params.limit.toString());
-      
+
       const url = `/api/solicitacoes?${queryParams.toString()}`;
-      console.log('🔧 Operadora - Fazendo requisição para:', url);
-      
+
       let response = await operadoraAuthService.authorizedFetch(url);
       if (!response) {
         const token = localStorage.getItem('operadora_access_token') || '';
@@ -1694,7 +1604,7 @@ const Dashboard = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
       }
-      
+
       if (!response || !response.ok) {
         const errorText = await response.text();
         console.error('❌ Operadora - Resposta não OK:', errorText);
@@ -1706,7 +1616,7 @@ const Dashboard = () => {
         console.error('❌ Operadora - Recebeu HTML ao buscar solicitações');
         throw new Error('Resposta HTML do backend (solicitações)');
       }
-      
+
       const result = await response.json();
       return result;
     };
@@ -1715,10 +1625,9 @@ const Dashboard = () => {
       const queryParams = new URLSearchParams();
       queryParams.append('page', params.page.toString());
       queryParams.append('limit', params.limit.toString());
-      
+
       const url = `/api/protocolos?${queryParams.toString()}`;
-      console.log('🔧 Operadora - Fazendo requisição para:', url);
-      
+
       let response = await operadoraAuthService.authorizedFetch(url);
       if (!response) {
         const token = localStorage.getItem('operadora_access_token') || '';
@@ -1727,7 +1636,7 @@ const Dashboard = () => {
           headers: { Authorization: `Bearer ${token}` }
         });
       }
-      
+
       if (!response || !response.ok) {
         const errorText = await response.text();
         console.error('❌ Operadora - Resposta não OK:', errorText);
@@ -1739,7 +1648,7 @@ const Dashboard = () => {
         console.error('❌ Operadora - Recebeu HTML ao buscar protocolos');
         throw new Error('Resposta HTML do backend (protocolos)');
       }
-      
+
       const result = await response.json();
       return result;
     };
@@ -1747,14 +1656,11 @@ const Dashboard = () => {
     const loadOperatorData = async () => {
       setOperatorLoading(true);
       try {
-        console.log('🔧 Carregando dados da operadora...');
-        
         // Verificar conexão
         const connected = await testarConexaoBackend();
         setOperatorBackendConnected(connected);
-        
+
         if (!connected) {
-          console.log('❌ Backend não conectado para operadora');
           return;
         }
 
@@ -1766,33 +1672,16 @@ const Dashboard = () => {
           ClinicService.getAllClinicasForOperadora()
         ]);
 
-        console.log('🔍 Debug - Resposta pacientes:', pacientesResult);
-        console.log('🔍 Debug - Resposta solicitações:', solicitacoesResult);
-        console.log('🔍 Debug - Resposta protocolos:', protocolosResult);
-        console.log('🔍 Debug - Resposta clínicas:', clinicasResult);
-
         const pacientes = pacientesResult.data?.data || [];
         const solicitacoes = solicitacoesResult.data?.data || [];
         const protocolos = protocolosResult.data?.data || [];
         const clinicas = clinicasResult || [];
-
-        // Debug: Verificar IDs de clínicas nos dados
-        console.log('🔍 Debug - Clínicas do banco:', clinicas.map(c => ({ id: c.id, nome: c.nome })));
-        console.log('🔍 Debug - Clinica IDs nos pacientes:', [...new Set(pacientes.map(p => p.clinica_id))]);
-        console.log('🔍 Debug - Clinica IDs nas solicitações:', [...new Set(solicitacoes.map(s => s.clinica_id))]);
-        console.log('🔍 Debug - Total de clínicas encontradas:', clinicas.length);
 
         // Filtrar TUDO por clínicas pertencentes à operadora
         const clinicIdSet = new Set((clinicas || []).map((c: any) => c.id));
         const pacientesOperadora = pacientes.filter((p: any) => p?.clinica_id && clinicIdSet.has(p.clinica_id));
         const solicitacoesOperadora = solicitacoes.filter((s: any) => s?.clinica_id && clinicIdSet.has(s.clinica_id));
         const protocolosOperadora = protocolos.filter((pr: any) => !('clinica_id' in pr) || (pr?.clinica_id && clinicIdSet.has(pr.clinica_id)));
-
-        console.log('📊 Dados da operadora carregados (filtrados por operadora):', {
-          pacientes: pacientesOperadora.length,
-          solicitacoes: solicitacoesOperadora.length,
-          protocolos: protocolosOperadora.length
-        });
 
         // Validar se os dados são arrays
         if (!Array.isArray(pacientes)) {
@@ -1826,7 +1715,6 @@ const Dashboard = () => {
         const agora = new Date();
         const inicioPeriodo = new Date(agora.getTime() - dias * 24 * 60 * 60 * 1000);
         // cálculos de novos pacientes foram movidos para processOperatorMetrics
-
       } catch (error) {
         console.error('❌ Erro ao carregar dados da operadora:', error);
         toast.error('Erro ao carregar dados da operadora');
@@ -1924,15 +1812,10 @@ const Dashboard = () => {
 
     // Processar dados das clínicas
     const processClinicsData = (pacientes: PatientFromAPI[], solicitacoes: SolicitacaoFromAPI[], clinicas: any[]) => {
-      console.log('🔍 processClinicsData - clinicas recebidas:', clinicas);
-      console.log('🔍 processClinicsData - pacientes:', pacientes.length);
-      console.log('🔍 processClinicsData - solicitacoes:', solicitacoes.length);
-      
       const clinicasMap = new Map();
-      
+
       // Usar dados reais de clínicas se disponíveis
       clinicas.forEach(clinica => {
-        console.log('🔍 processClinicsData - Adicionando clínica:', { id: clinica.id, nome: clinica.nome });
         clinicasMap.set(clinica.id, {
           id: clinica.id,
           nome: clinica.nome,
@@ -1941,7 +1824,7 @@ const Dashboard = () => {
           totalSolicitacoes: 0
         });
       });
-      
+
       // Contar pacientes por clínica (apenas clínicas que existem no banco)
       pacientes.forEach(paciente => {
         const clinicaId = paciente.clinica_id || 1;
@@ -1950,7 +1833,7 @@ const Dashboard = () => {
         }
         // Não criar clínicas inventadas - apenas usar as que existem no banco
       });
-      
+
       // Contar solicitações por clínica
       solicitacoes.forEach(solicitacao => {
         const clinicaId = solicitacao.clinica_id || 1;
@@ -1958,20 +1841,15 @@ const Dashboard = () => {
           clinicasMap.get(clinicaId).totalSolicitacoes++;
         }
       });
-      
+
       const clinicasArray = Array.from(clinicasMap.values());
-      console.log('🔍 processClinicsData - Resultado final:', clinicasArray);
-      console.log('🔍 processClinicsData - Setando clinicsData com:', clinicasArray.length, 'clínicas');
       setClinicsData(clinicasArray);
     };
 
     // Processar status por clínica
     const processStatusPorClinica = (solicitacoes: SolicitacaoFromAPI[], clinicas: any[], selectedClinicId: number | 'todas') => {
-      console.log('🔍 processStatusPorClinica - clinicas recebidas:', clinicas.length);
-      console.log('🔍 processStatusPorClinica - solicitacoes:', solicitacoes.length);
-      
       const clinicasMap = new Map();
-      
+
       // Filtrar dados por clínica se necessário
       const solicitacoesFiltradas = selectedClinicId === 'todas' 
         ? solicitacoes 
@@ -1986,7 +1864,7 @@ const Dashboard = () => {
           rejeitadas: 0
         });
       });
-      
+
       // Processar solicitações e distribuir por status
       solicitacoesFiltradas.forEach(solicitacao => {
         const clinicaId = solicitacao.clinica_id || 1;
@@ -2005,9 +1883,8 @@ const Dashboard = () => {
           }
         }
       });
-      
+
       const result = Array.from(clinicasMap.values());
-      console.log('🔍 processStatusPorClinica - Resultado final:', result);
       setStatusPorClinica(result);
     };
 
@@ -2062,16 +1939,13 @@ const Dashboard = () => {
 
     // Processar performance por clínica
     const processPerformanceClinicas = (pacientes: PatientFromAPI[], solicitacoes: SolicitacaoFromAPI[], clinicas: any[], selectedClinicId: number | 'todas') => {
-      console.log('🔍 processPerformanceClinicas - clinicas recebidas:', clinicas.length);
-      console.log('🔍 processPerformanceClinicas - solicitacoes:', solicitacoes.length);
-      
       const performanceMap = new Map();
-      
+
       // Filtrar dados por clínica se necessário
       const solicitacoesFiltradas = selectedClinicId === 'todas' 
         ? solicitacoes 
         : solicitacoes.filter(s => s.clinica_id === selectedClinicId);
-      
+
       // Inicializar TODAS as clínicas (mesmo as sem solicitações)
       clinicas.forEach(clinica => {
         performanceMap.set(clinica.id, {
@@ -2081,7 +1955,7 @@ const Dashboard = () => {
           totalSolicitacoes: 0
         });
       });
-      
+
       // Agrupar solicitações por clínica
       const solicitacoesPorClinica = solicitacoesFiltradas.reduce((acc, s) => {
         const clinicaId = s.clinica_id || 1;
@@ -2089,7 +1963,7 @@ const Dashboard = () => {
         acc[clinicaId].push(s);
         return acc;
       }, {} as Record<number, SolicitacaoFromAPI[]>);
-      
+
       // Atualizar dados das clínicas que têm solicitações
       Object.entries(solicitacoesPorClinica).forEach(([clinicaId, s]) => {
         const aprovadas = s.filter(s => s.status === 'aprovada').length;
@@ -2105,82 +1979,50 @@ const Dashboard = () => {
           });
         }
       });
-      
+
       const result = Array.from(performanceMap.values());
-      console.log('🔍 processPerformanceClinicas - Resultado final:', result);
       setPerformanceClinicas(result);
     };
 
     // Processar princípios ativos para operadora
     const processPrincipiosAtivosOperator = (protocolos: ProtocoloFromAPI[], selectedClinicId: number | 'todas') => {
-      console.log('🔍 processPrincipiosAtivosOperator - protocolos recebidos:', protocolos.length);
-      console.log('🔍 processPrincipiosAtivosOperator - protocolos:', protocolos);
-      
       const principleCount: Record<string, number> = {};
-      
+
       protocolos.forEach(protocolo => {
-        console.log('🔍 processPrincipiosAtivosOperator - protocolo:', protocolo);
-        console.log('🔍 processPrincipiosAtivosOperator - medicamentos:', protocolo.medicamentos);
-        
         if (protocolo.medicamentos && protocolo.medicamentos.length > 0) {
           protocolo.medicamentos.forEach(medicamento => {
             const principio = medicamento.nome || 'Não especificado';
             principleCount[principio] = (principleCount[principio] || 0) + 1;
-            console.log('🔍 processPrincipiosAtivosOperator - principio adicionado:', principio);
           });
         }
       });
-      
-      console.log('🔍 processPrincipiosAtivosOperator - principleCount:', principleCount);
-      
+
       const sortedPrinciples = Object.entries(principleCount)
         .map(([name, value]) => ({ name, value }))
         .sort((a, b) => b.value - a.value)
         .slice(0, 5);
-      
-      console.log('🔍 processPrincipiosAtivosOperator - sortedPrinciples:', sortedPrinciples);
+
       setPrincipiosAtivosTop(sortedPrinciples);
     };
 
     // Processar diagnósticos para operadora
     const processDiagnosticosOperator = (pacientes: PatientFromAPI[], selectedClinicId: number | 'todas') => {
-      console.log('🔍 processDiagnosticosOperator - pacientes recebidos:', pacientes.length);
-      console.log('🔍 processDiagnosticosOperator - pacientes detalhados:', pacientes);
-      
       // Filtrar dados por clínica se necessário
       const pacientesFiltrados = selectedClinicId === 'todas' 
         ? pacientes 
         : pacientes.filter(p => p.clinica_id === selectedClinicId);
 
-      console.log('🔍 processDiagnosticosOperator - pacientesFiltrados:', pacientesFiltrados.length);
-
       const diagnosticoCount: Record<string, number> = {};
-      
+
       pacientesFiltrados.forEach((paciente, index) => {
-        console.log(`🔍 Paciente ${index + 1}:`, {
-          id: paciente.id,
-          nome: paciente.Paciente_Nome || paciente.nome,
-          Cid_Diagnostico: paciente.Cid_Diagnostico,
-          cid_diagnostico: paciente.cid_diagnostico,
-          clinica_id: paciente.clinica_id
-        });
-        
         // Verificar ambos os campos possíveis para diagnóstico
         const diagnostico = paciente.Cid_Diagnostico || paciente.cid_diagnostico;
-        
+
         if (diagnostico && diagnostico.trim() !== '') {
           const diagnosticoLimpo = diagnostico.trim();
           diagnosticoCount[diagnosticoLimpo] = (diagnosticoCount[diagnosticoLimpo] || 0) + 1;
-          console.log(`✅ Diagnóstico encontrado: "${diagnosticoLimpo}"`);
-        } else {
-          console.log(`❌ Paciente sem diagnóstico:`, {
-            Cid_Diagnostico: paciente.Cid_Diagnostico,
-            cid_diagnostico: paciente.cid_diagnostico
-          });
-        }
+        } else {}
       });
-
-      console.log('🔍 processDiagnosticosOperator - diagnosticoCount real:', diagnosticoCount);
 
       const sortedDiagnosticos = Object.entries(diagnosticoCount)
         .map(([name, value]) => ({ 
@@ -2191,21 +2033,15 @@ const Dashboard = () => {
         .sort((a, b) => b.value - a.value)
         .slice(0, 8);
 
-      console.log('🔍 processDiagnosticosOperator - sortedDiagnosticos (dados reais):', sortedDiagnosticos);
       setDiagnosticosTop(sortedDiagnosticos);
     };
 
   // Processar demografia para operadora
   const processDemografiaOperator = (pacientes: PatientFromAPI[], selectedClinicId: number | 'todas') => {
-    console.log('🔍 processDemografiaOperator - pacientes recebidos:', pacientes.length);
-    console.log('🔍 processDemografiaOperator - pacientes:', pacientes);
-    
     // Filtrar dados por clínica se necessário
     const pacientesFiltrados = selectedClinicId === 'todas' 
       ? pacientes 
       : pacientes.filter(p => p.clinica_id === selectedClinicId);
-
-    console.log('🔍 processDemografiaOperator - pacientesFiltrados:', pacientesFiltrados.length);
 
     // Processar dados de sexo (usar dados reais se disponível, senão simular)
     const sexoCount: Record<string, number> = {};
@@ -2244,7 +2080,7 @@ const Dashboard = () => {
     faixasEtarias.forEach(faixa => {
       idadeCount[faixa.name] = 0;
     });
-    
+
     // Calcular idades reais baseadas nos dados do banco
     pacientesFiltrados.forEach(paciente => {
       try {
@@ -2262,28 +2098,25 @@ const Dashboard = () => {
             const mesNascimento = dataNascimento.getMonth();
             const diaAtual = hoje.getDate();
             const diaNascimento = dataNascimento.getDate();
-            
+
             // Ajustar se ainda não fez aniversário este ano
             if (mesAtual < mesNascimento || 
                 (mesAtual === mesNascimento && diaAtual < diaNascimento)) {
               anos--;
             }
-            
+
             idade = anos;
-            console.log(`🔍 Paciente ${paciente.id}: Data nascimento ${paciente.Data_Nascimento} → Idade calculada: ${idade}`);
           }
         }
         
         // Se não há data válida, tentar usar campo Idade diretamente
         if (idade === null && paciente.Idade && !isNaN(Number(paciente.Idade))) {
           idade = Number(paciente.Idade);
-          console.log(`🔍 Paciente ${paciente.id}: Campo Idade ${paciente.Idade} → Idade: ${idade}`);
         }
         
         // Fallback: simular idade baseada no ID do paciente
         if (idade === null) {
           idade = 25 + (paciente.id % 55); // Idades entre 25-80
-          console.log(`🔍 Paciente ${paciente.id}: Fallback simulado → Idade: ${idade}`);
         }
         
         // Garantir que a idade seja válida e atribuir à faixa correta
@@ -2291,7 +2124,6 @@ const Dashboard = () => {
           const faixa = faixasEtarias.find(f => idade! >= f.min && idade! <= f.max);
           if (faixa) {
             idadeCount[faixa.name]++;
-            console.log(`🔍 Paciente ${paciente.id}: Idade ${idade} → Faixa ${faixa.name}`);
           } else {
             console.warn(`🔍 Paciente ${paciente.id}: Idade ${idade} não se encaixa em nenhuma faixa`);
           }
@@ -2313,12 +2145,9 @@ const Dashboard = () => {
       value: idadeCount[faixa.name]
     }));
 
-    console.log('🔍 processDemografiaOperator - sexoData:', sexoData);
-    console.log('🔍 processDemografiaOperator - idadeData:', idadeData);
-    
     setDemografiaSexo(sexoData);
     setDemografiaIdade(idadeData);
-    };
+  };
 
     // Verificar se está carregando
     if (operatorLoading) {

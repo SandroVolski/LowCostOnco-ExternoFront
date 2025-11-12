@@ -96,9 +96,7 @@ const CadastroDocumentos = () => {
 
   // Log dos documentos carregados (apenas em desenvolvimento)
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('📋 Documentos carregados:', documentos.length);
-    }
+    if (process.env.NODE_ENV === 'development') {}
   }, [documentos]);
 
   // Função para calcular status baseado na data de vencimento (APENAS para documentos sem status)

@@ -209,13 +209,13 @@ const Chat = () => {
         title: "Enviando arquivo",
         description: `Enviando "${file.name}"...`,
       });
-      
+
       // Determinar tipo de mensagem baseado no tipo do arquivo
       let messageType: 'image' | 'file' = 'file';
       if (file.type.startsWith('image/')) {
         messageType = 'image';
       }
-      
+
       // Criar mensagem otimista (aparece imediatamente)
       const tempId = Date.now();
       const now = new Date();
@@ -237,21 +237,18 @@ const Chat = () => {
           url: URL.createObjectURL(file) // URL temporária para visualização
         }
       };
-      
-      // Adicionar mensagem imediatamente à lista
-      console.log('🔧 Adicionando arquivo otimista:', optimisticMessage);
+
       setMessages(prev => {
         const newMessages = [...prev, optimisticMessage];
-        console.log('🔧 Mensagens com arquivo atualizadas:', newMessages);
         return newMessages;
       });
-      
+
       // Scroll para o final
       setTimeout(scrollToBottom, 50);
-      
+
       // Enviar arquivo para o servidor usando o chatService
       const newMessage = await chatService.uploadFile(selectedChat.id, file);
-      
+
       // Substituir mensagem otimista pela real, mantendo o fileInfo
       const finalMessage = {
         ...newMessage,
@@ -260,28 +257,16 @@ const Chat = () => {
         sender_type: optimisticMessage.sender_type,
         fileInfo: optimisticMessage.fileInfo // Manter as informações do arquivo
       };
-      
+
       setMessages(prev => prev.map(msg => 
         msg.id === tempId ? finalMessage : msg
       ));
-      
+
       // Mostrar sucesso
       toast({
         title: "Arquivo enviado",
         description: `"${file.name}" enviado com sucesso`,
       });
-      
-      console.log('🔧 Arquivo enviado:', {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        chatId: selectedChat.id,
-        messageType: messageType
-      });
-      
-      // Recarregar chats para atualizar última mensagem (sem recarregar mensagens)
-      // await loadChats(); // Comentado para evitar sobrescrever mensagens
-      
     } catch (error) {
       console.error('Erro ao enviar arquivo:', error);
       
@@ -308,30 +293,18 @@ const Chat = () => {
     try {
       setLoading(true);
       const userChats = await chatService.getUserChats();
-      console.log('🔧 [CHAT COMPONENT] Chats carregados:', userChats);
-      console.log('🔧 [CHAT COMPONENT] Primeiro chat detalhado:', userChats[0]);
-      
+
       // Usar os dados já mapeados pelo chatService (preservar participants e nomes)
       const processedChats = userChats.map((chat: any) => {
-        console.log('🔧 [LOAD CHATS] Processando chat:', chat);
-        
         if (user?.role === 'operator') {
           // Para operadoras, preservar todos os campos mapeados pelo chatService
           // e garantir que os nomes estejam corretos
           const operadoraNome = chat.operadora_nome || 'Operadora';
           const clinicaNome = chat.nome || chat.clinica_nome || 'Clínica';
-          
+
           // Para operadoras, se não há conversa_id, precisamos criar/encontrar a conversa
           const chatId = chat.conversa_id || chat.id;
-          
-          console.log('🔧 [OPERADORA] Chat processado:', {
-            originalId: chat.id,
-            conversaId: chat.conversa_id,
-            finalId: chatId,
-            clinicaNome,
-            operadoraNome
-          });
-          
+
           return {
             ...chat, // Preservar todos os campos do chatService
             id: chatId,
@@ -356,9 +329,9 @@ const Chat = () => {
           };
         }
       });
-      
+
       setChats(processedChats);
-      
+
       // Se não há chat selecionado e há chats disponíveis, selecionar o primeiro
       if (!selectedChat && processedChats.length > 0) {
         setSelectedChat(processedChats[0]);
@@ -422,37 +395,24 @@ const Chat = () => {
   const loadMessages = async (chatId: number) => {
     try {
       setMessagesLoading(true);
-      console.log('🔧 [LOAD MESSAGES] Carregando mensagens para chatId:', chatId);
-      console.log('🔧 [LOAD MESSAGES] selectedChat:', selectedChat);
       const response = await chatService.getChatMessages(chatId, 50, 0);
-      
+
       // Processar mensagens para criar fileInfo se necessário
       const processedMessages = response.messages.map(msg => {
-        console.log('🔧 Processando mensagem:', {
-          id: msg.id,
-          message_type: msg.message_type,
-          content: msg.content,
-          hasFileInfo: !!(msg as any).fileInfo
-        });
-        
         // Se já tem fileInfo, não processar
         if ((msg as any).fileInfo) {
-          console.log('🔧 Mensagem já tem fileInfo:', (msg as any).fileInfo);
           return msg;
         }
-        
+
         // Se é mensagem de arquivo/imagem, criar fileInfo
         if (msg.message_type === 'image' || msg.message_type === 'file') {
-          console.log('🔧 Criando fileInfo para mensagem:', msg.message_type, 'Content:', msg.content);
-          
           let fileInfo;
           let displayContent = msg.content;
-          
+
           // Verificar se o conteúdo está no formato novo (nome|url|tipo|tamanho)
           if (msg.content.includes('|')) {
             const parts = msg.content.split('|');
-            console.log('🔧 Partes do conteúdo:', parts);
-            
+
             if (parts.length >= 4) {
               fileInfo = {
                 name: parts[0],
@@ -461,9 +421,7 @@ const Chat = () => {
                 size: parseInt(parts[3]) || 0
               };
               displayContent = parts[0]; // Mostrar apenas o nome do arquivo
-              console.log('🔧 FileInfo criado com sucesso:', fileInfo);
             } else {
-              console.log('🔧 Formato inválido, usando fallback');
               fileInfo = {
                 name: msg.content,
                 size: 0,
@@ -472,8 +430,6 @@ const Chat = () => {
               };
             }
           } else {
-            // Formato antigo (apenas nome)
-            console.log('🔧 Formato antigo detectado');
             fileInfo = {
               name: msg.content,
               size: 0,
@@ -481,22 +437,21 @@ const Chat = () => {
               url: '#'
             };
           }
-          
+
           const processedMsg = {
             ...msg,
             content: displayContent, // Atualizar o content para mostrar apenas o nome
             fileInfo
           };
-          
-          console.log('🔧 Mensagem processada:', processedMsg);
+
           return processedMsg;
         }
-        
+
         return msg;
       });
-      
+
       setMessages(processedMessages);
-      
+
       // Definir lastMessageId inicial para polling
       if (processedMessages.length > 0) {
         const latestMessage = processedMessages[processedMessages.length - 1];
@@ -508,7 +463,7 @@ const Chat = () => {
       }
       // Scroll para o final após carregar as mensagens
       setTimeout(scrollToBottom, 50);
-      
+
       // Iniciar polling para novas mensagens
       startPolling();
     } catch (error) {
@@ -529,10 +484,10 @@ const Chat = () => {
     
     try {
       if (!selectedChat.id) return;
-      
+
       const messageText = message.trim();
       setMessage(''); // Limpar input imediatamente
-      
+
       // Criar mensagem otimista (aparece imediatamente)
       const tempId = Date.now();
       const now = new Date();
@@ -549,22 +504,18 @@ const Chat = () => {
         updated_at: now.toISOString(),
         fileInfo: null
       };
-      
-      // Adicionar mensagem imediatamente à lista
-      console.log('🔧 Adicionando mensagem otimista:', optimisticMessage);
+
       setMessages(prev => {
         const newMessages = [...prev, optimisticMessage];
-        console.log('🔧 Mensagens atualizadas:', newMessages);
         return newMessages;
       });
-      
+
       // Scroll para o final após enviar mensagem
       setTimeout(scrollToBottom, 50);
-      
+
       // Enviar para o servidor
       const newMessage = await chatService.sendMessage(selectedChat.id, messageText);
-      console.log('🔧 Mensagem do servidor recebida:', newMessage);
-      
+
       // Substituir mensagem otimista pela real, mantendo o conteúdo
       const finalMessage = {
         ...newMessage,
@@ -572,16 +523,13 @@ const Chat = () => {
         sender_name: optimisticMessage.sender_name,
         sender_type: optimisticMessage.sender_type
       };
-      
-      console.log('🔧 Mensagem final:', finalMessage);
-      
+
       setMessages(prev => prev.map(msg => 
         msg.id === tempId ? finalMessage : msg
       ));
-      
+
       // Recarregar chats para atualizar última mensagem (sem recarregar mensagens)
       // await loadChats(); // Comentado para evitar sobrescrever mensagens
-      
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
       
@@ -595,25 +543,21 @@ const Chat = () => {
 
   // Selecionar chat
   const handleSelectChat = async (chat: Chat) => {
-    console.log('🔧 [SELECT CHAT] Chat selecionado:', chat);
-    
     // Parar polling anterior
     stopPolling();
-    
+
     setSelectedChat(chat);
     selectedChatIdRef.current = chat.id || null;
-    
+
     if (chat.id) {
       // Se é operadora e não há conversa_id, criar/encontrar conversa primeiro
       if (user?.role === 'operator' && !(chat as any).conversa_id) {
         try {
-          console.log('🔧 [SELECT CHAT] Criando/encontrando conversa para operadora...');
           const newChat = await chatService.findOrCreateOperadoraClinicaChat(
             chat.operadora_id || user.id, 
             chat.clinica_id || chat.id
           );
-          console.log('🔧 [SELECT CHAT] Conversa criada/encontrada:', newChat);
-          
+
           // Atualizar o chat selecionado com o ID correto
           const updatedChat = {
             ...chat,
@@ -621,7 +565,7 @@ const Chat = () => {
             conversa_id: newChat.id
           };
           setSelectedChat(updatedChat);
-          
+
           await loadMessages(newChat.id);
         } catch (error) {
           console.error('Erro ao criar/encontrar conversa:', error);
@@ -652,8 +596,6 @@ const Chat = () => {
     
     return true;
   });
-  
-  console.log('🔧 [CHAT COMPONENT] Chats filtrados:', filteredChats);
 
   // Filtrar chats não lidos
   const unreadChats = filteredChats.filter(chat => {
@@ -960,28 +902,18 @@ const Chat = () => {
                   </Avatar>
                   <div>
                     {(() => {
-                      // Debug: log do selectedChat para ver os campos disponíveis
-                      console.log('🔧 [HEADER DEBUG] selectedChat completo:', selectedChat);
-                      console.log('🔧 [HEADER DEBUG] participants:', (selectedChat as any)?.participants);
-                      
                       // Extrair nomes do nome_conversa que já contém "Operadora - Clínica"
                       const nomeConversa = (selectedChat as any)?.nome_conversa || '';
                       const parts = nomeConversa.split(' - ');
                       const operadoraName = parts[0] || '';
                       const clinicaName = parts[1] || '';
-                      
-                      console.log('🔧 [HEADER DEBUG] nome_conversa:', nomeConversa);
-                      console.log('🔧 [HEADER DEBUG] operadoraName extraído:', operadoraName);
-                      console.log('🔧 [HEADER DEBUG] clinicaName extraído:', clinicaName);
-                      
+
                       // Título principal: nome do contato (não o usuário atual)
                       const contact = getContactInfo();
                       const mainTitle = contact?.name || 
                                        (user?.role === 'operator' ? clinicaName : operadoraName) || 
                                        selectedChat.name;
-                      
-                      console.log('🔧 [HEADER DEBUG] mainTitle:', mainTitle);
-                      
+
                       return (
                         <>
                           <p className="font-medium">{mainTitle}</p>
@@ -1048,13 +980,6 @@ const Chat = () => {
                               )}>
                                 {/* Renderizar arquivo no estilo WhatsApp */}
                                 {(() => {
-                                  console.log('🔧 Renderizando mensagem:', {
-                                    id: msg.id,
-                                    message_type: msg.message_type,
-                                    content: msg.content,
-                                    hasFileInfo: !!(msg as any).fileInfo,
-                                    fileInfo: (msg as any).fileInfo
-                                  });
                                   return null;
                                 })()}
                                 {(() => {
@@ -1062,8 +987,6 @@ const Chat = () => {
                                   let fileInfo = (msg as any).fileInfo;
                                   
                                   if (!fileInfo && (msg.message_type === 'file' || msg.message_type === 'image' || (msg.content && msg.content.includes('|')))) {
-                                    console.log('🔧 Processando arquivo na renderização:', msg.content);
-                                    
                                     if (msg.content && msg.content.includes('|')) {
                                       const parts = msg.content.split('|');
                                       if (parts.length >= 4) {
@@ -1075,7 +998,7 @@ const Chat = () => {
                                         };
                                       }
                                     }
-                                    
+
                                     if (!fileInfo) {
                                       fileInfo = {
                                         name: msg.content,
@@ -1190,7 +1113,6 @@ const Chat = () => {
           )}
         </div>
       </div>
-
       {/* Modal do Perfil do Contato */}
       <Dialog open={profileModalOpen} onOpenChange={setProfileModalOpen}>
         <DialogContent className="max-w-md">

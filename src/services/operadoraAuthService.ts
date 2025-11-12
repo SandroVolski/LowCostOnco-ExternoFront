@@ -51,9 +51,6 @@ export interface OperadoraUserResponse {
 export const operadoraAuthService = {
   async login(email: string, password: string): Promise<OperadoraAuthResponse> {
     try {
-      console.log('🔧 OperadoraAuthService.login() iniciado');
-      console.log('🔧 API_BASE_URL:', API_BASE_URL);
-      
       const response = await fetch(`${API_BASE_URL}/operadora-auth/login`, {
         method: 'POST',
         headers: {
@@ -68,7 +65,6 @@ export const operadoraAuthService = {
       }
 
       const data = await response.json();
-      console.log('✅ Login da operadora realizado com sucesso');
       return data;
     } catch (error) {
       console.error('❌ Erro no OperadoraAuthService.login():', error);
@@ -142,15 +138,11 @@ export const operadoraAuthService = {
   // Método para fazer requisições autenticadas
   async authorizedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
     const accessToken = localStorage.getItem('operadora_access_token');
-    
+
     if (!accessToken) {
       console.error('❌ Token de acesso não encontrado no localStorage');
-      console.log('🔧 localStorage keys:', Object.keys(localStorage));
       throw new Error('Token de acesso não encontrado');
     }
-
-    console.log('🔧 operadoraAuthService.authorizedFetch - Token:', accessToken.substring(0, 20) + '...');
-    console.log('🔧 operadoraAuthService.authorizedFetch - URL:', input);
 
     const headers = new Headers(init?.headers || {});
     headers.set('Authorization', `Bearer ${accessToken}`);
@@ -160,38 +152,31 @@ export const operadoraAuthService = {
       headers
     });
 
-    console.log('🔧 operadoraAuthService.authorizedFetch - Status:', response.status);
-    
     // Verificar se a resposta é HTML em vez de JSON
     const contentType = response.headers.get('content-type');
     if (contentType && !contentType.includes('application/json')) {
-      console.log('ℹ️ Backend retornou HTML, usando fallback');
       // Retornar null em vez de lançar erro para permitir fallback
       return null;
     }
 
     // Se receber 500, lançar erro para mostrar mensagem correta
     if (response.status === 500) {
-      console.log('❌ Backend com erro 500');
       const errorText = await response.text().catch(() => 'Erro interno do servidor');
       throw new Error(`Erro 500: ${errorText}`);
     }
 
     // Se receber 401 ou 403, tentar renovar o token
     if (response.status === 401 || response.status === 403) {
-      console.log('🔧 operadoraAuthService.authorizedFetch - Token expirado, tentando renovar...');
       try {
         const refreshSuccess = await this.refreshToken(localStorage.getItem('operadora_refresh_token') || '');
         if (refreshSuccess.success) {
-          console.log('✅ operadoraAuthService.authorizedFetch - Token renovado com sucesso');
-          
           // ✅ SALVAR O NOVO TOKEN NO LOCALSTORAGE
           localStorage.setItem('operadora_access_token', refreshSuccess.accessToken);
-          
+
           // Tentar novamente com o novo token
           const newHeaders = new Headers(init?.headers || {});
           newHeaders.set('Authorization', `Bearer ${refreshSuccess.accessToken}`);
-          
+
           return fetch(input, {
             ...init,
             headers: newHeaders

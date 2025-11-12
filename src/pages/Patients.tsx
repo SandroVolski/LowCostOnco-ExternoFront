@@ -1103,25 +1103,17 @@ const Patients = () => {
   // Pré-selecionar operadora quando o formulário for aberto
   useEffect(() => {
     if (isDialogOpen && !isEditing && operadorasOptions.length > 0 && user) {
-      console.log('🔧 Formulário aberto, verificando pré-seleção...');
-      console.log('🔧 Operadoras disponíveis:', operadorasOptions);
-      console.log('🔧 Usuário:', user);
-      
       // Se não há operadora selecionada, tentar pré-selecionar
       if (!currentPatient.Operadora) {
-        console.log('🔧 Nenhuma operadora selecionada, tentando pré-seleção...');
-        
         // Primeiro, tentar buscar a operadora específica da clínica
         const clinicaId = user?.clinica_id || user?.id || 1;
         OperadoraService.getOperadoraByClinica(clinicaId).then(operadoraClinica => {
           if (operadoraClinica) {
-            console.log('🔧 Operadora da clínica encontrada para pré-seleção:', operadoraClinica.nome);
             setCurrentPatient(prev => ({
               ...prev,
               Operadora: operadoraClinica.nome
             }));
           } else if (operadorasOptions.length > 0) {
-            console.log('🔧 Usando primeira operadora disponível para pré-seleção:', operadorasOptions[0].value);
             setCurrentPatient(prev => ({
               ...prev,
               Operadora: operadorasOptions[0].value
@@ -1153,7 +1145,6 @@ const Patients = () => {
       OperadoraService.getOperadoraByClinica(clinicaId)
         .then(operadoraClinica => {
           if (operadoraClinica) {
-            console.log('🔧 Pré-selecionando operadora no filtro (automaticamente):', operadoraClinica.nome);
             setOperadoraFilter(operadoraClinica.nome);
             // NÃO marcar como manual - é pré-seleção automática
             setOperadoraFilterManual(false);
@@ -1212,24 +1203,17 @@ const Patients = () => {
   };
 
   const checkBackendConnection = async () => {
-    console.log('🔧 Verificando conexão com backend...');
     const connected = await testarConexaoBackend();
     setBackendConnected(connected);
-    
+
     if (connected) {
-      console.log('✅ Backend conectado, testando banco...');
       const dbConnected = await testarConexaoBanco();
-      if (dbConnected) {
-        console.log('✅ Banco conectado, carregando pacientes...');
-        // Não precisa chamar loadPatientsFromAPI aqui, será chamado pelo useEffect
-      } else {
-        console.log('❌ Problema com banco, usando dados locais');
+      if (dbConnected) {} else {
         toast.warning('Backend conectado, mas banco com problemas');
         setPatients(initialPatients);
         setLoading(false);
       }
     } else {
-      console.log('❌ Backend não conectado, usando dados locais');
       toast.error('Backend não está conectado', {
         description: 'Usando dados locais. Inicie o servidor Node.js na porta 3001'
       });
@@ -1242,16 +1226,14 @@ const Patients = () => {
 
   const loadProtocolosFromAPI = async () => {
     try {
-      console.log('🔧 Carregando protocolos da clínica...');
       const result = await ProtocoloService.listarProtocolos({ page: 1, limit: 1000 });
-      
+
       const protocolos = result.data.map(protocolo => ({
         value: protocolo.nome,
         label: protocolo.nome
       }));
-      
+
       setProtocolosOptions(protocolos);
-      console.log('✅ Protocolos carregados:', protocolos);
     } catch (error) {
       console.error('❌ Erro ao carregar protocolos:', error);
       // Em caso de erro, manter opções padrão
@@ -1268,51 +1250,35 @@ const Patients = () => {
   // Carregar operadoras do banco de dados
   const loadOperadorasFromAPI = async () => {
     try {
-      console.log('🔧 Carregando operadoras...');
       const clinicaId = user?.clinica_id || user?.id || 1;
-      
+
       // Buscar todas as operadoras
       const operadoras = await OperadoraService.getAllOperadoras();
-      
+
       const operadorasOptions = operadoras.map(operadora => ({
         value: operadora.nome,
         label: operadora.nome
       }));
-      
+
       setOperadorasOptions(operadorasOptions);
-      console.log('✅ Operadoras carregadas:', operadorasOptions);
-      
-      // Buscar a operadora específica da clínica
-      console.log('🔧 Buscando operadora da clínica:', clinicaId);
-      console.log('🔧 Usuário logado:', user);
       const operadoraClinica = await OperadoraService.getOperadoraByClinica(clinicaId);
-      
+
       if (operadoraClinica) {
-        console.log('✅ Operadora da clínica encontrada:', operadoraClinica.nome);
         setClinicaOperadoraId(operadoraClinica.id || 1);
-        
-        // Pré-selecionar a operadora da clínica
-        console.log('🔧 Pré-selecionando operadora:', operadoraClinica.nome);
-        console.log('🔧 Estado atual do paciente:', currentPatient.Operadora);
-        console.log('🔧 Está editando?', isEditing);
-        
+
         if (!currentPatient.Operadora && !isEditing) {
-          console.log('🔧 Aplicando pré-seleção...');
           setCurrentPatient(prev => {
             const updated = {
               ...prev,
               Operadora: operadoraClinica.nome
             };
-            console.log('🔧 Paciente atualizado:', updated);
             return updated;
           });
         }
       } else {
-        console.log('⚠️ Operadora não encontrada para a clínica, usando primeira disponível');
         // Fallback: usar a primeira operadora disponível
         if (operadoras.length > 0) {
           setClinicaOperadoraId(operadoras[0].id || 1);
-          console.log('🔧 Usando primeira operadora disponível:', operadoras[0].nome);
           if (!currentPatient.Operadora && !isEditing) {
             setCurrentPatient(prev => ({
               ...prev,
@@ -1337,18 +1303,15 @@ const Patients = () => {
   // Carregar prestadores (médicos) da clínica
   const loadPrestadoresFromAPI = async () => {
     try {
-      console.log('🔧 Carregando prestadores da clínica...');
       const clinicaId = user?.clinica_id || user?.id || 1;
-      console.log('🔧 ID da clínica do usuário logado:', clinicaId);
       const prestadores = await PrestadorService.getPrestadoresByClinica(clinicaId);
-      
+
       const prestadoresOptions = prestadores.map(prestador => ({
         value: prestador.nome,
         label: `${prestador.nome}${prestador.especialidade_principal || prestador.especialidade ? ` - ${prestador.especialidade_principal || prestador.especialidade}` : ''}`
       }));
-      
+
       setPrestadoresOptions(prestadoresOptions);
-      console.log('✅ Prestadores carregados:', prestadoresOptions);
     } catch (error) {
       console.error('❌ Erro ao carregar prestadores:', error);
       // Em caso de erro, manter opções padrão
@@ -1364,21 +1327,9 @@ const Patients = () => {
 
   const loadPatientsFromAPI = async () => {
     if (!backendConnected) {
-      console.log('⚠️ Backend não conectado, não carregando da API');
       return;
     }
-    
-    console.log('📡 Carregando pacientes da API...', { 
-      page: currentPage, 
-      limit: itemsPerPage, 
-      search: searchTerm,
-      sortBy,
-      statusFilter,
-      cidFilter,
-      protocoloFilter,
-      operadoraFilter
-    });
-    
+
     setLoading(true);
     try {
       const result = await PacienteService.listarPacientes({
@@ -1391,27 +1342,19 @@ const Patients = () => {
         protocoloFilter: protocoloFilter === 'all' ? undefined : protocoloFilter,
         operadoraFilter: operadoraFilter === 'all' ? undefined : operadoraFilter
       });
-      
-      console.log('✅ Pacientes carregados da API:', result);
-      
+
       // Debug: Verificar campos do médico assistente
       if (result.data && result.data.length > 0) {
-        console.log('🔧 Debug primeiro paciente:');
         const firstPatient = result.data[0];
-        console.log('  Nome:', firstPatient.name);
-        console.log('  Prestador:', firstPatient.Prestador);
-        console.log('  medico_assistente_nome:', firstPatient.medico_assistente_nome);
-        console.log('  Todos os campos:', Object.keys(firstPatient));
       }
-      
+
       setPatients(result.data);
       setTotalPatients(result.pagination.total);
       setTotalPages(result.pagination.totalPages);
-      
+
       if (result.data.length === 0 && (searchTerm || statusFilter !== 'all' || cidFilter !== 'all' || protocoloFilter !== 'all' || (operadoraFilterManual && operadoraFilter !== 'all'))) {
         toast.info('Nenhum paciente encontrado para os filtros aplicados');
       }
-      
     } catch (error) {
       console.error('❌ Erro ao carregar pacientes da API:', error);
       const isServiceUnavailable = (error as any)?.message?.includes('503') || (error as any)?.toString?.().includes('503');
@@ -1429,10 +1372,6 @@ const Patients = () => {
 
   // Filtrar e ordenar pacientes (apenas para dados locais)
   const filteredAndSortedPatients = useMemo(() => {
-    // Se estamos usando dados do backend, aplicar filtros locais também para melhor UX
-    // O backend pode não suportar todos os filtros
-    console.log('🔍 Aplicando filtros:', { searchTerm, statusFilter, cidFilter, protocoloFilter, operadoraFilter, sortBy, totalPatients: patients.length, backendConnected });
-
     // Filtrar apenas para dados locais
     let filtered = patients.filter(patient => {
       // Filtro de busca (nome, diagnóstico, número da carteirinha, CPF, operadora)
@@ -1491,8 +1430,6 @@ const Patients = () => {
       return true;
     });
 
-    console.log('✅ Pacientes filtrados:', filtered.length);
-
     // Ordenar apenas para dados locais
     filtered.sort((a, b) => {
       switch (sortBy) {
@@ -1520,22 +1457,13 @@ const Patients = () => {
     const localTotalPages = Math.ceil(filteredAndSortedPatients.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const paginatedPatients = filteredAndSortedPatients.slice(startIndex, startIndex + itemsPerPage);
-    
+
     // Atualizar o estado de paginação
     if (totalPages !== localTotalPages) {
       setTotalPages(localTotalPages);
       setTotalPatients(filteredAndSortedPatients.length);
     }
-    
-    console.log('📄 Paginação:', { 
-      currentPage, 
-      totalPages: localTotalPages, 
-      startIndex, 
-      endIndex: startIndex + itemsPerPage,
-      displayed: paginatedPatients.length,
-      backendConnected
-    });
-    
+
     return paginatedPatients;
   }, [filteredAndSortedPatients, currentPage, totalPages, itemsPerPage, backendConnected]);
 
@@ -1580,7 +1508,6 @@ const Patients = () => {
     OperadoraService.getOperadoraByClinica(clinicaId)
       .then(operadoraClinica => {
         if (operadoraClinica) {
-          console.log('🔧 Re-aplicando pré-seleção automática após reset:', operadoraClinica.nome);
           setOperadoraFilter(operadoraClinica.nome);
           setOperadoraFilterManual(false);
         }

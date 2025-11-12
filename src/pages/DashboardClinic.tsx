@@ -127,10 +127,8 @@ const Dashboard = () => {
       setBackendConnected(connected);
       
       if (connected) {
-        console.log('✅ Backend conectado, carregando dados do dashboard...');
         await loadDashboardData();
       } else {
-        console.log('❌ Backend não conectado');
         toast.error('Backend não disponível', {
           description: 'Não foi possível conectar com o servidor. Verifique se o backend está rodando.'
         });
@@ -145,51 +143,46 @@ const Dashboard = () => {
 
   const loadDashboardData = async () => {
     try {
-      console.log('🔧 Carregando dados do dashboard...');
-      
       // Carregar dados dos pacientes
       const pacientes = await PacienteService.listarPacientes();
-      console.log('✅ Pacientes carregados:', pacientes.length);
-      
+
       // Carregar dados das solicitações
       const solicitacoes = await SolicitacaoService.listarSolicitacoes();
-      console.log('✅ Solicitações carregadas:', solicitacoes.length);
-      
+
       // Carregar dados dos protocolos
       const protocolos = await ProtocoloService.listarProtocolos();
-      console.log('✅ Protocolos carregados:', protocolos.length);
 
       // Processar dados dos pacientes
       const pacientesAtivos = pacientes.filter(p => p.status === 'Ativo');
       const pacientesEmTratamento = pacientes.filter(p => p.status === 'Em Tratamento');
       const pacientesEmRemissao = pacientes.filter(p => p.status === 'Em Remissão');
-      
+
       // Processar dados das solicitações
       const solicitacoesHoje = solicitacoes.filter(s => {
         const hoje = new Date().toISOString().split('T')[0];
         return s.data_solicitacao?.startsWith(hoje);
       });
-      
+
       const solicitacoesSemana = solicitacoes.filter(s => {
         const umaSemanaAtras = new Date();
         umaSemanaAtras.setDate(umaSemanaAtras.getDate() - 7);
         return new Date(s.data_solicitacao || '') >= umaSemanaAtras;
       });
-      
+
       const solicitacoesMes = solicitacoes.filter(s => {
         const umMesAtras = new Date();
         umMesAtras.setDate(umMesAtras.getDate() - 30);
         return new Date(s.data_solicitacao || '') >= umMesAtras;
       });
-      
+
       const solicitacoesAprovadas = solicitacoes.filter(s => s.status === 'aprovada');
       const solicitacoesNegadas = solicitacoes.filter(s => s.status === 'rejeitada');
       const solicitacoesEmAnalise = solicitacoes.filter(s => s.status === 'em_analise');
-      
+
       // Calcular métricas
       const totalSolicitacoes = solicitacoes.length;
       const taxaAprovacao = totalSolicitacoes > 0 ? (solicitacoesAprovadas.length / totalSolicitacoes) * 100 : 0;
-      
+
       // Calcular tempo médio de autorização
       const solicitacoesComResposta = solicitacoes.filter(s => s.data_resposta && s.status === 'aprovada');
       const tempoMedioResposta = solicitacoesComResposta.length > 0 
@@ -214,20 +207,20 @@ const Dashboard = () => {
         solicitacoesSemana: solicitacoesSemana.length,
         solicitacoesMes: solicitacoesMes.length,
       });
-      
+
       // Processar dados para gráficos
       const statusPacientes = [
         { name: 'Ativos', count: pacientesAtivos.length, percentage: (pacientesAtivos.length / pacientes.length) * 100, color: '#10b981' },
         { name: 'Em Tratamento', count: pacientesEmTratamento.length, percentage: (pacientesEmTratamento.length / pacientes.length) * 100, color: '#f59e0b' },
         { name: 'Em Remissão', count: pacientesEmRemissao.length, percentage: (pacientesEmRemissao.length / pacientes.length) * 100, color: '#3b82f6' },
       ];
-      
+
       const statusSolicitacoes = [
         { status: 'Aprovadas', count: solicitacoesAprovadas.length, percentage: (solicitacoesAprovadas.length / totalSolicitacoes) * 100, color: '#10b981' },
         { status: 'Negadas', count: solicitacoesNegadas.length, percentage: (solicitacoesNegadas.length / totalSolicitacoes) * 100, color: '#ef4444' },
         { status: 'Em Análise', count: solicitacoesEmAnalise.length, percentage: (solicitacoesEmAnalise.length / totalSolicitacoes) * 100, color: '#f59e0b' },
       ];
-      
+
       // Dados de distribuição de tratamentos
       const distribuicaoTratamentos = protocolos.map((protocolo, index) => ({
         treatment: protocolo.nome,
@@ -235,7 +228,7 @@ const Dashboard = () => {
         percentage: Math.floor(Math.random() * 30) + 10,
         color: TREATMENT_COLORS[index % TREATMENT_COLORS.length].color
       }));
-      
+
       // Dados de solicitações por mês (últimos 6 meses)
       const solicitacoesPorMesData = [];
       for (let i = 5; i >= 0; i--) {
@@ -255,13 +248,13 @@ const Dashboard = () => {
           emAnalise: solicitacoesDoMes.filter(s => s.status === 'em_analise').length,
         });
       }
-      
+
       // Atualizar estados
       setPatientStatusData(statusPacientes);
       setSolicitacaoStatusData(statusSolicitacoes);
       setTreatmentDistribution(distribuicaoTratamentos);
       setSolicitacoesPorMes(solicitacoesPorMesData);
-      
+
       // Dados de próximos tratamentos (simulado)
       const proximosTratamentos = pacientes.slice(0, 5).map((paciente, index) => ({
         id: `tratamento-${index}`,
@@ -270,11 +263,8 @@ const Dashboard = () => {
         date: new Date(Date.now() + (index + 1) * 24 * 60 * 60 * 1000).toLocaleDateString('pt-BR'),
         status: ['Agendado', 'Confirmado', 'Pendente'][index % 3]
       }));
-      
+
       setUpcomingTreatments(proximosTratamentos);
-      
-      console.log('✅ Dados do dashboard carregados com sucesso');
-      
     } catch (error) {
       console.error('❌ Erro ao carregar dados do dashboard:', error);
       toast.error('Erro ao carregar dados do dashboard');

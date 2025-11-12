@@ -344,7 +344,6 @@ const OperatorAjustes = () => {
           </span>
         </div>
       </div>
-
       {/* Filtros */}
       <Card className="lco-card">
         <CardHeader>
@@ -426,7 +425,6 @@ const OperatorAjustes = () => {
           </div>
         </CardContent>
       </Card>
-
       {/* Grid de Cards de Ajustes */}
       {filteredAjustes.length === 0 ? (
         <Card className="lco-card">
@@ -596,7 +594,7 @@ const OperatorAjustes = () => {
                     )}
                     {ajuste.status !== 'em_analise' && (
                       // Espaço reservado para manter a mesma altura dos cards
-                      <div className="mt-2 h-8" />
+                      (<div className="mt-2 h-8" />)
                     )}
                   </CardContent>
                 </Card>
@@ -605,7 +603,6 @@ const OperatorAjustes = () => {
           ))}
         </div>
       )}
-
       {/* Paginação */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center space-x-2">
@@ -630,7 +627,6 @@ const OperatorAjustes = () => {
           </Button>
         </div>
       )}
-
       {/* Modal de Resposta */}
       {showResponseModal && selectedAjuste && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
@@ -731,7 +727,6 @@ const OperatorAjustes = () => {
           </div>
         </div>
       )}
-
       {/* Modal de Detalhes */}
       {selectedAjuste && !showResponseModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">

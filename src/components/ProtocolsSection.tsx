@@ -314,13 +314,12 @@ const ProtocolsSection = () => {
   const loadProtocolos = useCallback(async () => {
     try {
       if (backendConnected) {
-        console.log('🔧 Carregando protocolos da API...');
         const result = await ProtocoloService.listarProtocolos({
           page: 1,
           limit: 1000, // Carregar todos os protocolos
           clinica_id: 1 // Assumindo clínica ID 1 para testes
         });
-        
+
         // Converter da API para o formato local
         const protocolosConvertidos = result.data.map((protocoloAPI: ProtocoloFromAPI) => ({
           id: protocoloAPI.id.toString(),
@@ -343,17 +342,14 @@ const ProtocolsSection = () => {
           created_at: protocoloAPI.created_at,
           updated_at: protocoloAPI.updated_at
         }));
-        
+
         setProtocolos(protocolosConvertidos);
-        console.log('✅ Protocolos carregados da API:', protocolosConvertidos.length);
       } else {
-        console.log('⚠️ Backend não conectado, usando localStorage como fallback');
-        // Fallback para localStorage
-      const savedProtocolos = localStorage.getItem('clinic_protocols');
-      if (savedProtocolos) {
-        const parsed = JSON.parse(savedProtocolos);
-        setProtocolos(Array.isArray(parsed) ? parsed : []);
-        }
+        const savedProtocolos = localStorage.getItem('clinic_protocols');
+        if (savedProtocolos) {
+          const parsed = JSON.parse(savedProtocolos);
+          setProtocolos(Array.isArray(parsed) ? parsed : []);
+          }
       }
     } catch (error) {
       console.error('Erro ao carregar protocolos:', error);
@@ -374,10 +370,7 @@ const ProtocolsSection = () => {
   }, [loadProtocolos]);
 
   // Resetar filtros quando necessário (para melhor UX)
-  useEffect(() => {
-    // Log para debug dos filtros
-    console.log('🔄 Filtros atualizados:', { searchTerm, statusFilter, sortBy });
-  }, [searchTerm, statusFilter, sortBy]);
+  useEffect(() => {}, [searchTerm, statusFilter, sortBy]);
 
   const saveProtocolos = useCallback((newProtocolos: Protocolo[]) => {
     // Manter localStorage como backup apenas
@@ -391,13 +384,6 @@ const ProtocolsSection = () => {
 
   // Filtro e ordenação dos protocolos
   const filteredAndSortedProtocolos = useMemo(() => {
-    console.log('🔍 Aplicando filtros de protocolos:', { 
-      searchTerm, 
-      statusFilter, 
-      sortBy, 
-      totalProtocolos: protocolos.length
-    });
-
     // Filtrar protocolos
     let filtered = protocolos.filter((protocolo) => {
       // Filtro de busca (nome, cid, descrição)
@@ -427,8 +413,6 @@ const ProtocolsSection = () => {
       return matchesStatus;
     });
 
-    console.log('✅ Protocolos filtrados:', filtered.length, 'de', protocolos.length);
-
     // Ordenar protocolos
     filtered.sort((a, b) => {
       switch (sortBy) {
@@ -445,20 +429,11 @@ const ProtocolsSection = () => {
       }
     });
 
-    console.log('📋 Protocolos finais:', filtered.map(p => p.nome));
     return filtered;
   }, [protocolos, searchTerm, statusFilter, sortBy]);
 
   // Debug: verificar se protocolos estão sendo carregados
-  useEffect(() => {
-    console.log('📊 Estado atual:', {
-      protocolos: protocolos.length,
-      searchTerm,
-      statusFilter,
-      sortBy,
-      filteredAndSortedProtocolos: filteredAndSortedProtocolos.length
-    });
-  }, [protocolos, filteredAndSortedProtocolos]);
+  useEffect(() => {}, [protocolos, filteredAndSortedProtocolos]);
 
   // Funções CRUD
   const handleAdd = () => {

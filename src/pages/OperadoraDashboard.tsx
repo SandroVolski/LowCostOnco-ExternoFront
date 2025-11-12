@@ -166,15 +166,13 @@ const OperadoraDashboard = () => {
 
   const loadDashboardData = async () => {
     try {
-      console.log('🔧 Carregando dados do dashboard da operadora...');
-      
       const dashboardData = await DashboardService.getAllDashboardData();
-      
+
       // Converter dados do DashboardService para o formato esperado
       const systemMetrics = dashboardData.metrics;
       const chartsData = dashboardData.chartsData;
       const performance = dashboardData.performance;
-      
+
       // Atualizar métricas
       setMetrics({
         totalSolicitacoes: systemMetrics.solicitacoesMes,
@@ -195,7 +193,7 @@ const OperadoraDashboard = () => {
         economiaEstimativa: systemMetrics.economiaEstimativa || 0,
         slaDentroPrazo: systemMetrics.slaDentroPrazo || 0,
       });
-      
+
       // Atualizar dados dos gráficos
       setSolicitacoesPorMes(chartsData.chartData.map(item => ({
         mes: item.mes,
@@ -204,7 +202,7 @@ const OperadoraDashboard = () => {
         negadas: item.negadas,
         emAnalise: item.emAnalise
       })));
-      
+
       // Atualizar performance das clínicas
       setStatusPorClinica(performance.map(item => ({
         name: item.nome,
@@ -214,16 +212,13 @@ const OperadoraDashboard = () => {
         taxaAprovacao: item.taxaAprovacao,
         tempoMedio: item.tempoMedioResposta
       })));
-      
+
       // Atualizar princípios ativos
       setActivePrinciples(chartsData.activePrinciples.map((item, index) => ({
         name: item.name,
         count: item.count,
         color: TREATMENT_COLORS[index % TREATMENT_COLORS.length].color
       })));
-      
-      console.log('✅ Dados do dashboard carregados com sucesso');
-      
     } catch (error) {
       console.error('❌ Erro ao carregar dados do dashboard:', error);
       toast.error('Erro ao carregar dados do dashboard');
@@ -236,10 +231,7 @@ const OperadoraDashboard = () => {
       
       if (response && response.ok) {
         const data = await response.json();
-        console.log('✅ Clínicas carregadas do backend:', data);
-        // Aqui você pode definir as clínicas credenciadas se necessário
       } else {
-        console.log('ℹ️ Backend não disponível');
         throw new Error('Backend error');
       }
     } catch (error) {

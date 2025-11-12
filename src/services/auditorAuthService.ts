@@ -38,9 +38,6 @@ export interface AuditorUserResponse {
 export const auditorAuthService = {
   async login(username: string, password: string): Promise<AuditorAuthResponse> {
     try {
-      console.log('🔧 AuditorAuthService.login() iniciado');
-      console.log('🔧 API_BASE_URL:', API_BASE_URL);
-      
       const response = await fetch(`${API_BASE_URL}/auditor/login`, {
         method: 'POST',
         headers: {
@@ -55,7 +52,6 @@ export const auditorAuthService = {
       }
 
       const data = await response.json();
-      console.log('✅ Login do auditor realizado com sucesso');
       return data;
     } catch (error) {
       console.error('❌ Erro no AuditorAuthService.login():', error);
@@ -129,15 +125,11 @@ export const auditorAuthService = {
   // Método para fazer requisições autenticadas
   async authorizedFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
     const accessToken = localStorage.getItem('auditor_token');
-    
+
     if (!accessToken) {
       console.error('❌ Token de acesso não encontrado no localStorage');
-      console.log('🔧 localStorage keys:', Object.keys(localStorage));
       throw new Error('Token de acesso não encontrado');
     }
-
-    console.log('🔧 auditorAuthService.authorizedFetch - Token:', accessToken.substring(0, 20) + '...');
-    console.log('🔧 auditorAuthService.authorizedFetch - URL:', input);
 
     const headers = new Headers(init?.headers || {});
     headers.set('Authorization', `Bearer ${accessToken}`);
@@ -147,38 +139,31 @@ export const auditorAuthService = {
       headers
     });
 
-    console.log('🔧 auditorAuthService.authorizedFetch - Status:', response.status);
-    
     // Verificar se a resposta é HTML em vez de JSON
     const contentType = response.headers.get('content-type');
     if (contentType && !contentType.includes('application/json')) {
-      console.log('ℹ️ Backend retornou HTML, usando fallback');
       // Retornar null em vez de lançar erro para permitir fallback
       return null;
     }
 
     // Se receber 500, lançar erro para mostrar mensagem correta
     if (response.status === 500) {
-      console.log('❌ Backend com erro 500');
       const errorText = await response.text().catch(() => 'Erro interno do servidor');
       throw new Error(`Erro 500: ${errorText}`);
     }
 
     // Se receber 401 ou 403, tentar renovar o token
     if (response.status === 401 || response.status === 403) {
-      console.log('🔧 auditorAuthService.authorizedFetch - Token expirado, tentando renovar...');
       try {
         const refreshSuccess = await this.refreshToken(localStorage.getItem('auditor_refresh_token') || '');
         if (refreshSuccess.success) {
-          console.log('✅ auditorAuthService.authorizedFetch - Token renovado com sucesso');
-          
           // ✅ SALVAR O NOVO TOKEN NO LOCALSTORAGE
           localStorage.setItem('auditor_token', refreshSuccess.token);
-          
+
           // Tentar novamente com o novo token
           const newHeaders = new Headers(init?.headers || {});
           newHeaders.set('Authorization', `Bearer ${refreshSuccess.token}`);
-          
+
           return fetch(input, {
             ...init,
             headers: newHeaders

@@ -21,10 +21,7 @@ const COLORS = ['#79d153', '#8cb369', '#e4a94f', '#f26b6b', '#f7c59f', '#575654'
 
 const Analysis = () => {
   const { user, isAuthenticated } = useOperadoraAuth();
-  
-  console.log('🔧 Analysis - User:', user);
-  console.log('🔧 Analysis - IsAuthenticated:', isAuthenticated);
-  
+
   // Estados para dados
   const [metrics, setMetrics] = useState<AnalysisMetrics | null>(null);
   const [organData, setOrganData] = useState<any[]>([]);
@@ -35,7 +32,7 @@ const Analysis = () => {
   const [selectedOrgan, setSelectedOrgan] = useState<any>(null);
   const [organKey, setOrganKey] = useState(0);
   const [clinics, setClinics] = useState<Clinica[]>([]);
-  
+
   // Filtros
   const [clinicId, setClinicId] = useState<number | undefined>(undefined);
   const [sex, setSex] = useState<'M' | 'F' | 'O' | undefined>(undefined);
@@ -46,15 +43,7 @@ const Analysis = () => {
 
   // Debug: Log quando selectedOrgan muda
   useEffect(() => {
-    console.log('🔧 selectedOrgan mudou:', selectedOrgan);
-    if (selectedOrgan) {
-      console.log('🔧 Dados do órgão selecionado:', {
-        name: selectedOrgan.name,
-        patients: selectedOrgan.patients,
-        cids: selectedOrgan.cids,
-        protocols: selectedOrgan.protocols
-      });
-    }
+    if (selectedOrgan) {}
   }, [selectedOrgan]);
 
   // Carregar dados de análise e clínicas reais
@@ -63,9 +52,7 @@ const Analysis = () => {
       try {
         setLoading(true);
         setError(null);
-        
-        console.log('🔧 Carregando dados de análise...', filters);
-        
+
         // Buscar todos os dados reais do backend
         let [metricsData, organsData, kpisData, chartsData, clinicsData, pacientesResp, solicitacoesResp] = await Promise.all([
           AnalysisService.getAnalysisMetrics(filters),
@@ -77,15 +64,7 @@ const Analysis = () => {
           operadoraAuthService.authorizedFetch(`/api/pacientes?page=1&limit=10000`),
           operadoraAuthService.authorizedFetch(`/api/solicitacoes?page=1&limit=10000`)
         ]);
-        
-        console.log('✅ Dados reais carregados:', {
-          metrics: metricsData,
-          organs: organsData.length,
-          kpis: kpisData,
-          charts: chartsData,
-          clinics: clinicsData?.length || 0
-        });
-        
+
         // Fallback quando authorizedFetch retorna null (HTML)
         if (!pacientesResp) {
           const token = localStorage.getItem('operadora_access_token') || '';
@@ -215,7 +194,6 @@ const Analysis = () => {
         setKpis(kpisAligned);
         setChartData(chartsAligned);
         setClinics(clinicsData || []);
-        
       } catch (err) {
         console.error('❌ Erro ao carregar dados de análise:', err);
         setError('Erro ao carregar dados de análise');
@@ -226,7 +204,7 @@ const Analysis = () => {
 
     loadAnalysisData();
   }, [filters.clinicId, filters.sex, filters.ageMin, filters.ageMax]);
-  
+
   // Se não estiver autenticado, mostrar mensagem
   if (!isAuthenticated) {
     return (
@@ -288,7 +266,6 @@ const Analysis = () => {
           </div>
         </div>
       </div>
-
       {/* Estatísticas Rápidas */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         {/* Total de Pacientes */}
@@ -427,7 +404,6 @@ const Analysis = () => {
           </MouseTilt>
         </AnimatedSection>
       </div>
-
       {/* Filtros avançados */}
       <Card className="lco-card">
         <CardHeader>
@@ -483,7 +459,7 @@ const Analysis = () => {
         <CardContent>
           {selectedOrgan ? (
             /* Layout com órgão selecionado - 3 colunas */
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            (<div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
               {/* Coluna Esquerda - Estatísticas e CIDs */}
               <div className="xl:col-span-3 space-y-4">
                 {/* Header do Órgão */}
@@ -557,7 +533,6 @@ const Analysis = () => {
                   </div>
                 </div>
               </div>
-
               {/* Coluna Central - Corpo Humano */}
               <div className="xl:col-span-6">
                 <div className="w-full overflow-x-auto">
@@ -566,17 +541,13 @@ const Analysis = () => {
                       filters={filters} 
                       TooltipComponent={(props) => <OperatorAnatomyTooltip {...props} hasSelection={!!selectedOrgan} />}
                       onOrganSelect={(organ) => {
-                        console.log('🔧 onOrganSelect chamado com:', organ);
-                        console.log('🔧 organ é null?', organ === null);
                         setSelectedOrgan(organ);
                         setOrganKey(prev => prev + 1); // Forçar re-renderização
-                        console.log('🔧 selectedOrgan atualizado para:', organ);
                       }}
                     />
                   </div>
                 </div>
               </div>
-
               {/* Coluna Direita - Protocolos e KPIs */}
               <div className="xl:col-span-3 space-y-4">
                 {/* Protocolos de Tratamento */}
@@ -654,32 +625,27 @@ const Analysis = () => {
                   </div>
                 </div>
               </div>
-            </div>
+            </div>)
           ) : (
             /* Layout sem seleção - Corpo humano centralizado */
-            <div className="flex flex-col items-center justify-center space-y-6">
+            (<div className="flex flex-col items-center justify-center space-y-6">
               <div className="w-full overflow-x-auto">
                 <div className="min-w-[600px]">
                   <InteractiveAnatomy 
                     filters={filters} 
                     TooltipComponent={(props) => <OperatorAnatomyTooltip {...props} hasSelection={!!selectedOrgan} />}
                     onOrganSelect={(organ) => {
-                      console.log('🔧 onOrganSelect chamado com:', organ);
-                      console.log('🔧 organ é null?', organ === null);
                       setSelectedOrgan(organ);
                       setOrganKey(prev => prev + 1); // Forçar re-renderização
-                      console.log('🔧 selectedOrgan atualizado para:', organ);
                     }}
                   />
                 </div>
               </div>
-            </div>
+            </div>)
           )}
         </CardContent>
       </Card>
-
       <p className="text-sm text-muted-foreground">Usuário: {user?.username || 'N/A'} | Role: {user?.role || 'N/A'}</p>
-      
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card className="lco-card">
           <CardHeader>
@@ -801,7 +767,6 @@ const Analysis = () => {
         </Card>
         
       </div>
-      
       <Card className="lco-card">
         <CardHeader>
           <CardTitle>Indicadores de Desempenho</CardTitle>

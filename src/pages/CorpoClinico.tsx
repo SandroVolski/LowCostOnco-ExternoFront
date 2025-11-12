@@ -65,18 +65,13 @@ const CorpoClinico = () => {
   } = useDataLoader({
     key: 'corpo-clinico',
     loader: async () => {
-      console.log('🔧 Carregando perfil da clínica...');
       const data = await ClinicService.getProfile();
-      console.log('📋 Dados do perfil recebidos:', data);
-      console.log('👨‍⚕️ Responsáveis técnicos encontrados:', data.responsaveis_tecnicos?.length || 0);
       return data.responsaveis_tecnicos || [];
     },
     fallback: () => {
-      console.log('🔧 Usando fallback do localStorage...');
       const savedProfile = localStorage.getItem('clinic_profile');
       if (savedProfile) {
         const data = JSON.parse(savedProfile);
-        console.log('📋 Dados do localStorage:', data);
         return data.responsaveis_tecnicos || [];
       }
       return null;
@@ -181,9 +176,7 @@ const CorpoClinico = () => {
           );
           toast.success('Responsável atualizado com sucesso!');
         } else {
-          console.log('🔧 Salvando responsável no backend:', cleanResponsavel);
           await ClinicService.addResponsavel(cleanResponsavel);
-          console.log('✅ Responsável salvo no backend com sucesso');
           toast.success('Responsável adicionado com sucesso!');
         }
       } else {
@@ -212,18 +205,14 @@ const CorpoClinico = () => {
           localStorage.setItem('clinic_profile', JSON.stringify(profileData));
         }
       }
-      
-      console.log('🔄 Chamando refetch para recarregar dados...');
+
       await refetch(); // Recarregar dados
-      console.log('✅ Refetch concluído');
-      
+
       // Forçar recarregamento após um pequeno delay para garantir que o backend processou
       setTimeout(async () => {
-        console.log('🔄 Refetch adicional após delay...');
         await refetch();
-        console.log('✅ Refetch adicional concluído');
       }, 500);
-      
+
       setIsResponsavelDialogOpen(false);
     } catch (error) {
       console.error('Erro ao salvar responsável:', error);

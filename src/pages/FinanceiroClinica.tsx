@@ -140,7 +140,6 @@ const FinanceiroClinica = () => {
   useEffect(() => {
     const handleFocus = () => {
       if (selectedLote) {
-        console.log('🔄 Recarregando guias do lote após voltar para a página');
         loadGuiasDoLote(selectedLote.id);
       }
     };
@@ -187,7 +186,6 @@ const FinanceiroClinica = () => {
   const loadGuiasDoLote = async (loteId: number) => {
     try {
       const items: any[] = await FinanceiroService.getGuiasByLoteId(loteId);
-      console.log('Items carregados do backend:', items); // Debug temporário
 
       // Converter dados do backend (ItemFinanceiro[]) para formato do frontend (GuiaFinanceira[])
       const guiasConvertidas: GuiaFinanceira[] = items
@@ -216,30 +214,24 @@ const FinanceiroClinica = () => {
           item.parent_id === guia.id && item.tipo_item === 'procedimento'
         );
 
-        console.log(`Guia ${guia.id}:`, {
-          procedimentos: procedimentos.length,
-          procedimentosData: procedimentos,
-          valorTotalGuia: guia.valor_total
-        });
-
         // Calcular valor dos procedimentos
         guia.valor_procedimentos = procedimentos.reduce((sum: number, proc: any) => sum + (parseFloat(proc.valor_total) || 0), 0);
-        
+
         // Como o backend não salva despesas separadamente, vamos usar uma distribuição baseada no valor total
         // e nos códigos dos procedimentos para estimar as outras categorias
         const valorRestante = Math.max(0, guia.valor_total - guia.valor_procedimentos);
-        
+
         // Distribuir o valor restante baseado nos códigos dos procedimentos
         const procedimentosMedicamentos = procedimentos.filter((proc: any) => 
           proc.codigo_item?.startsWith('90') || 
           proc.descricao_item?.toLowerCase().includes('medicamento')
         );
-        
+
         const procedimentosMateriais = procedimentos.filter((proc: any) => 
           proc.codigo_item?.startsWith('78') || 
           proc.descricao_item?.toLowerCase().includes('material')
         );
-        
+
         const procedimentosTaxas = procedimentos.filter((proc: any) => 
           proc.codigo_item?.startsWith('60') || 
           proc.descricao_item?.toLowerCase().includes('taxa')
@@ -257,18 +249,8 @@ const FinanceiroClinica = () => {
           guia.valor_materiais = valorRestante * 0.25;
           guia.valor_taxas = valorRestante * 0.15;
         }
-
-        console.log(`Valores calculados para guia ${guia.id}:`, {
-          procedimentos: guia.valor_procedimentos,
-          medicamentos: guia.valor_medicamentos,
-          materiais: guia.valor_materiais,
-          taxas: guia.valor_taxas,
-          valorTotal: guia.valor_total,
-          valorRestante: valorRestante
-        });
       }
 
-      console.log('Guias convertidas:', guiasConvertidas); // Debug temporário
       setGuiasDoLote(guiasConvertidas);
 
       // Atualizar statusRespostaGuias com os status do banco

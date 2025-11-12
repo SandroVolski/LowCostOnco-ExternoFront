@@ -72,8 +72,7 @@ const LogsSistema = () => {
   const loadLogs = async () => {
     try {
       setLoading(true);
-      console.log('🔍 Carregando logs do sistema...');
-      
+
       // Construir parâmetros de filtro
       const params = new URLSearchParams();
       if (selectedLevel !== 'all') params.append('level', selectedLevel);
@@ -83,10 +82,8 @@ const LogsSistema = () => {
       params.append('pageSize', '100');
 
       const url = `/api/logs/system?${params.toString()}`;
-      console.log('🌐 Chamando API:', url);
 
       const token = localStorage.getItem('token');
-      console.log('🔑 Token encontrado:', token ? 'Sim' : 'Não');
 
       if (!token) {
         toast.error('Usuário não autenticado. Faça login novamente.');
@@ -101,8 +98,6 @@ const LogsSistema = () => {
         }
       });
 
-      console.log('📡 Resposta da API:', response.status, response.statusText);
-
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
           toast.error('Sessão expirada. Faça login novamente.');
@@ -116,8 +111,7 @@ const LogsSistema = () => {
       }
 
       const result = await response.json();
-      console.log('📊 Dados recebidos:', result);
-      
+
       if (result.success && result.data && result.data.logs) {
         // Converter dados da API para o formato esperado pelo frontend
         const apiLogs = result.data.logs.map((log: any) => ({
@@ -136,17 +130,15 @@ const LogsSistema = () => {
           responseTime: log.responseTime,
           stackTrace: log.stackTrace
         }));
-        
-        console.log('✅ Logs carregados com sucesso:', apiLogs.length, 'registros');
+
         setLogs(apiLogs);
-        
+
         if (apiLogs.length === 0) {
           toast.info('Nenhum log encontrado com os filtros aplicados');
         } else {
           toast.success(`${apiLogs.length} logs carregados com sucesso`);
         }
       } else {
-        console.log('⚠️  Nenhum log encontrado ou resposta vazia');
         setLogs([]);
         toast.info('Nenhum log encontrado no sistema');
       }

@@ -227,13 +227,11 @@ const Reports = () => {
       // Primeiro, tentar carregar da API se conectada
       if (backendConnected) {
         try {
-          console.log('🔧 Tentando carregar perfil da API...');
           const apiProfile = await ClinicService.getProfile();
-          
+
           if (apiProfile && apiProfile.clinica) {
-            console.log('✅ Perfil carregado da API:', apiProfile);
             setClinicProfile(apiProfile);
-            
+
             // Preencher automaticamente os dados da clínica
             setFormData(prev => ({
               ...prev,
@@ -241,25 +239,21 @@ const Reports = () => {
               hospital_codigo: apiProfile.clinica.codigo || '',
               medico_assinatura_crm: apiProfile.responsaveis_tecnicos?.[0]?.crm || '',
             }));
-            
-            console.log('📋 Responsáveis técnicos encontrados:', apiProfile.responsaveis_tecnicos?.length || 0);
+
             return;
           }
         } catch (apiError) {
           console.warn('⚠️ Erro ao carregar da API, tentando localStorage:', apiError);
         }
       }
-      
-      // Fallback para localStorage
-      console.log('🔧 Carregando perfil do localStorage...');
+
       const savedProfile = localStorage.getItem('clinic_profile');
       if (savedProfile) {
         const profile = JSON.parse(savedProfile);
-        console.log('📋 Perfil do localStorage:', profile);
-        
+
         // ✅ CORREÇÃO: Estruturar dados corretamente
         let structuredProfile;
-        
+
         // Se o profile já tem a estrutura correta (clinica + responsaveis_tecnicos)
         if (profile.clinica && profile.responsaveis_tecnicos) {
           structuredProfile = profile;
@@ -291,10 +285,9 @@ const Reports = () => {
             responsaveis_tecnicos: profile.responsaveis_tecnicos || []
           };
         }
-        
-        console.log('✅ Perfil estruturado:', structuredProfile);
+
         setClinicProfile(structuredProfile);
-        
+
         // Preencher automaticamente os dados da clínica
         setFormData(prev => ({
           ...prev,
@@ -302,15 +295,11 @@ const Reports = () => {
           hospital_codigo: structuredProfile.clinica.codigo || '',
           medico_assinatura_crm: structuredProfile.responsaveis_tecnicos?.[0]?.crm || '',
         }));
-        
-        console.log('👨‍⚕️ Responsáveis técnicos encontrados:', structuredProfile.responsaveis_tecnicos?.length || 0);
+
         if (structuredProfile.responsaveis_tecnicos?.length > 0) {
-          structuredProfile.responsaveis_tecnicos.forEach((resp, index) => {
-            console.log(`   ${index + 1}. ${resp.nome} - CRM: ${resp.crm}`);
-          });
+          structuredProfile.responsaveis_tecnicos.forEach((resp, index) => {});
         }
       } else {
-        console.log('⚠️ Nenhum perfil encontrado no localStorage');
         toast.info('Configure o perfil da clínica', {
           description: 'Acesse Configurações para definir as informações da clínica',
           action: {
@@ -519,7 +508,7 @@ const Reports = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!backendConnected) {
       toast.error('Backend não conectado', {
         description: 'Não é possível enviar a solicitação sem conexão com o servidor'
@@ -534,19 +523,10 @@ const Reports = () => {
       });
       return;
     }
-    
+
     // Validar campos obrigatórios e identificar quais estão faltando
     const missingFields = validateRequiredFields();
-    
-    // Debug: mostrar quais campos estão faltando
-    console.log('🔍 Campos faltando:', missingFields);
-    console.log('🔍 Estado do formData:', {
-      hospital_nome: formData.hospital_nome,
-      cliente_nome: formData.cliente_nome,
-      diagnostico_cid: formData.diagnostico_cid,
-      medicamentos: medicamentosFields.filter(med => med.nome.trim() !== '')
-    });
-    
+
     if (missingFields.length > 0) {
       const fieldLabels = missingFields.map(f => f.label).join(', ');
       toast.error('Campos obrigatórios não preenchidos', {
@@ -632,16 +612,6 @@ const Reports = () => {
         Object.entries(solicitacaoDataRaw).filter(([_, v]) => v !== undefined && v !== null)
       );
 
-      // Log para debug
-      console.log('🔧 Dados da solicitação sendo enviados:', {
-        paciente_id: solicitacaoData.paciente_id,
-        selectedPatientId,
-        paciente_nome: solicitacaoData.cliente_nome
-      });
-      
-      // Log completo dos dados para debug
-      console.log('🔧 Dados completos da solicitação:', JSON.stringify(solicitacaoData, null, 2));
-
       // Verificar se o médico foi selecionado
       if (!formData.medico_assinatura_crm) {
         toast.error('Médico não selecionado', {
@@ -653,7 +623,7 @@ const Reports = () => {
       // Armazenar dados pendentes e abrir modal de autenticação
       setPendingSolicitacaoData(solicitacaoData);
       setIsDoctorAuthModalOpen(true);
-      
+
       // A criação da solicitação será feita após a autenticação
       return;
 
@@ -701,7 +671,6 @@ const Reports = () => {
 
       // Recarregar lista
       await loadSolicitacoes();
-      
     } catch (error) {
       console.error('Erro ao criar solicitação:', error);
       toast.error('Erro ao criar solicitação', {
@@ -738,12 +707,10 @@ const Reports = () => {
       return;
     }
 
-    console.log('🔧 Abrindo modal de visualização para solicitação:', solicitacao.id);
-    
     // ✅ ABRE O MODAL IMEDIATAMENTE
     setSelectedSolicitacao(solicitacao);
     setIsPDFViewerOpen(true);
-    
+
     // O PDF será carregado dentro do modal já aberto
   };
 
@@ -751,7 +718,7 @@ const Reports = () => {
   const handleDoctorAuthenticationSuccess = async (authData: any) => {
     try {
       setDoctorAuthData(authData);
-      
+
       // Criar solicitação com dados de autenticação
       const solicitacaoDataWithAuth = {
         ...pendingSolicitacaoData,
@@ -766,10 +733,8 @@ const Reports = () => {
         medico_assinatura_useragent: authData.userAgent,
       };
 
-      console.log('🔧 Criando solicitação com autenticação médica:', solicitacaoDataWithAuth);
-
       const novaSolicitacao = await SolicitacaoService.criarSolicitacao(solicitacaoDataWithAuth);
-      
+
       toast.success('Solicitação criada e autenticada com sucesso!', {
         description: `ID: ${novaSolicitacao.id}. Documento assinado pelo médico responsável.`,
         action: {
@@ -822,12 +787,11 @@ const Reports = () => {
 
       // Recarregar lista
       await loadSolicitacoes();
-      
+
       // Fechar modal de autenticação
       setIsDoctorAuthModalOpen(false);
       setPendingSolicitacaoData(null);
       setDoctorAuthData(null);
-      
     } catch (error) {
       console.error('Erro ao criar solicitação autenticada:', error);
       toast.error('Erro ao criar solicitação autenticada', {
@@ -888,30 +852,15 @@ const Reports = () => {
   // Carregar protocolos
   const loadProtocolos = async () => {
     try {
-      console.log('🔧 Carregando protocolos...');
       const result = await ProtocoloService.listarProtocolos({
         page: 1,
         limit: 1000,
         clinica_id: 1
       });
-      
-      console.log('📋 Protocolos carregados:', result.data);
-      
+
       // Verificar se os medicamentos têm unidade_medida
-      result.data.forEach((protocolo, index) => {
-        console.log(`🔍 Protocolo ${index + 1}:`, {
-          nome: protocolo.nome,
-          medicamentos: protocolo.medicamentos?.map(med => ({
-            nome: med.nome,
-            dose: med.dose,
-            unidade_medida: med.unidade_medida,
-            via_adm: med.via_adm,
-            dias_adm: med.dias_adm,
-            frequencia: med.frequencia
-          }))
-        });
-      });
-      
+      result.data.forEach((protocolo, index) => {});
+
       setProtocolos(result.data);
     } catch (error) {
       console.error('Erro ao carregar protocolos:', error);
@@ -934,11 +883,8 @@ const Reports = () => {
   };
 
   const handleProtocoloSelect = (protocolo: ProtocoloFromAPI) => {
-    console.log('🔍 Protocolo selecionado:', protocolo);
-    console.log('📋 Medicamentos do protocolo:', protocolo.medicamentos);
-    
     setSelectedProtocolo(protocolo);
-    
+
     // Preencher campos automaticamente
     setFormData(prev => ({
       ...prev,
@@ -951,19 +897,8 @@ const Reports = () => {
     // Preencher medicamentos
     if (protocolo.medicamentos && protocolo.medicamentos.length > 0) {
       const medicamentosConvertidos = protocolo.medicamentos.map((med, index) => {
-        console.log(`💊 Medicamento ${index + 1}:`, {
-          nome: med.nome,
-          dose: med.dose,
-          unidade_medida: med.unidade_medida,
-          via_adm: med.via_adm,
-          dias_adm: med.dias_adm,
-          frequencia: med.frequencia,
-          observacoes: med.observacoes
-        });
-        
         const unidadeNormalizada = normalizeUnidadeMedida(med.unidade_medida || '');
-        console.log(`🔄 Normalizando unidade: "${med.unidade_medida}" -> "${unidadeNormalizada}"`);
-        
+
         return {
           id: (index + 1).toString(),
           nome: med.nome || '',
@@ -975,21 +910,16 @@ const Reports = () => {
           observacoes: med.observacoes || ''
         };
       });
-      
-      console.log('✅ Medicamentos convertidos:', medicamentosConvertidos);
+
       setMedicamentosFields(medicamentosConvertidos);
-      
+
       // Debug adicional: verificar se as unidades estão sendo preenchidas
       medicamentosConvertidos.forEach((med, index) => {
         if (!med.unidade_medida) {
           console.warn(`⚠️ Medicamento ${index + 1} (${med.nome}) não tem unidade_medida preenchida`);
-        } else {
-          console.log(`✅ Medicamento ${index + 1} (${med.nome}) tem unidade_medida: ${med.unidade_medida}`);
-        }
+        } else {}
       });
-    } else {
-      console.log('⚠️ Nenhum medicamento encontrado no protocolo');
-    }
+    } else {}
 
     setShowProtocoloModal(false);
     toast.success(`Protocolo "${protocolo.nome}" selecionado!`);
@@ -1119,7 +1049,6 @@ const Reports = () => {
           </div>
         </div>
       </div>
-
       <div className="w-full">
           <Card className="shadow-sm hover:shadow-md transition-shadow duration-300">
             <CardHeader>
@@ -2079,7 +2008,7 @@ const Reports = () => {
                         
                         {useCustomCRM ? (
                           // Input customizado para CRM
-                          <div className="space-y-3">
+                          (<div className="space-y-3">
                             <Input
                               id="medico_assinatura_crm"
                               name="medico_assinatura_crm"
@@ -2092,7 +2021,6 @@ const Reports = () => {
                             <p className="text-xs text-muted-foreground">
                               Digite o CRM completo do médico responsável
                             </p>
-                            
                             {/* Botão de alternância - Abaixo do campo */}
                             <div className="flex items-center justify-end">
                               <button
@@ -2103,10 +2031,10 @@ const Reports = () => {
                                 Usar lista de médicos cadastrados
                               </button>
                             </div>
-                          </div>
+                          </div>)
                         ) : (
                           // Select com responsáveis técnicos - MELHORADO
-                          <div className="space-y-3">
+                          (<div className="space-y-3">
                             <Select
                               value={formData.medico_assinatura_crm}
                               onValueChange={(value) => setFormData(prev => ({ ...prev, medico_assinatura_crm: value }))}
@@ -2163,7 +2091,6 @@ const Reports = () => {
                                 </div>
                               </SelectContent>
                             </Select>
-                            
                             {/* Informações do médico selecionado - ABAIXO DO CAMPO */}
                             {formData.medico_assinatura_crm && clinicProfile?.responsaveis_tecnicos && (
                               <div className="space-y-3">
@@ -2189,14 +2116,12 @@ const Reports = () => {
                                 </div>
                               </div>
                             )}
-                            
                             <p className="text-xs text-muted-foreground">
                               {clinicProfile?.responsaveis_tecnicos?.length > 0 
                                 ? `${clinicProfile.responsaveis_tecnicos.length} médico(s) disponível(is) para seleção`
                                 : 'Nenhum médico cadastrado. Configure no perfil da clínica.'
                               }
                             </p>
-                            
                             {/* Botão de alternância - Abaixo do campo */}
                             <div className="flex items-center justify-end">
                               <button
@@ -2207,7 +2132,7 @@ const Reports = () => {
                                 Digitar CRM personalizado
                               </button>
                             </div>
-                          </div>
+                          </div>)
                         )}
                       </div>
                       
@@ -2265,7 +2190,6 @@ const Reports = () => {
             </CardContent>
           </Card>
         </div>
-
       {/* Modal de Seleção de Protocolos */}
       <Dialog open={showProtocoloModal} onOpenChange={setShowProtocoloModal}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
@@ -2376,7 +2300,6 @@ const Reports = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
       {/* Modal de Visualização de PDF */}
       {selectedSolicitacao && (
         <PDFViewerModal
@@ -2385,7 +2308,6 @@ const Reports = () => {
           solicitacao={selectedSolicitacao}
         />
       )}
-
       {/* Modal de Autenticação Médica */}
       {pendingSolicitacaoData && (
         <DoctorAuthModal

@@ -63,15 +63,10 @@ const CadastroOperadoras = () => {
 
   const loadOperadoras = async () => {
     try {
-      console.log('🔧 Iniciando carregamento de operadoras...');
       setLoading(true);
-      
-      console.log('🔧 Chamando OperadoraService.getAllOperadoras()...');
+
       const operadorasData = await OperadoraService.getAllOperadoras();
-      
-      console.log('✅ Operadoras recebidas:', operadorasData);
-      console.log('📊 Total de operadoras:', operadorasData.length);
-      
+
       setOperadoras(operadorasData);
     } catch (error) {
       console.error('❌ Erro ao carregar operadoras:', error);
@@ -82,7 +77,6 @@ const CadastroOperadoras = () => {
       toast.error('Erro ao carregar operadoras');
     } finally {
       setLoading(false);
-      console.log('🔧 Carregamento de operadoras finalizado');
     }
   };
 
@@ -196,42 +190,32 @@ const CadastroOperadoras = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    console.log('🔧 Iniciando envio do formulário...');
-    console.log('📋 Dados do formulário:', formData);
-    
+
     if (!validateForm()) {
-      console.log('❌ Validação falhou');
       return;
     }
-    
+
     try {
       setSubmitting(true);
-      
+
       // Preparar dados para envio
       const dadosParaEnvio = OperadoraService.prepareDataForSubmission(formData);
-      console.log('🔧 Dados preparados para envio:', dadosParaEnvio);
-      
+
       if (editingOperadora) {
-        // Atualizar operadora existente
-        console.log('🔧 Atualizando operadora existente...');
         const operadoraAtualizada = await OperadoraService.updateOperadora(editingOperadora.id!, dadosParaEnvio as OperadoraUpdateInput);
-        
+
         setOperadoras(prev => prev.map(o => 
           o.id === editingOperadora.id ? operadoraAtualizada : o
         ));
-        
+
         toast.success('Operadora atualizada com sucesso!');
       } else {
-        // Criar nova operadora
-        console.log('🔧 Criando nova operadora...');
         const novaOperadora = await OperadoraService.createOperadora(dadosParaEnvio as OperadoraCreateInput);
-        console.log('✅ Nova operadora criada:', novaOperadora);
-        
+
         setOperadoras(prev => [...prev, novaOperadora]);
         toast.success('Operadora cadastrada com sucesso!');
       }
-      
+
       resetForm();
       setIsFormOpen(false);
     } catch (error) {

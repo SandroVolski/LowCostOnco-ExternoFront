@@ -80,18 +80,15 @@ export const useDashboard = () => {
     setError(null);
     
     try {
-      console.log('🔧 Verificando conexão com backend...');
       const connected = await testarConexaoBackend();
       setBackendConnected(connected);
-      
+
       if (connected) {
-        console.log('✅ Backend conectado, carregando dados...');
         await loadDashboardData();
         setLastUpdate(new Date());
         toast.success('Dashboard atualizado com sucesso!');
       } else {
         setError('Backend não está conectado. Inicie o servidor na porta 3001.');
-        console.log('❌ Backend não conectado');
         toast.error('Backend não conectado', {
           description: 'Verifique se o servidor está rodando na porta 3001'
         });
@@ -111,20 +108,14 @@ export const useDashboard = () => {
   // Função para carregar dados do dashboard
   const loadDashboardData = useCallback(async () => {
     try {
-      console.log('📊 Carregando dados do dashboard...');
-      
       // Carregar pacientes e solicitações em paralelo
       const [patientsResult, solicitationsResult] = await Promise.all([
         PacienteService.listarPacientes({ page: 1, limit: 1000 }),
         SolicitacaoService.listarSolicitacoes({ page: 1, limit: 1000 })
       ]);
-      
-      console.log('👥 Pacientes carregados:', patientsResult.data.length);
-      console.log('📋 Solicitações carregadas:', solicitationsResult.data.length);
-      
+
       // Processar dados
       processDashboardData(patientsResult.data, solicitationsResult.data);
-      
     } catch (error) {
       console.error('❌ Erro ao carregar dados do dashboard:', error);
       setError('Erro ao carregar dados do servidor');
@@ -134,12 +125,10 @@ export const useDashboard = () => {
 
   // Função para processar os dados do dashboard
   const processDashboardData = useCallback((patients: any[], solicitations: SolicitacaoFromAPI[]) => {
-    console.log('🔄 Processando dados do dashboard...');
-    
     // Calcular estatísticas básicas
     const totalPacientes = patients.length;
     const totalSolicitacoes = solicitations.length;
-    
+
     // Calcular valor estimado (baseado nas solicitações)
     const valorEstimado = solicitations.reduce((total, solicitation) => {
       // Calcular valor baseado no tipo de tratamento e medicamentos
@@ -156,7 +145,7 @@ export const useDashboard = () => {
       const ciclos = solicitation.ciclos_previstos || 1;
       return total + (valorSolicitacao * ciclos);
     }, 0);
-    
+
     // Estatísticas principais (variações simuladas por enquanto)
     const stats: DashboardStats = {
       totalPacientes,
@@ -166,24 +155,24 @@ export const useDashboard = () => {
       valorEstimado,
       valorVariacao: Math.floor(Math.random() * 20) - 10,
     };
-    
+
     setDashboardStats(stats);
-    
+
     // Processar status dos pacientes
     const statusCount = patients.reduce((acc, patient) => {
       const status = patient.status || 'Em tratamento';
       acc[status] = (acc[status] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    
+
     const patientStatusProcessed: PatientStatusData[] = Object.entries(statusCount).map(([status, count], index) => ({
       name: status,
       count,
       color: CHART_COLORS[index % CHART_COLORS.length].fill,
     }));
-    
+
     setPatientStatusData(patientStatusProcessed);
-    
+
     // Processar status das solicitações
     const solicitationStatusCount = solicitations.reduce((acc, solicitation) => {
       const status = solicitation.status || 'pendente';
@@ -194,15 +183,15 @@ export const useDashboard = () => {
       acc[statusName] = (acc[statusName] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
-    
+
     const solicitationStatusProcessed: SolicitationStatusData[] = Object.entries(solicitationStatusCount).map(([status, count], index) => ({
       name: status,
       count,
       color: CHART_COLORS[index % CHART_COLORS.length].fill,
     }));
-    
+
     setSolicitationStatusData(solicitationStatusProcessed);
-    
+
     // Processar medicamentos mais utilizados
     const medicationCount = solicitations.reduce((acc, solicitation) => {
       if (solicitation.medicamentos_antineoplasticos) {
@@ -228,7 +217,7 @@ export const useDashboard = () => {
       }
       return acc;
     }, {} as Record<string, number>);
-    
+
     // Criar dados mensais simulados baseados nos medicamentos encontrados
     const medicationDataProcessed: MedicationData[] = Object.entries(medicationCount)
       .slice(0, 5) // Top 5 medicamentos
@@ -245,9 +234,9 @@ export const useDashboard = () => {
           jun: Math.max(1, Math.floor(baseValue * (0.8 + Math.random() * 0.4))),
         };
       });
-    
+
     setMedicationData(medicationDataProcessed);
-    
+
     // Processar tipos de tratamento baseado na finalidade
     const treatmentTypeCount = solicitations.reduce((acc, solicitation) => {
       const finalidade = solicitation.finalidade;
@@ -267,7 +256,7 @@ export const useDashboard = () => {
       
       return acc;
     }, {} as Record<string, number>);
-    
+
     const treatmentDataProcessed: TreatmentData[] = Object.entries(treatmentTypeCount)
       .filter(([_, value]) => value > 0)
       .map(([name, value], index) => ({
@@ -275,9 +264,9 @@ export const useDashboard = () => {
         value,
         color: CHART_COLORS[index % CHART_COLORS.length].fill,
       }));
-    
+
     setTreatmentData(treatmentDataProcessed);
-    
+
     // Processar tratamentos próximos (baseado em solicitações ativas)
     const upcomingTreatmentsProcessed: UpcomingTreatment[] = solicitations
       .filter(s => s.status === 'aprovada' || s.status === 'em_analise')
@@ -304,17 +293,8 @@ export const useDashboard = () => {
         };
       })
       .sort((a, b) => a.daysRemaining - b.daysRemaining); // Ordenar por urgência
-    
+
     setUpcomingTreatments(upcomingTreatmentsProcessed);
-    
-    console.log('✅ Dados do dashboard processados com sucesso');
-    console.log('📊 Estatísticas:', {
-      pacientes: totalPacientes,
-      solicitacoes: totalSolicitacoes,
-      valor: valorEstimado,
-      medicamentos: medicationDataProcessed.length,
-      tratamentosProximos: upcomingTreatmentsProcessed.length
-    });
   }, []);
 
   // Função para formatar moeda

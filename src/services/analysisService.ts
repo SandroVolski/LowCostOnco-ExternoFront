@@ -258,8 +258,6 @@ export class AnalysisService {
   // Buscar dados de análise por órgão
   static async getOrganAnalysisData(filters?: AnalysisFilters): Promise<OrganAnalysisData[]> {
     try {
-      console.log('🔧 Buscando dados de análise por órgão...');
-      
       // Montar query string de filtros, se houver
       const params = new URLSearchParams();
       if (filters?.clinicId) params.set('clinicId', String(filters.clinicId));
@@ -273,27 +271,24 @@ export class AnalysisService {
       // Detectar automaticamente o tipo de usuário e usar o serviço correto
       const fetchFn = getAuthorizedFetch();
       const response = await fetchFn(url);
-      
+
       if (!response || !response.ok) {
         throw new Error('Erro ao buscar dados de análise');
       }
-      
+
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error('Erro ao buscar dados de análise');
       }
-      
+
       const analysisData = result.data || [];
-      console.log('✅ Dados de análise carregados:', analysisData.length, 'órgãos');
-      
+
       // Se a API retornar dados, utilizar diretamente
       if (Array.isArray(analysisData) && analysisData.length > 0) {
         return analysisData;
       }
 
-      // Fallback: construir análise básica a partir dos pacientes quando não houver dados no backend
-      console.log('ℹ️ API de análise retornou vazio. Gerando análise básica no frontend a partir dos pacientes...');
       const patientsResult = await PacienteService.listarPacientes({ page: 1, limit: 1000 });
       const patients = patientsResult.data || [];
 
@@ -334,9 +329,7 @@ export class AnalysisService {
         solicitacoes: [],
       }));
 
-      console.log('✅ Análise construída no frontend:', built);
       return built;
-      
     } catch (error) {
       console.error('❌ Erro ao buscar dados de análise:', error);
       throw new Error('Erro ao buscar dados de análise por órgão');
@@ -346,8 +339,6 @@ export class AnalysisService {
   // Buscar métricas gerais de análise
   static async getAnalysisMetrics(filters?: AnalysisFilters): Promise<AnalysisMetrics> {
     try {
-      console.log('🔧 Buscando métricas de análise...');
-      
       const params = new URLSearchParams();
       if (filters?.clinicId) params.set('clinicId', String(filters.clinicId));
       if (filters?.sex) params.set('sex', filters.sex);
@@ -359,22 +350,20 @@ export class AnalysisService {
       // Detectar automaticamente o tipo de usuário e usar o serviço correto
       const fetchFn = getAuthorizedFetch();
       const response = await fetchFn(url);
-      
+
       if (!response || !response.ok) {
         throw new Error('Erro ao buscar métricas de análise');
       }
-      
+
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error('Erro ao buscar métricas de análise');
       }
-      
+
       const metrics = result.data;
-      console.log('✅ Métricas carregadas:', metrics);
-      
+
       return metrics;
-      
     } catch (error) {
       console.error('❌ Erro ao buscar métricas de análise:', error);
       throw new Error('Erro ao buscar métricas de análise');
@@ -395,29 +384,25 @@ export class AnalysisService {
   // Buscar KPIs operacionais
   static async getOperationalKPIs(filters?: AnalysisFilters): Promise<OperationalKPIs> {
     try {
-      console.log('🔧 Buscando KPIs operacionais...');
-      
       const queryParams = new URLSearchParams();
       if (filters?.clinicId) queryParams.append('clinicId', filters.clinicId.toString());
       if (filters?.sex) queryParams.append('sex', filters.sex);
       if (filters?.ageMin !== undefined) queryParams.append('ageMin', filters.ageMin.toString());
       if (filters?.ageMax !== undefined) queryParams.append('ageMax', filters.ageMax.toString());
-      
+
       const qs = queryParams.toString();
       const url = `${config.API_BASE_URL}/analysis/kpis${qs ? `?${qs}` : ''}`;
-      console.log('🔧 URL:', url);
-      
+
       // Detectar automaticamente o tipo de usuário e usar o serviço correto
       const fetchFn = getAuthorizedFetch();
       const response = await fetchFn(url);
-      
+
       if (!response || !response.ok) {
         throw new Error(`Erro ao buscar KPIs operacionais: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      console.log('✅ KPIs operacionais carregados:', data.data);
-      
+
       return data.data;
     } catch (error) {
       console.error('❌ Erro ao buscar KPIs operacionais:', error);
@@ -428,29 +413,25 @@ export class AnalysisService {
   // Buscar dados para gráficos
   static async getChartData(filters?: AnalysisFilters): Promise<ChartData> {
     try {
-      console.log('🔧 Buscando dados de gráficos...');
-      
       const queryParams = new URLSearchParams();
       if (filters?.clinicId) queryParams.append('clinicId', filters.clinicId.toString());
       if (filters?.sex) queryParams.append('sex', filters.sex);
       if (filters?.ageMin !== undefined) queryParams.append('ageMin', filters.ageMin.toString());
       if (filters?.ageMax !== undefined) queryParams.append('ageMax', filters.ageMax.toString());
-      
+
       const qs = queryParams.toString();
       const url = `${config.API_BASE_URL}/analysis/charts${qs ? `?${qs}` : ''}`;
-      console.log('🔧 URL:', url);
-      
+
       // Detectar automaticamente o tipo de usuário e usar o serviço correto
       const fetchFn = getAuthorizedFetch();
       const response = await fetchFn(url);
-      
+
       if (!response || !response.ok) {
         throw new Error(`Erro ao buscar dados de gráficos: ${response.status}`);
       }
-      
+
       const data = await response.json();
-      console.log('✅ Dados de gráficos carregados:', data.data);
-      
+
       return data.data;
     } catch (error) {
       console.error('❌ Erro ao buscar dados de gráficos:', error);

@@ -218,72 +218,62 @@ const ClinicProfileComponent = () => {
       try {
         const profileData = await ClinicService.getProfile();
         const clinica = profileData.clinica;
-        
-        console.log('🔍 Dados recebidos do backend:', clinica);
-        
+
         // Processar dados de telefones e emails
         let telefones = [''];
         let emails = [''];
 
         // Processar telefones - verificar se é string JSON ou array
         if (clinica.telefones) {
-          console.log('📞 Tipo de telefones:', typeof clinica.telefones, 'Valor:', clinica.telefones);
-          
           if (typeof clinica.telefones === 'string') {
             try {
               const telefonesArray = JSON.parse(clinica.telefones);
-              console.log('📞 Telefones parseados:', telefonesArray);
               telefones = Array.isArray(telefonesArray) ? telefonesArray.filter(tel => tel && tel.trim() !== '').map(tel => String(tel)) : [''];
             } catch (error) {
               console.warn('Erro ao processar telefones JSON:', error);
               telefones = [String(clinica.telefones)];
             }
           } else if (Array.isArray(clinica.telefones)) {
-            console.log('📞 Telefones já é array:', clinica.telefones);
             telefones = clinica.telefones.filter(tel => tel && tel.trim() !== '').map(tel => String(tel));
           }
         }
-        
+
         // Fallback para campo antigo se não há telefones no novo formato
         if (telefones.length === 0 && (clinica as any).telefone && (clinica as any).telefone.trim() !== '') {
           telefones = [String((clinica as any).telefone)];
         }
-        
+
         if (telefones.length === 0) {
           telefones = [''];
         }
-        
+
         // Garantir que todos os telefones são strings válidas
         telefones = telefones.map(tel => tel || '');
 
         // Processar emails - verificar se é string JSON ou array
         if (clinica.emails) {
-          console.log('📧 Tipo de emails:', typeof clinica.emails, 'Valor:', clinica.emails);
-          
           if (typeof clinica.emails === 'string') {
             try {
               const emailsArray = JSON.parse(clinica.emails);
-              console.log('📧 Emails parseados:', emailsArray);
               emails = Array.isArray(emailsArray) ? emailsArray.filter(email => email && email.trim() !== '').map(email => String(email)) : [''];
             } catch (error) {
               console.warn('Erro ao processar emails JSON:', error);
               emails = [String(clinica.emails)];
             }
           } else if (Array.isArray(clinica.emails)) {
-            console.log('📧 Emails já é array:', clinica.emails);
             emails = Array.isArray(clinica.emails) ? clinica.emails.filter(email => email && email.trim() !== '').map(email => String(email)) : [''];
           }
         }
-        
+
         // Fallback para campo antigo se não há emails no novo formato
         if (emails.length === 0 && (clinica as any).email && (clinica as any).email.trim() !== '') {
           emails = [String((clinica as any).email)];
         }
-        
+
         if (emails.length === 0) {
           emails = [''];
         }
-        
+
         // Garantir que todos os emails são strings válidas
         emails = emails.map(email => email || '');
 
@@ -294,20 +284,10 @@ const ClinicProfileComponent = () => {
         };
         // Normalizar strings nulas para inputs controlados
         const normalizedProfile = normalizeProfile(migratedProfile);
-        
-        console.log('📋 Dados carregados da API:', {
-          telefonesOriginais: clinica.telefones,
-          emailsOriginais: clinica.emails,
-          telefonesProcessados: telefones,
-          emailsProcessados: emails,
-          totalTelefones: telefones.length,
-          totalEmails: emails.length
-        });
-        
+
         setProfile(normalizedProfile);
         setLogoPreview(normalizedProfile.logo_url || '');
         setApiConnected(true);
-        console.log('✅ Perfil carregado da API');
       } catch (apiError) {
         console.warn('⚠️  API não disponível, usando localStorage:', apiError);
         setApiConnected(false);
@@ -458,14 +438,7 @@ const ClinicProfileComponent = () => {
       const contatos_legais = cleanSetor(profile.contatos_legais);
       const contatos_faturamento = cleanSetor(profile.contatos_faturamento);
       const contatos_financeiro = cleanSetor(profile.contatos_financeiro);
-      
-      console.log('📋 Dados para salvar:', {
-        telefones: cleanTelefones,
-        emails: cleanEmails,
-        totalTelefones: cleanTelefones.length,
-        totalEmails: cleanEmails.length
-      });
-      
+
       if (apiConnected) {
         // ✅ CORREÇÃO: Filtrar apenas campos que devem ser atualizados
         const fieldsToExclude = ['id', 'created_at', 'updated_at'];
@@ -481,17 +454,15 @@ const ClinicProfileComponent = () => {
             contatos_financeiro,
           }).filter(([key, value]) => !fieldsToExclude.includes(key) && value !== undefined)
         );
-        
-        console.log('🔧 Enviando dados limpos para API:', cleanProfile);
-        
+
         const updateRequest: UpdateProfileRequest = {
           // usar o tipo amplo para evitar exigência de campos obrigatórios no payload de update
           clinica: cleanProfile as unknown as ClinicProfile
         };
-        
+
         const updatedProfile = await ClinicService.updateProfile(updateRequest);
         setProfile(normalizeProfile(updatedProfile.clinica as Partial<ClinicProfile>));
-        
+
         toast.success('Perfil salvo com sucesso na API!');
       } else {
         // Fallback para localStorage

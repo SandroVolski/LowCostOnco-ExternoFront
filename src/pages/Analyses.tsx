@@ -18,23 +18,15 @@ const Analyses = () => {
       try {
         setLoading(true);
         setError(null);
-        
-        console.log('🔧 Carregando dados de análise...');
-        
+
         // Carregar métricas e dados de órgãos em paralelo
         const [analysisMetrics, organAnalysisData] = await Promise.all([
           AnalysisService.getAnalysisMetrics(),
           AnalysisService.getOrganAnalysisData()
         ]);
-        
-        console.log('✅ Dados carregados:', {
-          metrics: analysisMetrics,
-          organs: organAnalysisData.length
-        });
-        
+
         setMetrics(analysisMetrics);
         setOrganData(organAnalysisData);
-        
       } catch (err) {
         console.error('❌ Erro ao carregar dados de análise:', err);
         setError('Erro ao carregar dados de análise');

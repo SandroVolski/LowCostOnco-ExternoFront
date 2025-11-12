@@ -86,11 +86,6 @@ const AuditorRecursoDetalhe = () => {
   }, [recurso]);
 
   const itensGlosadosNormalizados = useMemo(() => {
-    console.log('🔍 DEBUG Normalizando itens glosados:', {
-      itensGlosadosBrutos,
-      quantidade: itensGlosadosBrutos.length
-    });
-    
     return itensGlosadosBrutos.map((item, index) => {
       // Extrair código - tentar múltiplas fontes
       const codigo = item?.codigo ?? item?.codigo_item ?? item?.codigo_procedimento ?? '';
@@ -456,7 +451,6 @@ ${parecer.justificativa_tecnica || ''}
           </div>
         </div>
       </div>
-
       {/* Content */}
       <div className="space-y-6">
         <div className="space-y-6">
@@ -622,11 +616,6 @@ ${parecer.justificativa_tecnica || ''}
                   ) : guiaVisualizacao && guiaVisualizacao.guias && guiaVisualizacao.guias.length > 0 ? (
                     <div className="rounded-xl border border-border overflow-hidden">
                       {(() => {
-                        console.log('🔦 Passando para XMLTISSDetailedViewerV2:', {
-                          highlightedItems: itensGlosadosNormalizados,
-                          quantidade: itensGlosadosNormalizados.length,
-                          allowStatusActions: false
-                        });
                         return (
                           <XMLTISSDetailedViewerV2 
                             data={guiaVisualizacao} 

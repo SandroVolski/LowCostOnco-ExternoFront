@@ -65,23 +65,21 @@ const DashboardAdmin = () => {
     const loadAdminDashboardData = async () => {
       try {
         setLoading(true);
-        console.log('🔧 Carregando dados do dashboard administrativo...');
-        
+
         // Buscar todos os dados administrativos de uma vez
         const adminData = await AdminDashboardService.getAllAdminData();
-        
+
         setMetrics(adminData.metrics);
         // Dados detalhados não são listados no dashboard; mantidos internamente se precisar
         setOperadoras(adminData.operadoras);
         setClinicas(adminData.clinicas);
-        
+
         // Atualizar dados dos gráficos com verificações de segurança
         setChartData(adminData.chartsData?.chartData || []);
         setPerformanceData(adminData.chartsData?.performanceData || []);
         setStatusData(adminData.chartsData?.statusData || []);
         setTrendData(adminData.chartsData?.trendData || []);
-        
-        console.log('✅ Dashboard administrativo carregado com sucesso');
+
         toast.success('Dashboard administrativo atualizado com dados reais');
       } catch (error) {
         console.error('❌ Erro ao carregar dados do dashboard administrativo:', error);

@@ -44,21 +44,18 @@ export class PrestadorService {
   // Listar prestadores por clínica
   static async getPrestadoresByClinica(clinicaId: number): Promise<Prestador[]> {
     try {
-      console.log('🔧 PrestadorService.getPrestadoresByClinica() iniciado para clínica:', clinicaId);
-      
       const response = await authorizedFetch(`${API_BASE_URL}/prestadores?clinica_id=${clinicaId}`);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const result: ApiResponse<Prestador[]> = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar prestadores');
       }
-      
-      console.log('✅ Prestadores obtidos com sucesso:', result.data);
+
       return result.data || [];
     } catch (error) {
       console.error('❌ Erro no PrestadorService.getPrestadoresByClinica():', error);
@@ -76,21 +73,18 @@ export class PrestadorService {
   // Listar todos os prestadores (para admin)
   static async getAllPrestadores(): Promise<Prestador[]> {
     try {
-      console.log('🔧 PrestadorService.getAllPrestadores() iniciado');
-      
       const response = await authorizedFetch(`${API_BASE_URL}/prestadores`);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const result: ApiResponse<Prestador[]> = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar prestadores');
       }
-      
-      console.log('✅ Prestadores obtidos com sucesso:', result.data);
+
       return result.data || [];
     } catch (error) {
       console.error('❌ Erro no PrestadorService.getAllPrestadores():', error);

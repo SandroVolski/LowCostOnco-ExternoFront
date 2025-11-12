@@ -301,7 +301,7 @@ export const CardHoverEffect = ({
             )}
             {onApprove && onReject && (item as any).status !== 'pendente' && (
               // Espaço reservado para manter a mesma altura dos cards não pendentes
-              <div className="mt-2 h-8" />
+              (<div className="mt-2 h-8" />)
             )}
           </Card>
         </div>

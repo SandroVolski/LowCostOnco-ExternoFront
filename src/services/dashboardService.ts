@@ -73,8 +73,6 @@ export class DashboardService {
   // Buscar métricas principais do sistema
   static async getMetrics(clinicId?: number | string, periodo?: string): Promise<SystemMetrics> {
     try {
-      console.log('🔧 DashboardService.getMetrics() iniciado');
-      
       // Construir query parameters
       const queryParams = new URLSearchParams();
       if (clinicId && clinicId !== 'todas') {
@@ -83,31 +81,29 @@ export class DashboardService {
       if (periodo) {
         queryParams.append('periodo', periodo);
       }
-      
+
       const url = `/api/dashboard/metrics${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-      console.log('🔧 URL completa:', url);
-      
+
       const response = await operadoraAuthService.authorizedFetch(url);
-      
+
       if (!response) {
         throw new Error('Backend não disponível');
       }
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const result: ApiResponse<SystemMetrics> = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar métricas do dashboard');
       }
-      
+
       if (!result.data) {
         throw new Error('Métricas não encontradas');
       }
-      
-      console.log('✅ Métricas obtidas com sucesso:', result.data);
+
       return result.data;
     } catch (error) {
       console.error('❌ Erro no DashboardService.getMetrics():', error);
@@ -118,8 +114,6 @@ export class DashboardService {
   // Buscar dados para gráficos
   static async getChartsData(clinicId?: number | string, periodo?: string): Promise<ChartsData> {
     try {
-      console.log('🔧 DashboardService.getChartsData() iniciado');
-      
       // Construir query parameters
       const queryParams = new URLSearchParams();
       if (clinicId && clinicId !== 'todas') {
@@ -128,31 +122,29 @@ export class DashboardService {
       if (periodo) {
         queryParams.append('periodo', periodo);
       }
-      
+
       const url = `/api/dashboard/charts${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-      console.log('🔧 URL completa:', url);
-      
+
       const response = await operadoraAuthService.authorizedFetch(url);
-      
+
       if (!response) {
         throw new Error('Backend não disponível');
       }
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const result: ApiResponse<ChartsData> = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar dados dos gráficos');
       }
-      
+
       if (!result.data) {
         throw new Error('Dados dos gráficos não encontrados');
       }
-      
-      console.log('✅ Dados dos gráficos obtidos com sucesso:', result.data);
+
       return result.data;
     } catch (error) {
       console.error('❌ Erro no DashboardService.getChartsData():', error);
@@ -163,38 +155,34 @@ export class DashboardService {
   // Buscar performance das clínicas
   static async getClinicasPerformance(periodo?: string): Promise<ClinicaPerformance[]> {
     try {
-      console.log('🔧 DashboardService.getClinicasPerformance() iniciado');
-      
       // Construir query parameters
       const queryParams = new URLSearchParams();
       if (periodo) {
         queryParams.append('periodo', periodo);
       }
-      
+
       const url = `/api/dashboard/performance${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-      console.log('🔧 URL completa:', url);
-      
+
       const response = await operadoraAuthService.authorizedFetch(url);
-      
+
       if (!response) {
         throw new Error('Backend não disponível');
       }
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const result: ApiResponse<ClinicaPerformance[]> = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar performance das clínicas');
       }
-      
+
       if (!result.data) {
         throw new Error('Performance das clínicas não encontrada');
       }
-      
-      console.log('✅ Performance das clínicas obtida com sucesso:', result.data);
+
       return result.data;
     } catch (error) {
       console.error('❌ Erro no DashboardService.getClinicasPerformance():', error);
@@ -209,16 +197,12 @@ export class DashboardService {
     performance: ClinicaPerformance[];
   }> {
     try {
-      console.log('🔧 DashboardService.getAllDashboardData() iniciado');
-      
       const [metrics, chartsData, performance] = await Promise.all([
         this.getMetrics(clinicId, periodo),
         this.getChartsData(clinicId, periodo),
         this.getClinicasPerformance(periodo)
       ]);
-      
-      console.log('✅ Todos os dados do dashboard obtidos com sucesso');
-      
+
       return {
         metrics,
         chartsData,

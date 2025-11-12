@@ -27,10 +27,6 @@ export class EmailService {
   // Enviar email de nova solicitação
   static async enviarEmailNovaSolicitacao(dados: SolicitacaoEmailData): Promise<void> {
     try {
-      console.log('🚀 Iniciando envio de email...');
-      console.log('📧 Dados recebidos:', dados);
-      console.log('🌐 API URL:', `${API_BASE_URL}/email/enviar`);
-      
       const emailData: EmailData = {
         from: 'sandroeduvolski@gmail.com', // Email da clínica (remetente)
         to: 'sandroeduardopradovolski@gmail.com', // Email da operadora (destinatário)
@@ -39,16 +35,6 @@ export class EmailService {
         text: this.formatarEmailTexto(dados)
       };
 
-      console.log('📧 Email formatado:', {
-        to: emailData.to,
-        subject: emailData.subject,
-        htmlLength: emailData.html.length,
-        textLength: emailData.text?.length
-      });
-
-      // Verificar se o endpoint existe
-      console.log('🔍 Verificando se o endpoint existe...');
-      
       const response = await fetch(`${API_BASE_URL}/email/enviar`, {
         method: 'POST',
         headers: {
@@ -56,9 +42,6 @@ export class EmailService {
         },
         body: JSON.stringify(emailData),
       });
-
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
 
       if (response.status === 204) {
         throw new Error('Endpoint retornou 204 (No Content). Verifique se o backend está processando o email corretamente.');
@@ -71,19 +54,15 @@ export class EmailService {
       }
 
       const result = await response.json();
-      console.log('✅ Resultado da API:', result);
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao enviar email');
       }
-
-      console.log('✅ Email enviado com sucesso!');
     } catch (error) {
       console.error('❌ Erro ao enviar email:', error);
       
       // Se o endpoint retornar 204 ou não existir, vamos simular o envio para teste
       if (error instanceof Error && (error.message.includes('fetch') || error.message.includes('204'))) {
-        console.log('🔄 Endpoint com problema, simulando envio...');
         await this.simularEnvioEmail(dados);
       }
     }
@@ -91,32 +70,19 @@ export class EmailService {
 
   // Simular envio de email para teste (quando o backend não está pronto)
   private static async simularEnvioEmail(dados: SolicitacaoEmailData): Promise<void> {
-    console.log('🎭 SIMULAÇÃO: Email seria enviado para:', 'sandroeduardopradovolski@gmail.com');
-    console.log('🎭 SIMULAÇÃO: Assunto:', `Nova Solicitação - ${dados.titulo}`);
-    console.log('🎭 SIMULAÇÃO: Conteúdo HTML gerado com sucesso');
-    console.log('🎭 SIMULAÇÃO: Conteúdo texto gerado com sucesso');
-    
     // Simular delay de envio
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    console.log('✅ SIMULAÇÃO: Email "enviado" com sucesso!');
-    console.log('💡 PROBLEMA: Endpoint retorna 204 (No Content)');
-    console.log('💡 SOLUÇÃO: Verifique se o backend está processando o email após receber os dados');
-    console.log('💡 DICA: Adicione logs no backend para ver se os dados estão chegando');
   }
 
   // Testar se o endpoint existe
   static async testarEndpoint(): Promise<boolean> {
     try {
-      console.log('🧪 Testando endpoint de email...');
       const response = await fetch(`${API_BASE_URL}/email/enviar`, {
         method: 'OPTIONS', // Usar OPTIONS para ver se o endpoint responde
       });
-      
-      console.log('✅ Endpoint responde:', response.status);
+
       return true;
     } catch (error) {
-      console.log('❌ Endpoint não responde:', error);
       return false;
     }
   }

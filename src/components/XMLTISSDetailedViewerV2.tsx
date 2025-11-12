@@ -730,19 +730,7 @@ const XMLTISSDetailedViewerV2: React.FC<XMLTISSDetailedViewerV2Props> = ({
                       const showRedBorder = isHighlighted || (allowStatusActions && item.status_pagamento === 'glosado');
 
                       // Debug apenas para o primeiro item
-                      if (itemIdx === 0) {
-                        console.log('🔍 DEBUG Matching item:', {
-                          itemCodigo: item.codigo,
-                          itemDescricao: item.descricao,
-                          itemTipo: item.tipo,
-                          itemStatus: item.status_pagamento,
-                          highlightedItemsLength: highlightedItems?.length || 0,
-                          isHighlighted,
-                          showRedBorder,
-                          allowStatusActions,
-                          highlightedInfo
-                        });
-                      }
+                      if (itemIdx === 0) {}
 
                       return (
                         <div

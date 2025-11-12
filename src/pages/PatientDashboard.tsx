@@ -98,15 +98,12 @@ const PatientDashboard = () => {
   const checkConnectionAndLoadData = async () => {
     setLoading(true);
     try {
-      console.log('🔧 Verificando conexão com backend...');
       const connected = await testarConexaoBackend();
       setBackendConnected(connected);
-      
+
       if (connected) {
-        console.log('✅ Backend conectado, carregando dados do dashboard de pacientes...');
         await loadPatientDashboardData();
       } else {
-        console.log('❌ Backend não conectado');
         toast.error('Backend não conectado', {
           description: 'Dados do dashboard de pacientes não disponíveis sem conexão com o servidor'
         });
@@ -127,11 +124,6 @@ const PatientDashboard = () => {
         SolicitacaoService.listarSolicitacoes({ page: 1, limit: 1000 })
       ]);
 
-      console.log('📊 Dados carregados:', {
-        pacientes: patientsResult.data.length,
-        solicitacoes: solicitacoesResult.data.length
-      });
-
       const patients = patientsResult.data;
       const solicitacoes = solicitacoesResult.data;
 
@@ -145,7 +137,6 @@ const PatientDashboard = () => {
       processCidTableData(patients);
       processPatientsByDoctorData(patients);
       processTreatmentProgressByRanges(patients, solicitacoes);
-
     } catch (error) {
       console.error('❌ Erro ao carregar dados do dashboard de pacientes:', error);
       toast.error('Erro ao carregar dados do dashboard de pacientes');
@@ -154,46 +145,38 @@ const PatientDashboard = () => {
 
   const processPatientMetrics = (patients: any[], solicitacoes: SolicitacaoFromAPI[]) => {
     const totalPacientes = patients.length;
-    
+
     // Contar pacientes por status
     const pacientesAtivos = patients.filter(p => 
       p.status === 'Em tratamento' || p.status === 'ativo'
     ).length;
-    
+
     const pacientesEmTratamento = patients.filter(p => 
       p.status === 'Em tratamento'
     ).length;
-    
+
     const pacientesEmRemissao = patients.filter(p => 
       p.status === 'Em remissão' || p.status === 'remissao'
     ).length;
 
-    // Calcular média de idade
-    console.log('🔍 Calculando idade média para', patients.length, 'pacientes');
-    
     const idades = patients
       .map(p => {
-        const idade = calculateAge(p.Data_Nascimento);
-        console.log(`📋 Paciente: ${p.Paciente_Nome}, Data: ${p.Data_Nascimento}, Idade: ${idade}`);
-        return idade;
-      })
+      const idade = calculateAge(p.Data_Nascimento);
+      return idade;
+    })
       .filter(age => age > 0 && age < 120);
-    
-    console.log('📊 Idades válidas encontradas:', idades);
-    
+
     const mediaIdadePacientes = idades.length > 0 
       ? Math.round(idades.reduce((sum, age) => sum + age, 0) / idades.length)
       : 0;
-    
-    console.log('✅ Idade média calculada:', mediaIdadePacientes);
 
     // Contar protocolos únicos
     const protocolosUnicos = new Set(
       solicitacoes.filter(s => s.finalidade).map(s => s.finalidade)
     );
-    
+
     const totalProtocolos = protocolosUnicos.size;
-    
+
     // Tratamentos ativos (solicitações aprovadas)
     const tratamentosAtivos = solicitacoes.filter(s => 
       s.status === 'aprovada' || s.status === 'em_analise'
@@ -367,12 +350,10 @@ const PatientDashboard = () => {
 
   const processTreatmentTypeData = (solicitacoes: SolicitacaoFromAPI[]) => {
     const typeCount: Record<string, number> = {};
-    
-    console.log('🔍 Processando tipos de tratamento para', solicitacoes.length, 'solicitações');
-    
+
     solicitacoes.forEach((solicitacao, index) => {
       let tipo = 'Outros';
-      
+
       // Verificar se há medicamentos antineoplásicos
       if (solicitacao.medicamentos_antineoplasticos) {
         const medicamentos = solicitacao.medicamentos_antineoplasticos.toLowerCase();
@@ -521,16 +502,8 @@ const PatientDashboard = () => {
       else if (solicitacao.finalidade === 'radioterapia') {
         tipo = 'Radioterapia';
       }
-      
+
       typeCount[tipo] = (typeCount[tipo] || 0) + 1;
-      
-      // Debug: mostrar o que foi detectado
-      console.log(`📋 Solicitação ${index + 1}:`, {
-        paciente: solicitacao.cliente_nome,
-        medicamentos: solicitacao.medicamentos_antineoplasticos?.substring(0, 50) + '...',
-        tipoDetectado: tipo,
-        finalidade: solicitacao.finalidade
-      });
     });
 
     // Ordenar por quantidade e pegar apenas os tipos com pacientes
@@ -543,7 +516,6 @@ const PatientDashboard = () => {
       cor: CHART_COLORS[index % CHART_COLORS.length]
     }));
 
-    console.log('📊 Resultado final dos tipos de tratamento (solicitações):', data);
     setTreatmentTypeData(data);
   };
 
@@ -561,10 +533,7 @@ const PatientDashboard = () => {
         sexCount['Masculino']++;
       } else if (sexo === 'f' || sexo === 'feminino' || sexo === 'female' || sexo === 'fem') {
         sexCount['Feminino']++;
-      } else {
-        // Se não conseguir identificar, não contar (não adicionar categoria "Não Declarado")
-        console.log(`⚠️ Sexo não identificado para paciente: ${p.Paciente_Nome}, valor: "${p.Sexo || p.sexo}"`);
-      }
+      } else {}
     });
     
     const data = Object.entries(sexCount)
@@ -625,18 +594,17 @@ const PatientDashboard = () => {
 
   const calculateAge = (birthDate: string): number => {
     if (!birthDate) {
-      console.log('⚠️ Data de nascimento vazia');
       return 0;
     }
     
     try {
       let cleanDate = birthDate;
-      
+
       // Limpar a data de diferentes formatos
       if (birthDate.includes('T')) {
         cleanDate = birthDate.split('T')[0];
       }
-      
+
       // Verificar se é formato brasileiro (DD/MM/YYYY)
       if (cleanDate.includes('/')) {
         const parts = cleanDate.split('/');
@@ -644,30 +612,25 @@ const PatientDashboard = () => {
           cleanDate = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
         }
       }
-      
-      console.log(`🔄 Processando data: "${birthDate}" -> "${cleanDate}"`);
-      
+
       const birth = new Date(cleanDate);
       const today = new Date();
-      
+
       if (isNaN(birth.getTime())) {
-        console.log('❌ Data inválida:', birthDate);
         return 0;
       }
-      
+
       let age = today.getFullYear() - birth.getFullYear();
       const monthDiff = today.getMonth() - birth.getMonth();
-      
+
       if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
         age--;
       }
-      
+
       const finalAge = age > 0 && age < 120 ? age : 0;
-      console.log(`✅ Idade calculada: ${finalAge} anos`);
-      
+
       return finalAge;
     } catch (error) {
-      console.log('❌ Erro ao calcular idade para:', birthDate, error);
       return 0;
     }
   };

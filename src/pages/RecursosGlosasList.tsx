@@ -97,8 +97,6 @@ const RecursosGlosasList: React.FC = () => {
       const result = await response.json();
 
       if (result.success && result.data) {
-        console.log('📊 Recursos carregados:', result.data);
-        console.log('📊 Primeiro recurso:', result.data[0]);
         setRecursos(result.data);
       } else {
         console.warn('⚠️ Nenhum recurso retornado');

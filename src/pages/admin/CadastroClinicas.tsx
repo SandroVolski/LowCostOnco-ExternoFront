@@ -95,15 +95,10 @@ const CadastroClinicas = () => {
 
   const loadClinicas = async (page: number = 1, searchTerm: string = '') => {
     try {
-      console.log(`🔧 Iniciando carregamento de clínicas - página ${page}, busca: "${searchTerm}"...`);
       setLoading(true);
-      
-      console.log('🔧 Chamando ClinicService.getAllClinicas()...');
+
       const result = await ClinicService.getAllClinicas(page, 50, searchTerm);
-      
-      console.log('✅ Clínicas recebidas:', result.data.length);
-      console.log('📊 Paginação:', result.pagination);
-      
+
       setClinicas(result.data);
       setPagination(result.pagination);
     } catch (error) {
@@ -115,7 +110,6 @@ const CadastroClinicas = () => {
       toast.error('Erro ao carregar clínicas');
     } finally {
       setLoading(false);
-      console.log('🔧 Carregamento de clínicas finalizado');
     }
   };
 
@@ -298,42 +292,32 @@ const CadastroClinicas = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    console.log('🔧 Iniciando envio do formulário...');
-    console.log('📋 Dados do formulário:', formData);
-    
+
     if (!validateForm()) {
-      console.log('❌ Validação falhou');
       return;
     }
-    
+
     try {
       setSubmitting(true);
-      
+
       // Preparar dados para envio
       const dadosParaEnvio = ClinicService.prepareDataForSubmission(formData);
-      console.log('🔧 Dados preparados para envio:', dadosParaEnvio);
-      
+
       if (editingClinica) {
-        // Atualizar clínica existente
-        console.log('🔧 Atualizando clínica existente...');
         const clinicaAtualizada = await ClinicService.updateClinica(editingClinica.id!, dadosParaEnvio as ClinicaUpdateInput);
-        
+
         setClinicas(prev => prev.map(c => 
           c.id === editingClinica.id ? clinicaAtualizada : c
         ));
-        
+
         toast.success('Clínica atualizada com sucesso!');
       } else {
-        // Criar nova clínica
-        console.log('🔧 Criando nova clínica...');
         const novaClinica = await ClinicService.createClinica(dadosParaEnvio as ClinicaCreateInput);
-        console.log('✅ Nova clínica criada:', novaClinica);
-        
+
         setClinicas(prev => [...prev, novaClinica]);
         toast.success('Clínica cadastrada com sucesso!');
       }
-      
+
       resetForm();
       setIsFormOpen(false);
     } catch (error) {

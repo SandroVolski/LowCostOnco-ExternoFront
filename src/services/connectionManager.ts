@@ -49,14 +49,11 @@ class ConnectionManager {
 
       this.isBackendAvailable = response.ok;
       this.lastBackendCheck = now;
-      
-      console.log(`🔍 Backend ${this.isBackendAvailable ? 'disponível' : 'indisponível'}`);
+
       return this.isBackendAvailable;
     } catch (error) {
       // Não logar erro se for a primeira verificação ou se já sabemos que está indisponível
-      if (this.isBackendAvailable === null) {
-        console.log('🔍 Verificando conectividade com o backend...');
-      }
+      if (this.isBackendAvailable === null) {}
       this.isBackendAvailable = false;
       this.lastBackendCheck = now;
       return false;
@@ -126,13 +123,11 @@ class ConnectionManager {
     // Verificar cache primeiro
     const cached = this.getFromCache<T>(key);
     if (cached) {
-      console.log(`📦 Dados carregados do cache: ${key}`);
       return cached;
     }
 
     // Verificar se já há uma requisição pendente
     if (this.pendingRequests.has(key)) {
-      console.log(`⏳ Aguardando requisição pendente: ${key}`);
       return this.pendingRequests.get(key)!;
     }
 

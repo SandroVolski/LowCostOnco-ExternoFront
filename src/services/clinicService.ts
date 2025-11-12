@@ -210,31 +210,21 @@ export class ClinicService {
   // Listar todas as clínicas (para admin) com paginação e busca
   static async getAllClinicas(page: number = 1, limit: number = 50, search: string = ''): Promise<{data: Clinica[], pagination: any}> {
     try {
-      console.log(`🔧 ClinicService.getAllClinicas() iniciado - página ${page}, limite ${limit}, busca: "${search}"`);
-      
       const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
       const response = await fetch(`${API_BASE_URL}/clinicas/admin?page=${page}&limit=${limit}${searchParam}`, {
         headers: this.getAdminHeaders()
       });
-      
-      console.log('🔧 Resposta recebida:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const result: any = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar clínicas');
       }
-      
-      console.log(`✅ Clínicas obtidas: ${result.data.length} de ${result.pagination?.total || 'N/A'}`);
+
       return {
         data: result.data || [],
         pagination: result.pagination
@@ -248,8 +238,6 @@ export class ClinicService {
   // Listar clínicas para operadora (com autenticação de operadora)
   static async getAllClinicasForOperadora(): Promise<Clinica[]> {
     try {
-      console.log('🔧 ClinicService.getAllClinicasForOperadora() iniciado');
-      
       let response = await operadoraAuthService.authorizedFetch('/api/clinicas/por-operadora');
       // Fallback quando authorizedFetch retorna null (proxy devolveu HTML)
       if (!response) {
@@ -257,19 +245,17 @@ export class ClinicService {
         const apiUrl = `${API_BASE_URL}/clinicas/por-operadora`;
         response = await fetch(apiUrl, { headers: { Authorization: `Bearer ${token}` } });
       }
-      
+
       if (!response || !response.ok) {
         throw new Error(`HTTP error! status: ${response?.status}`);
       }
-      
+
       const result: ApiResponse<Clinica[]> = await response.json();
-      console.log('🔧 Dados da resposta:', result);
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar clínicas');
       }
-      
-      console.log('✅ Clínicas obtidas com sucesso:', result.data);
+
       return result.data || [];
     } catch (error) {
       console.error('❌ Erro no ClinicService.getAllClinicasForOperadora():', error);
@@ -436,31 +422,18 @@ export class ClinicService {
   // Buscar perfil da clínica (com responsáveis técnicos)
   static async getProfile(): Promise<{ clinica: Clinica; responsaveis_tecnicos: any[] }> {
     try {
-      console.log('🔧 ClinicService.getProfile() iniciado');
-      console.log('🔧 API_BASE_URL:', API_BASE_URL);
-      console.log('🔧 URL completa:', `${API_BASE_URL}/clinicas/profile`);
-      
       const response = await authorizedFetch(`${API_BASE_URL}/clinicas/profile`);
-      
-      console.log('🔧 Resposta recebida:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const result: ApiResponse<{ clinica: Clinica; responsaveis_tecnicos: any[] }> = await response.json();
-      console.log('🔧 Dados da resposta:', result);
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar perfil da clínica');
       }
-      
-      console.log('✅ Perfil obtido com sucesso:', result.data);
+
       return result.data || { clinica: {} as Clinica, responsaveis_tecnicos: [] };
     } catch (error) {
       console.error('❌ Erro no ClinicService.getProfile():', error);
@@ -471,11 +444,6 @@ export class ClinicService {
   // Atualizar perfil da clínica
   static async updateProfile(updateData: { clinica: ClinicaUpdateInput }): Promise<{ clinica: Clinica; responsaveis_tecnicos: any[] }> {
     try {
-      console.log('🔧 ClinicService.updateProfile() iniciado');
-      console.log('🔧 API_BASE_URL:', API_BASE_URL);
-      console.log('🔧 URL completa:', `${API_BASE_URL}/clinicas/profile`);
-      console.log('🔧 Dados para atualização:', updateData);
-      
       const response = await authorizedFetch(`${API_BASE_URL}/clinicas/profile`, {
         method: 'PUT',
         headers: {
@@ -483,26 +451,17 @@ export class ClinicService {
         },
         body: JSON.stringify(updateData),
       });
-      
-      console.log('🔧 Resposta recebida:', {
-        status: response.status,
-        statusText: response.statusText,
-        ok: response.ok,
-        headers: Object.fromEntries(response.headers.entries())
-      });
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const result: ApiResponse<{ clinica: Clinica; responsaveis_tecnicos: any[] }> = await response.json();
-      console.log('🔧 Dados da resposta:', result);
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao atualizar perfil da clínica');
       }
-      
-      console.log('✅ Perfil atualizado com sucesso:', result.data);
+
       return result.data || { clinica: {} as Clinica, responsaveis_tecnicos: [] };
     } catch (error) {
       console.error('❌ Erro no ClinicService.updateProfile():', error);
@@ -513,19 +472,18 @@ export class ClinicService {
   // Listar operadoras credenciadas
   static async listarOperadorasCredenciadas(params: { clinica_id: number }): Promise<any[]> {
     try {
-      console.log('🔧 ClinicService.listarOperadorasCredenciadas() iniciado');
       const response = await authorizedFetch(`${API_BASE_URL}/operadoras/credenciadas?clinica_id=${params.clinica_id}`);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const result: ApiResponse<any[]> = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar operadoras credenciadas');
       }
-      
+
       return result.data || [];
     } catch (error) {
       console.error('❌ Erro no ClinicService.listarOperadorasCredenciadas():', error);
@@ -536,19 +494,18 @@ export class ClinicService {
   // Listar especialidades
   static async listarEspecialidades(params: { clinica_id: number }): Promise<any[]> {
     try {
-      console.log('🔧 ClinicService.listarEspecialidades() iniciado');
       const response = await authorizedFetch(`${API_BASE_URL}/especialidades?clinica_id=${params.clinica_id}`);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      
+
       const result: ApiResponse<any[]> = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar especialidades');
       }
-      
+
       return result.data || [];
     } catch (error) {
       console.error('❌ Erro no ClinicService.listarEspecialidades():', error);

@@ -105,8 +105,6 @@ export class AdminDashboardService {
   // Buscar métricas gerais do sistema
   static async getSystemMetrics(): Promise<AdminSystemMetrics> {
     try {
-      console.log('🔧 AdminDashboardService.getSystemMetrics() iniciado');
-      
       let response = await adminAuthorizedFetch(`${API_BASE_URL}/admin/metrics`);
       // Se authorizedFetch retornar null (HTML pelo proxy), tenta fallback direto na API_BASE_URL
       if (!response) {
@@ -118,18 +116,17 @@ export class AdminDashboardService {
           },
         });
       }
-      
+
       if (!response || !response.ok) {
         throw new Error(`Erro HTTP: ${response?.status}`);
       }
-      
+
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar métricas');
       }
-      
-      console.log('✅ Métricas administrativas obtidas com sucesso:', result.data);
+
       return result.data;
     } catch (error) {
       console.error('❌ Erro no AdminDashboardService.getSystemMetrics():', error);
@@ -140,8 +137,6 @@ export class AdminDashboardService {
   // Buscar informações das operadoras
   static async getOperadorasInfo(): Promise<OperadoraInfo[]> {
     try {
-      console.log('🔧 AdminDashboardService.getOperadorasInfo() iniciado');
-      
       let response = await adminAuthorizedFetch(`${API_BASE_URL}/admin/operadoras`);
       if (!response) {
         const adminToken = localStorage.getItem('admin_access_token');
@@ -152,18 +147,17 @@ export class AdminDashboardService {
           },
         });
       }
-      
+
       if (!response || !response.ok) {
         throw new Error(`Erro HTTP: ${response?.status}`);
       }
-      
+
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar operadoras');
       }
-      
-      console.log('✅ Informações das operadoras obtidas com sucesso:', result.data);
+
       return result.data;
     } catch (error) {
       console.error('❌ Erro no AdminDashboardService.getOperadorasInfo():', error);
@@ -174,8 +168,6 @@ export class AdminDashboardService {
   // Buscar informações das clínicas (com paginação)
   static async getClinicasInfo(page: number = 1, limit: number = 100): Promise<{data: ClinicaInfo[], pagination: any}> {
     try {
-      console.log(`🔧 AdminDashboardService.getClinicasInfo() iniciado - página ${page}`);
-      
       let response = await adminAuthorizedFetch(`${API_BASE_URL}/admin/clinicas?page=${page}&limit=${limit}`);
       if (!response) {
         const adminToken = localStorage.getItem('admin_access_token');
@@ -186,18 +178,17 @@ export class AdminDashboardService {
           },
         });
       }
-      
+
       if (!response || !response.ok) {
         throw new Error(`Erro HTTP: ${response?.status}`);
       }
-      
+
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar clínicas');
       }
-      
-      console.log(`✅ Informações das clínicas obtidas: ${result.data.length} de ${result.pagination?.total || 'N/A'}`);
+
       return {
         data: result.data,
         pagination: result.pagination
@@ -211,8 +202,6 @@ export class AdminDashboardService {
   // Buscar dados dos gráficos
   static async getChartsData(): Promise<AdminChartsData> {
     try {
-      console.log('🔧 AdminDashboardService.getChartsData() iniciado');
-      
       let response = await adminAuthorizedFetch(`${API_BASE_URL}/admin/charts`);
       if (!response) {
         const adminToken = localStorage.getItem('admin_access_token');
@@ -223,18 +212,17 @@ export class AdminDashboardService {
           },
         });
       }
-      
+
       if (!response || !response.ok) {
         throw new Error(`Erro HTTP: ${response?.status}`);
       }
-      
+
       const result = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao buscar dados dos gráficos');
       }
-      
-      console.log('✅ Dados dos gráficos administrativos obtidos com sucesso:', result.data);
+
       return result.data;
     } catch (error) {
       console.error('❌ Erro no AdminDashboardService.getChartsData():', error);
@@ -250,19 +238,15 @@ export class AdminDashboardService {
     chartsData: AdminChartsData;
   }> {
     try {
-      console.log('🔧 AdminDashboardService.getAllAdminData() iniciado');
-      
       const [metrics, operadoras, clinicasResult, chartsData] = await Promise.all([
         this.getSystemMetrics(),
         this.getOperadorasInfo(),
         this.getClinicasInfo(1, 100), // Primeira página com 100 clínicas
         this.getChartsData()
       ]);
-      
+
       const clinicas = clinicasResult.data;
-      
-      console.log('✅ Todos os dados administrativos obtidos com sucesso');
-      
+
       return {
         metrics,
         operadoras,

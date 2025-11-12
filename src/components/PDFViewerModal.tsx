@@ -88,15 +88,11 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
     try {
       setLoading(true);
       setError(null);
-      
-      console.log('🔧 Carregando PDF para solicitação:', solicitacao?.id);
-      
+
       let pdfUrl: string;
-      
+
       if (viewMethod === 'blob') {
-        console.log('🔧 Carregando PDF como blob para solicitação:', solicitacao?.id);
         const token = TokenStore.getAccess();
-        console.log('🔧 Token encontrado:', token ? 'Sim' : 'Não');
         if (!token) {
           throw new Error('Token de autenticação não encontrado');
         }
@@ -117,7 +113,7 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
       } else {
         pdfUrl = `${config.API_BASE_URL}/solicitacoes/${solicitacao?.id}/pdf?view=true`;
       }
-      
+
       // setPdfUrl(pdfUrl); // This line was not in the original file, so it's removed.
       setLoading(false);
     } catch (error) {
@@ -139,8 +135,6 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
 
   const loadWithBlob = async (): Promise<void> => {
     try {
-      console.log('🔧 Carregando PDF como blob para solicitação:', solicitacao?.id);
-      
       const token = localStorage.getItem('operadora_access_token') || '';
       const res = await fetch(`${config.API_BASE_URL}/solicitacoes/${solicitacao?.id}/pdf`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -151,8 +145,6 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
       const blobUrl = URL.createObjectURL(blob);
       setPdfBlob(blobUrl);
       setLoading(false);
-      
-      console.log('✅ PDF blob carregado com sucesso, tamanho:', (blob.size / 1024).toFixed(2), 'KB');
     } catch (error) {
       console.error('❌ Erro ao carregar PDF como blob:', error);
       throw error;
@@ -163,19 +155,13 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
     setLoading(false);
     
     if (viewMethod === 'object' && retryCount === 0) {
-      // Primeira tentativa falhou, tentar com blob
-      console.log('🔄 Object tag falhou, tentando com blob...');
       setViewMethod('blob');
       setRetryCount(1);
       loadPDF();
     } else if (viewMethod === 'blob' && retryCount < 2) {
-      // Blob falhou, tentar novamente
-      console.log('🔄 Blob falhou, tentando novamente...');
       setRetryCount(prev => prev + 1);
       setTimeout(loadPDF, 1000); // Aguardar 1 segundo antes de tentar novamente
     } else {
-      // Todas as tentativas falharam
-      console.log('❌ Todas as tentativas falharam, sugerindo visualização externa');
       setError(error instanceof Error ? error.message : 'Erro ao carregar PDF');
       setViewMethod('external');
     }

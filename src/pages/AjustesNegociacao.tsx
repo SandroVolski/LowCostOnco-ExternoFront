@@ -102,24 +102,20 @@ const AjustesNegociacao = () => {
   const verificarBackend = async () => {
     const maxRetries = 3;
     let retryCount = 0;
-    
+
     while (retryCount < maxRetries) {
       try {
-        console.log(`🔍 Verificando disponibilidade do backend... (tentativa ${retryCount + 1}/${maxRetries})`);
         const response = await fetch(`${config.BACKEND_HEALTH_URL}`);
-        
+
         if (response.ok) {
-          console.log('✅ Backend disponível');
           setIsBackendAvailable(true);
           carregarSolicitacoes();
           return;
         } else if (response.status === 503) {
-          console.log(`⚠️ Backend temporariamente indisponível (503), tentativa ${retryCount + 1}/${maxRetries}`);
           retryCount++;
-          
+
           if (retryCount < maxRetries) {
             const delay = Math.pow(2, retryCount) * 1000; // 2s, 4s
-            console.log(`⏳ Aguardando ${delay}ms antes da próxima tentativa...`);
             await new Promise(resolve => setTimeout(resolve, delay));
           }
         } else {
@@ -133,18 +129,15 @@ const AjustesNegociacao = () => {
         
         if (retryCount < maxRetries) {
           const delay = Math.pow(2, retryCount) * 1000; // 2s, 4s
-          console.log(`⏳ Aguardando ${delay}ms antes da próxima tentativa...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
     }
-    
-    console.log('❌ Backend não disponível após todas as tentativas');
+
     setIsBackendAvailable(false);
   };
 
   useEffect(() => {
-    console.log('🚀 useEffect executado - carregando solicitações de negociação');
     verificarBackend();
   }, []); // Executar apenas uma vez ao montar
 
@@ -153,7 +146,6 @@ const AjustesNegociacao = () => {
     if (!isBackendAvailable) return;
     
     const timeoutId = setTimeout(() => {
-      console.log('🔄 Filtros mudaram, recarregando...');
       carregarSolicitacoes(true);
     }, 500); // Aguarda 500ms antes de recarregar
     
@@ -183,7 +175,6 @@ const AjustesNegociacao = () => {
   const carregarSolicitacoes = async (isFilter = false) => {
     // Evitar múltiplas requisições simultâneas
     if (loading || loadingFiltros) {
-      console.log('⏳ Já está carregando, ignorando nova requisição');
       return;
     }
     try {
@@ -192,12 +183,10 @@ const AjustesNegociacao = () => {
       } else {
         setLoading(true);
       }
-      
-      console.log('🔍 Carregando solicitações de negociação com filtros:', filtros);
-      
+
       // Sempre enviar os filtros, mesmo que sejam 'todas'
       let response;
-      
+
       if (filtros.status === 'finalizada') {
         // Para finalizadas, buscar aprovadas e rejeitadas separadamente
         const [aprovadas, rejeitadas] = await Promise.all([
@@ -243,27 +232,21 @@ const AjustesNegociacao = () => {
           sort: 'created_at:desc'
         });
       }
-      
-      console.log('✅ Resposta do backend:', response);
-      console.log('📋 Solicitações recebidas:', response.items);
-      
+
       // Carregar anexos automaticamente para todas as solicitações
       const solicitacoesComAnexos = [];
       for (let i = 0; i < response.items.length; i++) {
         const solicitacao = response.items[i];
         
         try {
-          console.log('🔍 Carregando anexos para solicitação:', solicitacao.id);
           const anexos = await AjustesService.listarAnexos(solicitacao.id!);
-          
+
           if (anexos && Array.isArray(anexos)) {
             solicitacoesComAnexos.push({ ...solicitacao, anexos: anexos });
-            console.log('✅ Anexos carregados:', anexos.length, 'para solicitação', solicitacao.id);
           } else {
             solicitacoesComAnexos.push({ ...solicitacao, anexos: [] });
-            console.log('📋 Nenhum anexo encontrado para solicitação:', solicitacao.id);
           }
-          
+
           // Delay pequeno entre carregamentos para evitar rate limiting
           if (i < response.items.length - 1) {
             await new Promise(resolve => setTimeout(resolve, 100));
@@ -273,12 +256,10 @@ const AjustesNegociacao = () => {
           solicitacoesComAnexos.push({ ...solicitacao, anexos: [] });
         }
       }
-      
-      console.log('📋 Solicitações com anexos carregados:', solicitacoesComAnexos);
-      
+
       setSolicitacoes(solicitacoesComAnexos);
       setTotalSolicitacoes(response.total);
-      
+
       // Calcular estatísticas baseadas nas solicitações carregadas
       calcularEstatisticas(solicitacoesComAnexos);
     } catch (error) {
@@ -296,8 +277,6 @@ const AjustesNegociacao = () => {
 
   // Função para calcular estatísticas baseadas nas solicitações
   const calcularEstatisticas = (solicitacoes: Solicitacao[]) => {
-    console.log('📊 Calculando estatísticas para:', solicitacoes.length, 'solicitações');
-    
     // Contar solicitações por status
     const solicitacoesPorStatus = {
       pendente: solicitacoes.filter(s => s.status === 'pendente').length,
@@ -333,7 +312,6 @@ const AjustesNegociacao = () => {
       solicitacoesPorCategoria
     };
 
-    console.log('📈 Estatísticas calculadas:', novasEstatisticas);
     setEstatisticas(novasEstatisticas);
   };
 
@@ -346,7 +324,7 @@ const AjustesNegociacao = () => {
 
     try {
       setLoading(true);
-      
+
       // 1. Criar a solicitação
       const novaSolicitacaoCriada = await AjustesService.criarSolicitacaoNegociacao({
         clinica_id: 1,
@@ -357,22 +335,15 @@ const AjustesNegociacao = () => {
         categoria: novaSolicitacao.categoria
       });
 
-      console.log('✅ Solicitação criada:', novaSolicitacaoCriada);
-
       // 2. Fazer upload dos anexos se houver
       if (novaSolicitacao.anexos.length > 0) {
-        console.log('📎 Fazendo upload de', novaSolicitacao.anexos.length, 'anexos...');
-        
         // Processar anexos sequencialmente para evitar erro 429
         for (const file of novaSolicitacao.anexos) {
           try {
-            console.log(`📎 Enviando anexo: ${file.name}`);
             const anexo = await AjustesService.uploadAnexo(novaSolicitacaoCriada.id!, file);
-            console.log('✅ Anexo enviado:', anexo);
-            
+
             // Delay entre uploads para evitar erro 429
             if (novaSolicitacao.anexos.indexOf(file) < novaSolicitacao.anexos.length - 1) {
-              console.log('⏳ Aguardando 1 segundo antes do próximo anexo...');
               await new Promise(resolve => setTimeout(resolve, 1000));
             }
           } catch (error) {
@@ -380,19 +351,17 @@ const AjustesNegociacao = () => {
             throw error;
           }
         }
-        console.log('🎉 Todos os anexos foram enviados!');
       }
 
       toast.success('Solicitação criada com sucesso!' + (novaSolicitacao.anexos.length > 0 ? ` ${novaSolicitacao.anexos.length} anexo(s) enviado(s)!` : ''));
-      
+
       // 3. Limpar formulário
       setNovaSolicitacao({ titulo: '', descricao: '', prioridade: 'media', categoria: 'protocolo', anexos: [] });
-      
+
       // 4. Recarregar lista com delay para garantir que o backend processou
       setTimeout(() => {
         carregarSolicitacoes();
       }, 1000);
-      
     } catch (error) {
       console.error('❌ Erro ao criar solicitação:', error);
       toast.error('Erro ao criar solicitação');
@@ -404,9 +373,8 @@ const AjustesNegociacao = () => {
   // Função para carregar anexos sob demanda
   const carregarAnexosSobDemanda = async (solicitacaoId: number) => {
     try {
-      console.log('🔍 Carregando anexos sob demanda para solicitação:', solicitacaoId);
       const anexos = await AjustesService.listarAnexos(solicitacaoId);
-      
+
       if (anexos && Array.isArray(anexos)) {
         // Atualizar a solicitação específica com os anexos
         setSolicitacoes(prev => prev.map(s => 
@@ -414,7 +382,6 @@ const AjustesNegociacao = () => {
             ? { ...s, anexos: anexos }
             : s
         ));
-        console.log('✅ Anexos carregados sob demanda:', anexos);
       }
     } catch (error) {
       console.error('❌ Erro ao carregar anexos sob demanda:', error);
@@ -424,8 +391,6 @@ const AjustesNegociacao = () => {
 
   // Função para visualizar um arquivo
   const handleViewDocument = (solicitacao: Solicitacao) => {
-    console.log("Visualizando documentos da solicitação:", solicitacao.id);
-    
     if (solicitacao.anexos && solicitacao.anexos.length > 0) {
       // Se há anexos, abrir o primeiro anexo automaticamente
       handleOpenAnexo(solicitacao.anexos[0], solicitacao.anexos);
@@ -437,7 +402,6 @@ const AjustesNegociacao = () => {
 
   // Função para abrir anexo
   const handleOpenAnexo = (anexo: Anexo, allAnexosList?: Anexo[]) => {
-    console.log('📎 Abrindo anexo:', anexo);
     setSelectedAnexo(anexo);
     setAllAnexos(allAnexosList || [anexo]);
     setShowAnexoViewer(true);
@@ -1008,7 +972,6 @@ const AjustesNegociacao = () => {
           </div>
         </div>
       </div>
-
       {/* Modal Visualizador de Anexos */}
       {showAnexoViewer && selectedAnexo && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -1085,17 +1048,17 @@ const AjustesNegociacao = () => {
             <div className="p-4 h-[calc(90vh-120px)] overflow-auto">
               {selectedAnexo.arquivo_nome.toLowerCase().endsWith('.pdf') ? (
                 // Visualizador de PDF
-                <iframe
+                (<iframe
                   src={selectedAnexo.arquivo_url.startsWith('http') 
                     ? selectedAnexo.arquivo_url 
                     : AjustesService.getDownloadUrl(selectedAnexo.id)
                   }
                   className="w-full h-full border rounded"
                   title={selectedAnexo.arquivo_nome}
-                />
+                />)
               ) : selectedAnexo.arquivo_nome.toLowerCase().match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
                 // Visualizador de imagens
-                <div className="flex items-center justify-center h-full">
+                (<div className="flex items-center justify-center h-full">
                   <img
                     src={selectedAnexo.arquivo_url.startsWith('http') 
                       ? selectedAnexo.arquivo_url 
@@ -1104,10 +1067,10 @@ const AjustesNegociacao = () => {
                     alt={selectedAnexo.arquivo_nome}
                     className="max-w-full max-h-full object-contain rounded shadow-lg"
                   />
-                </div>
+                </div>)
               ) : (
                 // Para outros tipos de arquivo, mostrar informações e botão de download
-                <div className="flex flex-col items-center justify-center h-full text-center space-y-4">
+                (<div className="flex flex-col items-center justify-center h-full text-center space-y-4">
                   <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center">
                     <FileText className="h-12 w-12 text-muted-foreground" />
                   </div>
@@ -1131,7 +1094,7 @@ const AjustesNegociacao = () => {
                       Baixar Arquivo
                     </Button>
                   </div>
-                </div>
+                </div>)
               )}
             </div>
           </div>

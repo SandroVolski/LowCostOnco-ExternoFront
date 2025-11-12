@@ -153,7 +153,7 @@ const GerenciarUsuariosOperadora = () => {
     
     try {
       setSubmitting(true);
-      
+
       const response = await fetch('/api/operadora-auth/register', {
         method: 'POST',
         headers: {
@@ -169,13 +169,12 @@ const GerenciarUsuariosOperadora = () => {
       }
 
       const data = await response.json();
-      console.log('✅ Usuário criado:', data);
-      
+
       // Recarregar lista de usuários
       if (selectedOperadora) {
         await loadUsuariosOperadora(parseInt(selectedOperadora));
       }
-      
+
       toast.success('Usuário criado com sucesso!');
       resetForm();
       setIsFormOpen(false);

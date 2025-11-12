@@ -204,12 +204,6 @@ const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
   const medicoAssistenteEmail = (apiPatient as any).medico_email || (apiPatient as any).medicoAssistenteEmail || (apiPatient as any).medico_assistente_email || '';
   const medicoAssistenteTelefone = (apiPatient as any).medico_telefone || (apiPatient as any).medicoAssistenteTelefone || (apiPatient as any).medico_assistente_telefone || '';
   const medicoAssistenteEspecialidade = (apiPatient as any).medico_especialidade || (apiPatient as any).medicoAssistenteEspecialidade || (apiPatient as any).medico_assistente_especialidade || '';
-  
-  // Debug: Log dos campos do médico assistente
-  console.log('🔧 Debug médico assistente para paciente:', apiPatient.nome || apiPatient.Paciente_Nome);
-  console.log('🔧 medico_assistente_nome:', (apiPatient as any).medico_assistente_nome);
-  console.log('🔧 medicoAssistenteNome final:', medicoAssistenteNome);
-  console.log('🔧 prestador_id:', (apiPatient as any).prestador_id);
 
   return {
     id: apiPatient.id ? apiPatient.id.toString() : '',
@@ -275,8 +269,6 @@ const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
 
 // Função para converter do frontend para API
 const convertFrontendToAPI = (frontendPatient: any): Partial<PatientFromAPI> => {
-  console.log('🔧 Dados recebidos do frontend:', frontendPatient);
-  
   const converted = {
     // clinica_id definido no backend a partir do token
     Paciente_Nome: frontendPatient.Paciente_Nome || frontendPatient.name,
@@ -337,8 +329,7 @@ const convertFrontendToAPI = (frontendPatient: any): Partial<PatientFromAPI> => 
     peso: frontendPatient.peso ? parseFloat(String(frontendPatient.peso).replace(',', '.')) : undefined,
     altura: frontendPatient.altura ? parseFloat(String(frontendPatient.altura).replace(',', '.')) : undefined,
   };
-  
-  console.log('🔧 Dados convertidos para API:', converted);
+
   return converted;
 };
 
@@ -357,39 +348,35 @@ export class PacienteService {
   }): Promise<{ data: any[]; pagination: any }> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       if (params?.page) queryParams.append('page', params.page.toString());
-      if (params?.limit) queryParams.append('limit', params.limit.toString()); 
+      if (params?.limit) queryParams.append('limit', params.limit.toString());
       if (params?.search) queryParams.append('search', params.search);
       if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
       if (params?.statusFilter) queryParams.append('statusFilter', params.statusFilter);
       if (params?.cidFilter) queryParams.append('cidFilter', params.cidFilter);
       if (params?.protocoloFilter) queryParams.append('protocoloFilter', params.protocoloFilter);
       if (params?.operadoraFilter) queryParams.append('operadoraFilter', params.operadoraFilter);
-      
+
       const url = `${API_BASE_URL}/pacientes?${queryParams.toString()}`;
-      console.log('🔧 Fazendo requisição para:', url);
-      
+
       const response = await authorizedFetch(url);
-      console.log('📡 Status da resposta:', response.status, response.statusText);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Resposta não OK:', errorText);
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const result: ApiResponse<PaginatedResponse<PatientFromAPI>> = await response.json();
-      console.log('📄 Resultado da API:', result);
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao listar pacientes');
       }
-      
+
       // Converter dados da API para formato do frontend
       const convertedData = result.data!.data.map(convertAPIPatientToFrontend);
-      console.log('✅ Dados convertidos:', convertedData.length, 'pacientes');
-      
+
       return {
         data: convertedData,
         pagination: result.data!.pagination
@@ -507,8 +494,6 @@ export class SolicitacaoService {
   // Criar nova solicitação
   static async criarSolicitacao(solicitacao: Partial<SolicitacaoFromAPI>): Promise<SolicitacaoFromAPI> {
     try {
-      console.log('🔧 Criando solicitação:', solicitacao);
-      
       const response = await authorizedFetch(`${API_BASE_URL}/solicitacoes`, {
         method: 'POST',
         headers: {
@@ -516,25 +501,21 @@ export class SolicitacaoService {
         },
         body: JSON.stringify(solicitacao),
       });
-      
-      console.log('🔧 Response status:', response.status);
-      console.log('🔧 Response headers:', response.headers);
-      
+
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Erro HTTP:', response.status, response.statusText);
         console.error('❌ Response body:', errorText);
         throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
       }
-      
+
       const result: ApiResponse<SolicitacaoFromAPI> = await response.json();
-      
+
       if (!result.success) {
         console.error('❌ Erro na resposta da API:', result);
         throw new Error(result.message || 'Erro ao criar solicitação');
       }
-      
-      console.log('✅ Solicitação criada:', result.data);
+
       return result.data!;
     } catch (error) {
       console.error('❌ Erro ao criar solicitação:', error);
@@ -550,26 +531,25 @@ export class SolicitacaoService {
   }): Promise<{ data: SolicitacaoFromAPI[]; pagination: any }> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       if (params?.page) queryParams.append('page', params.page.toString());
       if (params?.limit) queryParams.append('limit', params.limit.toString());
       if (params?.clinica_id) queryParams.append('clinica_id', params.clinica_id.toString());
-      
+
       const url = `${API_BASE_URL}/solicitacoes?${queryParams.toString()}`;
-      console.log('🔧 Listando solicitações:', url);
-      
+
       const response = await authorizedFetch(url);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const result: ApiResponse<PaginatedResponse<SolicitacaoFromAPI>> = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao listar solicitações');
       }
-      
+
       return {
         data: result.data!.data,
         pagination: result.data!.pagination
@@ -600,16 +580,13 @@ export class SolicitacaoService {
   // Gerar PDF da solicitação
   static async gerarPDF(id: number): Promise<Blob> {
     try {
-      console.log('🔧 Gerando PDF para solicitação:', id);
-      
       const response = await authorizedFetch(`${API_BASE_URL}/solicitacoes/${id}/pdf`);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const blob = await response.blob();
-      console.log('✅ PDF gerado com sucesso');
       return blob;
     } catch (error) {
       console.error('❌ Erro ao gerar PDF:', error);
@@ -620,38 +597,33 @@ export class SolicitacaoService {
   // 🆕 NOVA FUNÇÃO: Visualizar PDF em nova aba (método mais compatível)
   static async viewPDF(id: number): Promise<void> {
     try {
-      console.log('🔧 Abrindo PDF para visualização:', id);
-      
       // Primeiro tentar gerar o blob e abrir
       try {
         const blob = await this.gerarPDF(id);
         const blobUrl = URL.createObjectURL(blob);
-        
+
         const newWindow = window.open(blobUrl, '_blank');
-        
+
         if (!newWindow) {
           throw new Error('Pop-up bloqueado. Permita pop-ups para visualizar o PDF.');
         }
-        
+
         // Cleanup após um tempo
         setTimeout(() => {
           URL.revokeObjectURL(blobUrl);
         }, 60000); // 1 minuto
-        
-        console.log('✅ PDF aberto via blob');
+
         return;
       } catch (blobError) {
         console.warn('⚠️  Erro com blob, tentando URL direta:', blobError);
-        
+
         // Fallback para URL direta
         const pdfUrl = `${API_BASE_URL}/solicitacoes/${id}/pdf?view=true`;
         const newWindow = window.open(pdfUrl, '_blank');
-        
+
         if (!newWindow) {
           throw new Error('Pop-up bloqueado. Permita pop-ups para visualizar o PDF.');
         }
-        
-        console.log('✅ PDF aberto via URL direta');
       }
     } catch (error) {
       console.error('❌ Erro ao visualizar PDF:', error);
@@ -681,24 +653,22 @@ export class SolicitacaoService {
   static async downloadPDF(id: number, nomeArquivo?: string): Promise<void> {
     try {
       const blob = await this.gerarPDF(id);
-      
+
       // Criar URL temporária para o blob
       const url = window.URL.createObjectURL(blob);
-      
+
       // Criar elemento de link temporário para download
       const link = document.createElement('a');
       link.href = url;
       link.download = nomeArquivo || `solicitacao_${id}.pdf`;
-      
+
       // Adicionar ao DOM, clicar e remover
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
+
       // Limpar URL temporária
       window.URL.revokeObjectURL(url);
-      
-      console.log('✅ Download do PDF iniciado');
     } catch (error) {
       console.error('❌ Erro ao fazer download do PDF:', error);
       throw error;
@@ -815,26 +785,25 @@ export class ProtocoloService {
   }): Promise<{ data: ProtocoloFromAPI[]; pagination: any }> {
     try {
       const queryParams = new URLSearchParams();
-      
+
       if (params?.page) queryParams.append('page', params.page.toString());
       if (params?.limit) queryParams.append('limit', params.limit.toString());
       if (params?.clinica_id) queryParams.append('clinica_id', params.clinica_id.toString());
-      
+
       const url = `${API_BASE_URL}/protocolos?${queryParams.toString()}`;
-      console.log('🔧 Listando protocolos:', url);
-      
+
       const response = await authorizedFetch(url);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const result: ApiResponse<PaginatedResponse<ProtocoloFromAPI>> = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao listar protocolos');
       }
-      
+
       return {
         data: result.data!.data,
         pagination: result.data!.pagination
@@ -870,8 +839,6 @@ export class ProtocoloService {
   // Criar protocolo
   static async criarProtocolo(protocolo: ProtocoloCreateInput): Promise<ProtocoloFromAPI> {
     try {
-      console.log('🔧 Criando protocolo:', protocolo);
-      
       const response = await authorizedFetch(`${API_BASE_URL}/protocolos`, {
         method: 'POST',
         headers: {
@@ -879,14 +846,13 @@ export class ProtocoloService {
         },
         body: JSON.stringify(protocolo),
       });
-      
+
       const result: ApiResponse<ProtocoloFromAPI> = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao criar protocolo');
       }
-      
-      console.log('✅ Protocolo criado:', result.data);
+
       return result.data!;
     } catch (error) {
       console.error('❌ Erro ao criar protocolo:', error);
@@ -897,8 +863,6 @@ export class ProtocoloService {
   // Atualizar protocolo
   static async atualizarProtocolo(id: number, protocolo: ProtocoloUpdateInput): Promise<ProtocoloFromAPI> {
     try {
-      console.log('🔧 Atualizando protocolo:', id, protocolo);
-      
       const response = await authorizedFetch(`${API_BASE_URL}/protocolos/${id}`, {
         method: 'PUT',
         headers: {
@@ -906,14 +870,13 @@ export class ProtocoloService {
         },
         body: JSON.stringify(protocolo),
       });
-      
+
       const result: ApiResponse<ProtocoloFromAPI> = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao atualizar protocolo');
       }
-      
-      console.log('✅ Protocolo atualizado:', result.data);
+
       return result.data!;
     } catch (error) {
       console.error('❌ Erro ao atualizar protocolo:', error);
@@ -924,19 +887,15 @@ export class ProtocoloService {
   // Deletar protocolo
   static async deletarProtocolo(id: number): Promise<void> {
     try {
-      console.log('🔧 Deletando protocolo:', id);
-      
       const response = await authorizedFetch(`${API_BASE_URL}/protocolos/${id}`, {
         method: 'DELETE',
       });
-      
+
       const result: ApiResponse = await response.json();
-      
+
       if (!result.success) {
         throw new Error(result.message || 'Erro ao deletar protocolo');
       }
-      
-      console.log('✅ Protocolo deletado com sucesso');
     } catch (error) {
       console.error('❌ Erro ao deletar protocolo:', error);
       throw error;
@@ -991,28 +950,20 @@ export class ProtocoloService {
 // Função para testar se o backend está funcionando
 export const testarConexaoBackend = async (): Promise<boolean> => {
   try {
-    console.log('🔧 Testando conexão com backend...');
-    
     // Se estiver em desenvolvimento e configurado para usar dados locais, retorna false
     if (config.IS_DEVELOPMENT && config.USE_LOCAL_DATA_IN_DEV) {
-      console.log('ℹ️ Modo desenvolvimento: usando dados locais (backend não testado)');
       return false;
     }
-    
-    console.log('📍 URL de teste:', config.BACKEND_HEALTH_URL);
-    
+
     const response = await fetch(config.BACKEND_HEALTH_URL);
-    
+
     if (!response.ok) {
-      console.log('ℹ️ Backend não disponível:', response.status, response.statusText);
       return false;
     }
-    
+
     const result = await response.json();
-    console.log('✅ Backend respondeu:', result);
     return result.success;
   } catch (error) {
-    console.log('ℹ️ Backend não está respondendo, usando dados mockados:', error);
     return false;
   }
 };
@@ -1021,18 +972,14 @@ export const testarConexaoBackend = async (): Promise<boolean> => {
 // Função para testar conexão com banco via API
 export const testarConexaoBanco = async (): Promise<boolean> => {
   try {
-    console.log('🔧 Testando conexão com banco via API...');
-    console.log('📍 URL de teste:', `${config.API_BASE_URL}/test-db`);
-    
     const response = await fetch(`${config.API_BASE_URL}/test-db`);
-    
+
     if (!response.ok) {
       console.error('❌ Resposta não OK:', response.status, response.statusText);
       return false;
     }
-    
+
     const result = await response.json();
-    console.log('✅ Teste de banco:', result);
     return result.success;
   } catch (error) {
     console.error('❌ Erro ao testar banco:', error);
@@ -1195,20 +1142,18 @@ export const CatalogService = {
       if (params.search) queryParams.set('search', params.search);
       queryParams.set('limit', String(params.limit));
       queryParams.set('offset', String(params.offset));
-      
+
       const url = `${API_BASE_URL}/catalog/principios-ativos?${queryParams.toString()}`;
-      console.log('🔧 Buscando princípios ativos:', url);
-      
+
       const res = await fetch(url);
       if (!res.ok) {
         const errorText = await res.text();
         console.error('❌ Erro HTTP:', res.status, errorText);
         throw new Error(`HTTP ${res.status}`);
       }
-      
+
       const result: any = await res.json();
-      console.log('✅ Princípios ativos recebidos:', result.total, 'total');
-      
+
       // Backend retorna array de strings, converter para objetos com propriedade 'nome'
       const data = result.data || [];
       let items: CatalogPrincipioAtivoItem[] = [];

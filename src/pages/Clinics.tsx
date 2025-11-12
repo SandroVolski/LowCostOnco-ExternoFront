@@ -59,15 +59,9 @@ const Clinics = () => {
     // Adicione mais pacientes conforme necessário
   ]);
 
-  const handleEditPatient = (id: string) => {
-    // Implementar lógica de edição
-    console.log('Editar paciente:', id);
-  };
+  const handleEditPatient = (id: string) => {};
 
-  const handleDeletePatient = (id: string) => {
-    // Implementar lógica de exclusão
-    console.log('Excluir paciente:', id);
-  };
+  const handleDeletePatient = (id: string) => {};
 
   const clinicTabs = [
     { id: 'patients', label: 'Pacientes', icon: Users },

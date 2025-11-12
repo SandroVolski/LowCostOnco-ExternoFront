@@ -439,486 +439,483 @@ const RecursoGlosaDetalhe = () => {
 
   return (
     <>
-    <div className="space-y-6 max-w-screen-2xl mx-auto px-4 md:px-6">
-      {/* Header */}
-      <div className="relative overflow-hidden rounded-xl border-2 border-border/60 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 shadow-sm">
-        {/* Decor */}
-        <div className="absolute inset-0 bg-grid-white/10" />
-        <div className="absolute -left-10 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
-        <div className="absolute -right-10 -bottom-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
+      <div className="space-y-6 max-w-screen-2xl mx-auto px-4 md:px-6">
+        {/* Header */}
+        <div className="relative overflow-hidden rounded-xl border-2 border-border/60 bg-gradient-to-r from-primary/10 via-primary/5 to-transparent p-6 shadow-sm">
+          {/* Decor */}
+          <div className="absolute inset-0 bg-grid-white/10" />
+          <div className="absolute -left-10 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
+          <div className="absolute -right-10 -bottom-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl" />
 
-        <div className="relative">
-          <div className="flex items-center justify-between">
-            <div className="flex items-start gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => navigate('/operadora/recursos-glosas')}
-                className="text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Voltar
-              </Button>
-              <div className="space-y-1">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-primary/10">
-                    <FileText className="h-6 w-6 text-primary" />
+          <div className="relative">
+            <div className="flex items-center justify-between">
+              <div className="flex items-start gap-4">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => navigate('/operadora/recursos-glosas')}
+                  className="text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Voltar
+                </Button>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-primary/10">
+                      <FileText className="h-6 w-6 text-primary" />
+                    </div>
+                    <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
+                      Recurso de Glosa
+                    </h1>
                   </div>
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent">
-                    Recurso de Glosa
-                  </h1>
+                  <p className="text-sm md:text-base text-muted-foreground">
+                    Guia {recurso.numero_guia_prestador} • Análise e decisão sobre recurso
+                  </p>
                 </div>
-                <p className="text-sm md:text-base text-muted-foreground">
-                  Guia {recurso.numero_guia_prestador} • Análise e decisão sobre recurso
-                </p>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              {getStatusBadge(recurso.status_recurso)}
+              <div className="flex items-center gap-3">
+                {getStatusBadge(recurso.status_recurso)}
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="space-y-6">
-        {/* Action Buttons */}
-        {podeAprovarOuNegar && (
+        {/* Content */}
+        <div className="space-y-6">
+          {/* Action Buttons */}
+          {podeAprovarOuNegar && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Ações</CardTitle>
+                    <CardDescription>Escolha uma ação para este recurso</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex flex-wrap gap-3">
+                    <Button
+                      onClick={() => setShowAprovarDialog(true)}
+                      className="flex-1 min-w-[150px]"
+                      variant="default"
+                    >
+                      <CheckCircle className="h-4 w-4 mr-2" />
+                      Aprovar / Deferir
+                    </Button>
+                    <Button
+                      onClick={() => setShowNegarDialog(true)}
+                      className="flex-1 min-w-[150px]"
+                      variant="destructive"
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      Negar / Indeferir
+                    </Button>
+                    {podeSolicitarParecer && (
+                      <Button
+                        onClick={() => setShowSolicitarParecerDialog(true)}
+                        className="flex-1 min-w-[150px]"
+                        variant="outline"
+                      >
+                        <UserCog className="h-4 w-4 mr-2" />
+                        Solicitar Parecer
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Resource Info */}
               <Card>
                 <CardHeader>
-                  <CardTitle>Ações</CardTitle>
-                  <CardDescription>Escolha uma ação para este recurso</CardDescription>
+                  <CardTitle>Informações do Recurso</CardTitle>
                 </CardHeader>
-                <CardContent className="flex flex-wrap gap-3">
-                  <Button
-                    onClick={() => setShowAprovarDialog(true)}
-                    className="flex-1 min-w-[150px]"
-                    variant="default"
-                  >
-                    <CheckCircle className="h-4 w-4 mr-2" />
-                    Aprovar / Deferir
-                  </Button>
-                  <Button
-                    onClick={() => setShowNegarDialog(true)}
-                    className="flex-1 min-w-[150px]"
-                    variant="destructive"
-                  >
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Negar / Indeferir
-                  </Button>
-                  {podeSolicitarParecer && (
-                    <Button
-                      onClick={() => setShowSolicitarParecerDialog(true)}
-                      className="flex-1 min-w-[150px]"
-                      variant="outline"
-                    >
-                      <UserCog className="h-4 w-4 mr-2" />
-                      Solicitar Parecer
-                    </Button>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label className="text-muted-foreground">Clínica</Label>
+                      <p className="font-medium">{recurso.clinica_nome}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Número da Guia (Prestador)</Label>
+                      <p className="font-medium">{recurso.numero_guia_prestador}</p>
+                    </div>
+                    {recurso.numero_guia_operadora && (
+                      <div>
+                        <Label className="text-muted-foreground">Número da Guia (Operadora)</Label>
+                        <p className="font-medium">{recurso.numero_guia_operadora}</p>
+                      </div>
+                    )}
+                    <div>
+                      <Label className="text-muted-foreground">Carteira do Beneficiário</Label>
+                      <p className="font-medium">{recurso.numero_carteira}</p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Valor da Guia</Label>
+                      <p className="font-medium text-primary text-lg">
+                        R$ {parseFloat(recurso.valor_guia).toFixed(2)}
+                      </p>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Data de Envio</Label>
+                      <p className="font-medium">
+                        {format(new Date(recurso.data_envio_clinica), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                      </p>
+                    </div>
+                  </div>
+
+                  {recurso.motivos_glosa && (
+                    <div className="mt-4">
+                      <Label className="text-muted-foreground">Motivos da Glosa</Label>
+                      <div className="mt-2 p-3 bg-muted rounded-lg">
+                        {(() => {
+                          const raw = String(recurso.motivos_glosa || '').trim();
+                          let itens: string[] = [];
+                          try {
+                            if (raw.startsWith('[')) {
+                              const arr = JSON.parse(raw);
+                              if (Array.isArray(arr)) itens = arr.map((v) => String(v));
+                            }
+                          } catch {}
+                          if (itens.length === 0) {
+                            itens = raw.split(/[\n;,]+/).map((s) => s.trim()).filter(Boolean);
+                          }
+
+                          if (itens.length === 0) {
+                            return <p className="text-sm text-muted-foreground">Nenhum motivo informado.</p>;
+                          }
+
+                          return (
+                            <div className="flex flex-wrap gap-2">
+                              {itens.map((motivo, idx) => (
+                                <span
+                                  key={`${motivo}-${idx}`}
+                                  className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs text-foreground"
+                                >
+                                  <CheckCircle className="h-3.5 w-3.5 text-primary" />
+                                  {motivo}
+                                </span>
+                              ))}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  )}
+
+                  {recurso.justificativa && (
+                    <div className="mt-4">
+                      <Label className="text-muted-foreground">Justificativa da Clínica</Label>
+                      <div className="mt-2 p-3 bg-muted rounded-lg">
+                        <p className="text-sm">{recurso.justificativa}</p>
+                      </div>
+                    </div>
                   )}
                 </CardContent>
               </Card>
-            )}
 
-            {/* Resource Info */}
+              {/* Documents */}
+              {recurso.documentos && recurso.documentos.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileText className="h-5 w-5" />
+                      Documentos Anexados ({recurso.documentos.length})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {recurso.documentos.map((doc: any) => (
+                        <div
+                          key={doc.id}
+                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent"
+                        >
+                          <div className="flex items-center gap-3">
+                            <FileText className="h-5 w-5 text-primary" />
+                            <div>
+                              <p className="font-medium text-sm">{doc.nome_arquivo}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {format(new Date(doc.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                              </p>
+                            </div>
+                          </div>
+                          <Button variant="ghost" size="sm">
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Parecer do Auditor */}
+              {temParecer && (
+                <Card className="border-blue-500/50 bg-blue-50/50 dark:bg-blue-950/20 hover:shadow-lg transition-all">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
+                      <UserCog className="h-5 w-5" />
+                      Parecer Técnico do Auditor
+                    </CardTitle>
+                    <CardDescription>
+                      {recurso?.parecer?.auditor_nome
+                        ? <>Emitido por {recurso.parecer.auditor_nome} em {format(new Date(recurso.parecer.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</>
+                        : 'Parecer recebido. Detalhes técnicos abaixo.'}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label className="text-muted-foreground">Parecer Técnico</Label>
+                      <div className="mt-2 p-3 bg-background rounded-lg">
+                        <p className="text-sm whitespace-pre-wrap">
+                          {recurso?.parecer?.parecer_tecnico || 'O parecer técnico foi emitido pelo auditor. Caso os detalhes ainda não apareçam, aguarde alguns instantes ou atualize os dados do recurso.'}
+                        </p>
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="text-muted-foreground">Recomendação</Label>
+                      <div className="mt-2">
+                        <Badge variant="secondary" className="text-base">
+                          {recurso?.parecer?.recomendacao || '—'}
+                        </Badge>
+                      </div>
+                    </div>
+                    {recurso?.parecer?.justificativa_tecnica && (
+                      <div>
+                        <Label className="text-muted-foreground">Justificativa Técnica</Label>
+                        <div className="mt-2 p-3 bg-background rounded-lg">
+                          <p className="text-sm whitespace-pre-wrap">{recurso.parecer.justificativa_tecnica}</p>
+                        </div>
+                      </div>
+                    )}
+                    {recurso?.parecer?.valor_recomendado && (
+                      <div>
+                        <Label className="text-muted-foreground">Valor Recomendado</Label>
+                        <p className="font-medium text-lg mt-1">
+                          R$ {parseFloat(recurso.parecer.valor_recomendado).toFixed(2)}
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Linha do Tempo */}
+              {timelineItems.length > 0 && (
+                <AnimatedSection delay={220}>
+                  <Card className="overflow-hidden border-2 border-primary/10 shadow-lg">
+                    <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-b border-primary/10">
+                      <CardHeader className="pb-6">
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <CardTitle className="flex items-center gap-2 text-primary">
+                              <Clock className="h-5 w-5" />
+                              Linha do Tempo do Recurso
+                            </CardTitle>
+                            <CardDescription className="mt-1 text-muted-foreground">
+                              Acompanhe cada etapa registrada no fluxo técnico e decisório
+                            </CardDescription>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-md border border-border">
+                            <div className="h-2 w-2 rounded-full bg-primary" />
+                            Eventos em ordem cronológica real
+                          </div>
+                        </div>
+                      </CardHeader>
+                    </div>
+                    <CardContent className="bg-background p-6">
+                      <TimelineCard
+                        items={timelineItems}
+                        getStatusConfig={getTimelineStatusConfig}
+                      />
+                    </CardContent>
+                  </Card>
+                </AnimatedSection>
+              )}
+            </div>
+
+            {/* Chat Section - Moved to bottom */}
             <Card>
               <CardHeader>
-                <CardTitle>Informações do Recurso</CardTitle>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="h-5 w-5" />
+                  Chat com Auditor
+                </CardTitle>
+                <CardDescription>
+                  {recurso.auditor_nome ? `Comunicação com ${recurso.auditor_nome}` : 'Solicite um parecer para iniciar chat'}
+                </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-muted-foreground">Clínica</Label>
-                    <p className="font-medium">{recurso.clinica_nome}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Número da Guia (Prestador)</Label>
-                    <p className="font-medium">{recurso.numero_guia_prestador}</p>
-                  </div>
-                  {recurso.numero_guia_operadora && (
-                    <div>
-                      <Label className="text-muted-foreground">Número da Guia (Operadora)</Label>
-                      <p className="font-medium">{recurso.numero_guia_operadora}</p>
-                    </div>
-                  )}
-                  <div>
-                    <Label className="text-muted-foreground">Carteira do Beneficiário</Label>
-                    <p className="font-medium">{recurso.numero_carteira}</p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Valor da Guia</Label>
-                    <p className="font-medium text-primary text-lg">
-                      R$ {parseFloat(recurso.valor_guia).toFixed(2)}
-                    </p>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Data de Envio</Label>
-                    <p className="font-medium">
-                      {format(new Date(recurso.data_envio_clinica), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
-                    </p>
-                  </div>
+                {/* Messages */}
+                <div ref={chatContainerRef} className="max-h-[400px] overflow-y-auto space-y-3 p-4 border rounded-lg bg-muted/30">
+                    {mensagens.length === 0 ? (
+                      <div className="text-center text-muted-foreground text-sm py-8">
+                        {recurso.auditor_nome ? 'Nenhuma mensagem ainda' : 'Chat disponível após solicitar parecer'}
+                      </div>
+                    ) : (
+                      mensagens.map((msg: any) => (
+                        <div
+                          key={msg.id}
+                          className={`flex ${msg.tipo_remetente === 'operadora' ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div
+                            className={`max-w-[80%] rounded-lg px-3 py-2 ${
+                              msg.tipo_remetente === 'operadora'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-muted'
+                            }`}
+                          >
+                            <p className="text-xs font-medium mb-1">{msg.remetente_nome}</p>
+                            <p className="text-sm whitespace-pre-wrap">{msg.mensagem}</p>
+                            <p className="text-xs opacity-70 mt-1">
+                              {format(new Date(msg.created_at), 'dd/MM', { locale: ptBR })} {formatTimeBR(msg.created_at)}
+                            </p>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                    
+                    {/* Indicador de envio */}
+                    {enviandoMensagem && (
+                      <div className="flex justify-end">
+                        <div className="bg-primary/20 text-primary rounded-lg px-3 py-2 flex items-center gap-2">
+                          <div className="animate-spin rounded-full h-3 w-3 border-2 border-primary border-t-transparent" />
+                          <span className="text-xs">Enviando...</span>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div ref={messagesEndRef} />
                 </div>
 
-                {recurso.motivos_glosa && (
-                  <div className="mt-4">
-                    <Label className="text-muted-foreground">Motivos da Glosa</Label>
-                    <div className="mt-2 p-3 bg-muted rounded-lg">
-                      {(() => {
-                        const raw = String(recurso.motivos_glosa || '').trim();
-                        let itens: string[] = [];
-                        try {
-                          if (raw.startsWith('[')) {
-                            const arr = JSON.parse(raw);
-                            if (Array.isArray(arr)) itens = arr.map((v) => String(v));
-                          }
-                        } catch {}
-                        if (itens.length === 0) {
-                          itens = raw.split(/[\n;,]+/).map((s) => s.trim()).filter(Boolean);
+                {/* Message Input */}
+                {recurso.auditor_nome && (
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="Digite sua mensagem..."
+                      value={novaMensagem}
+                      onChange={(e) => setNovaMensagem(e.target.value)}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleEnviarMensagem();
                         }
-
-                        if (itens.length === 0) {
-                          return <p className="text-sm text-muted-foreground">Nenhum motivo informado.</p>;
-                        }
-
-                        return (
-                          <div className="flex flex-wrap gap-2">
-                            {itens.map((motivo, idx) => (
-                              <span
-                                key={`${motivo}-${idx}`}
-                                className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs text-foreground"
-                              >
-                                <CheckCircle className="h-3.5 w-3.5 text-primary" />
-                                {motivo}
-                              </span>
-                            ))}
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                )}
-
-                {recurso.justificativa && (
-                  <div className="mt-4">
-                    <Label className="text-muted-foreground">Justificativa da Clínica</Label>
-                    <div className="mt-2 p-3 bg-muted rounded-lg">
-                      <p className="text-sm">{recurso.justificativa}</p>
-                    </div>
+                      }}
+                      disabled={enviandoMensagem}
+                    />
+                    <Button
+                      onClick={handleEnviarMensagem}
+                      disabled={enviandoMensagem || !novaMensagem.trim()}
+                      size="icon"
+                    >
+                      <Send className="h-4 w-4" />
+                    </Button>
                   </div>
                 )}
               </CardContent>
             </Card>
-
-            {/* Documents */}
-            {recurso.documentos && recurso.documentos.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Documentos Anexados ({recurso.documentos.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {recurso.documentos.map((doc: any) => (
-                      <div
-                        key={doc.id}
-                        className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent"
-                      >
-                        <div className="flex items-center gap-3">
-                          <FileText className="h-5 w-5 text-primary" />
-                          <div>
-                            <p className="font-medium text-sm">{doc.nome_arquivo}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(doc.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
-                            </p>
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="sm">
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Parecer do Auditor */}
-            {temParecer && (
-              <Card className="border-blue-500/50 bg-blue-50/50 dark:bg-blue-950/20 hover:shadow-lg transition-all">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-blue-700 dark:text-blue-400">
-                    <UserCog className="h-5 w-5" />
-                    Parecer Técnico do Auditor
-                  </CardTitle>
-                  <CardDescription>
-                    {recurso?.parecer?.auditor_nome
-                      ? <>Emitido por {recurso.parecer.auditor_nome} em {format(new Date(recurso.parecer.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}</>
-                      : 'Parecer recebido. Detalhes técnicos abaixo.'}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label className="text-muted-foreground">Parecer Técnico</Label>
-                    <div className="mt-2 p-3 bg-background rounded-lg">
-                      <p className="text-sm whitespace-pre-wrap">
-                        {recurso?.parecer?.parecer_tecnico || 'O parecer técnico foi emitido pelo auditor. Caso os detalhes ainda não apareçam, aguarde alguns instantes ou atualize os dados do recurso.'}
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-muted-foreground">Recomendação</Label>
-                    <div className="mt-2">
-                      <Badge variant="secondary" className="text-base">
-                        {recurso?.parecer?.recomendacao || '—'}
-                      </Badge>
-                    </div>
-                  </div>
-                  {recurso?.parecer?.justificativa_tecnica && (
-                    <div>
-                      <Label className="text-muted-foreground">Justificativa Técnica</Label>
-                      <div className="mt-2 p-3 bg-background rounded-lg">
-                        <p className="text-sm whitespace-pre-wrap">{recurso.parecer.justificativa_tecnica}</p>
-                      </div>
-                    </div>
-                  )}
-                  {recurso?.parecer?.valor_recomendado && (
-                    <div>
-                      <Label className="text-muted-foreground">Valor Recomendado</Label>
-                      <p className="font-medium text-lg mt-1">
-                        R$ {parseFloat(recurso.parecer.valor_recomendado).toFixed(2)}
-                      </p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Linha do Tempo */}
-            {timelineItems.length > 0 && (
-              <AnimatedSection delay={220}>
-                <Card className="overflow-hidden border-2 border-primary/10 shadow-lg">
-                  <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border-b border-primary/10">
-                    <CardHeader className="pb-6">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <CardTitle className="flex items-center gap-2 text-primary">
-                            <Clock className="h-5 w-5" />
-                            Linha do Tempo do Recurso
-                          </CardTitle>
-                          <CardDescription className="mt-1 text-muted-foreground">
-                            Acompanhe cada etapa registrada no fluxo técnico e decisório
-                          </CardDescription>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground bg-muted/30 px-3 py-1.5 rounded-md border border-border">
-                          <div className="h-2 w-2 rounded-full bg-primary" />
-                          Eventos em ordem cronológica real
-                        </div>
-                      </div>
-                    </CardHeader>
-                  </div>
-                  <CardContent className="bg-background p-6">
-                    <TimelineCard
-                      items={timelineItems}
-                      getStatusConfig={getTimelineStatusConfig}
-                    />
-                  </CardContent>
-                </Card>
-              </AnimatedSection>
-            )}
           </div>
-
-          {/* Chat Section - Moved to bottom */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <MessageSquare className="h-5 w-5" />
-                Chat com Auditor
-              </CardTitle>
-              <CardDescription>
-                {recurso.auditor_nome ? `Comunicação com ${recurso.auditor_nome}` : 'Solicite um parecer para iniciar chat'}
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Messages */}
-              <div ref={chatContainerRef} className="max-h-[400px] overflow-y-auto space-y-3 p-4 border rounded-lg bg-muted/30">
-                  {mensagens.length === 0 ? (
-                    <div className="text-center text-muted-foreground text-sm py-8">
-                      {recurso.auditor_nome ? 'Nenhuma mensagem ainda' : 'Chat disponível após solicitar parecer'}
-                    </div>
-                  ) : (
-                    mensagens.map((msg: any) => (
-                      <div
-                        key={msg.id}
-                        className={`flex ${msg.tipo_remetente === 'operadora' ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div
-                          className={`max-w-[80%] rounded-lg px-3 py-2 ${
-                            msg.tipo_remetente === 'operadora'
-                              ? 'bg-primary text-primary-foreground'
-                              : 'bg-muted'
-                          }`}
-                        >
-                          <p className="text-xs font-medium mb-1">{msg.remetente_nome}</p>
-                          <p className="text-sm whitespace-pre-wrap">{msg.mensagem}</p>
-                          <p className="text-xs opacity-70 mt-1">
-                            {format(new Date(msg.created_at), 'dd/MM', { locale: ptBR })} {formatTimeBR(msg.created_at)}
-                          </p>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                  
-                  {/* Indicador de envio */}
-                  {enviandoMensagem && (
-                    <div className="flex justify-end">
-                      <div className="bg-primary/20 text-primary rounded-lg px-3 py-2 flex items-center gap-2">
-                        <div className="animate-spin rounded-full h-3 w-3 border-2 border-primary border-t-transparent" />
-                        <span className="text-xs">Enviando...</span>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div ref={messagesEndRef} />
-              </div>
-
-              {/* Message Input */}
-              {recurso.auditor_nome && (
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Digite sua mensagem..."
-                    value={novaMensagem}
-                    onChange={(e) => setNovaMensagem(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleEnviarMensagem();
-                      }
-                    }}
-                    disabled={enviandoMensagem}
-                  />
-                  <Button
-                    onClick={handleEnviarMensagem}
-                    disabled={enviandoMensagem || !novaMensagem.trim()}
-                    size="icon"
-                  >
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+      <Dialog open={showAprovarDialog} onOpenChange={setShowAprovarDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Aprovar / Deferir Recurso</DialogTitle>
+          <DialogDescription>
+            Confirme a aprovação do recurso. A guia será marcada como paga.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div>
+            <Label htmlFor="observacao-aprovacao">Observação (opcional)</Label>
+            <Textarea
+              id="observacao-aprovacao"
+              placeholder="Adicione observações sobre a aprovação..."
+              rows={4}
+              value={observacaoAprovacao}
+              onChange={(e) => setObservacaoAprovacao(e.target.value)}
+            />
+          </div>
         </div>
-
-        <Dialog open={showAprovarDialog} onOpenChange={setShowAprovarDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Aprovar / Deferir Recurso</DialogTitle>
-            <DialogDescription>
-              Confirme a aprovação do recurso. A guia será marcada como paga.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="observacao-aprovacao">Observação (opcional)</Label>
-              <Textarea
-                id="observacao-aprovacao"
-                placeholder="Adicione observações sobre a aprovação..."
-                rows={4}
-                value={observacaoAprovacao}
-                onChange={(e) => setObservacaoAprovacao(e.target.value)}
-              />
-            </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowAprovarDialog(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleAprovar} disabled={processando}>
+            {processando ? 'Processando...' : 'Confirmar Aprovação'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+      </Dialog>
+      <Dialog open={showNegarDialog} onOpenChange={setShowNegarDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Negar / Indeferir Recurso</DialogTitle>
+          <DialogDescription>
+            Informe o motivo da negação do recurso.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div>
+            <Label htmlFor="motivo-negacao">Motivo da Negação *</Label>
+            <Textarea
+              id="motivo-negacao"
+              placeholder="Descreva detalhadamente o motivo da negação..."
+              rows={4}
+              value={motivoNegacao}
+              onChange={(e) => setMotivoNegacao(e.target.value)}
+              required
+            />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAprovarDialog(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleAprovar} disabled={processando}>
-              {processando ? 'Processando...' : 'Confirmar Aprovação'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-        </Dialog>
-
-        <Dialog open={showNegarDialog} onOpenChange={setShowNegarDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Negar / Indeferir Recurso</DialogTitle>
-            <DialogDescription>
-              Informe o motivo da negação do recurso.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="motivo-negacao">Motivo da Negação *</Label>
-              <Textarea
-                id="motivo-negacao"
-                placeholder="Descreva detalhadamente o motivo da negação..."
-                rows={4}
-                value={motivoNegacao}
-                onChange={(e) => setMotivoNegacao(e.target.value)}
-                required
-              />
-            </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowNegarDialog(false)}>
+            Cancelar
+          </Button>
+          <Button variant="destructive" onClick={handleNegar} disabled={processando || !motivoNegacao.trim()}>
+            {processando ? 'Processando...' : 'Confirmar Negação'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+      </Dialog>
+      <Dialog open={showSolicitarParecerDialog} onOpenChange={setShowSolicitarParecerDialog}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Solicitar Parecer Técnico</DialogTitle>
+          <DialogDescription>
+            Selecione um auditor para emitir parecer técnico sobre este recurso.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-4">
+          <div>
+            <Label htmlFor="auditor-select">Auditor *</Label>
+            <Select value={auditorSelecionado} onValueChange={setAuditorSelecionado}>
+              <SelectTrigger id="auditor-select">
+                <SelectValue placeholder="Selecione um auditor" />
+              </SelectTrigger>
+              <SelectContent>
+                {auditores.map((auditor) => (
+                  <SelectItem key={auditor.id} value={auditor.id.toString()}>
+                    {auditor.nome} - {auditor.registro_profissional}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowNegarDialog(false)}>
-              Cancelar
-            </Button>
-            <Button variant="destructive" onClick={handleNegar} disabled={processando || !motivoNegacao.trim()}>
-              {processando ? 'Processando...' : 'Confirmar Negação'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-        </Dialog>
-
-        <Dialog open={showSolicitarParecerDialog} onOpenChange={setShowSolicitarParecerDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Solicitar Parecer Técnico</DialogTitle>
-            <DialogDescription>
-              Selecione um auditor para emitir parecer técnico sobre este recurso.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="auditor-select">Auditor *</Label>
-              <Select value={auditorSelecionado} onValueChange={setAuditorSelecionado}>
-                <SelectTrigger id="auditor-select">
-                  <SelectValue placeholder="Selecione um auditor" />
-                </SelectTrigger>
-                <SelectContent>
-                  {auditores.map((auditor) => (
-                    <SelectItem key={auditor.id} value={auditor.id.toString()}>
-                      {auditor.nome} - {auditor.registro_profissional}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="observacao-parecer">Observação (opcional)</Label>
-              <Textarea
-                id="observacao-parecer"
-                placeholder="Adicione observações para o auditor..."
-                rows={4}
-                value={observacaoParecer}
-                onChange={(e) => setObservacaoParecer(e.target.value)}
-              />
-            </div>
+          <div>
+            <Label htmlFor="observacao-parecer">Observação (opcional)</Label>
+            <Textarea
+              id="observacao-parecer"
+              placeholder="Adicione observações para o auditor..."
+              rows={4}
+              value={observacaoParecer}
+              onChange={(e) => setObservacaoParecer(e.target.value)}
+            />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSolicitarParecerDialog(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSolicitarParecer} disabled={processando || !auditorSelecionado}>
-              {processando ? 'Processando...' : 'Solicitar Parecer'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-        </Dialog>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setShowSolicitarParecerDialog(false)}>
+            Cancelar
+          </Button>
+          <Button onClick={handleSolicitarParecer} disabled={processando || !auditorSelecionado}>
+            {processando ? 'Processando...' : 'Solicitar Parecer'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+      </Dialog>
     </>
   );
 };
