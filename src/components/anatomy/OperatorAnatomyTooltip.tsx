@@ -115,7 +115,7 @@ export const OperatorAnatomyTooltip = ({ data, position, hasSelection = false }:
           </div>
           <div className="p-2 rounded-lg bg-muted/40 border border-muted-foreground/10 text-center">
             <div className="text-[10px] uppercase text-muted-foreground mb-1">Custo Médio</div>
-            <div className="text-sm font-semibold text-support-green">R$ {avgCost.toLocaleString()}</div>
+            <div className="text-sm font-semibold text-[#65a3ee]">R$ {avgCost.toLocaleString()}</div>
           </div>
         </div>
 
@@ -159,9 +159,9 @@ export const OperatorAnatomyTooltip = ({ data, position, hasSelection = false }:
             <div className="text-[10px] uppercase text-muted-foreground mb-1">SLA</div>
             <div className="text-sm font-semibold">{Math.max(65, 95 - denialRate)}%</div>
           </div>
-          <div className="p-2 rounded-lg bg-support-green/10 border border-support-green/20 text-center">
+          <div className="p-2 rounded-lg bg-[#65a3ee]/10 border border-[#65a3ee]/20 text-center">
             <div className="text-[10px] uppercase text-muted-foreground mb-1">Economia</div>
-            <div className="flex items-center justify-center gap-1 text-support-green text-sm font-semibold"><DollarSign className="w-4 h-4" />{Math.round(avgCost * 0.15).toLocaleString()}</div>
+            <div className="flex items-center justify-center gap-1 text-[#65a3ee] text-sm font-semibold"><DollarSign className="w-4 h-4" />{Math.round(avgCost * 0.15).toLocaleString()}</div>
           </div>
         </div>
       </div>

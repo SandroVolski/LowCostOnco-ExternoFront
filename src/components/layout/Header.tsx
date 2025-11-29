@@ -105,113 +105,54 @@ const OptimizedGifIcon = ({
   );
 };
 
-// Componente do GIF animado para o menu Dashboards
-const DashboardGifIcon = ({ hovered, active }: { hovered: boolean, active: boolean }) => (
-  <img
-    src={hovered || active ? '/images/dashboardshover.gif' : '/images/dashboards.gif'}
-    alt="Dashboard"
-    className="h-5 w-5 object-contain"
-    loading="lazy"
-  />
+// Ícone estático para o menu Dashboards
+const DashboardGifIcon = () => (
+  <PieChart className="h-5 w-5 text-primary" />
 );
 
-// Componente do GIF animado para o menu Dashboard da Clínica
-const HospitalGifIcon = ({ hovered, active }: { hovered: boolean, active: boolean }) => (
-  <img
-    src={hovered || active ? '/images/hospitalhover.gif' : '/images/hospital.gif'}
-    alt="Dashboard da Clínica"
-    className="w-6 h-6 transition-all duration-300"
-    draggable={false}
-    style={{ pointerEvents: 'none', display: 'inline-block' }}
-    loading="lazy"
-  />
+// Ícone estático para o menu Dashboard da Clínica
+const HospitalGifIcon = () => (
+  <Hospital className="w-5 h-5 text-primary" />
 );
 
-// Novo componente para Pacientes
-const PacientesGifIcon = ({ hovered, active }: { hovered: boolean, active: boolean }) => (
-  <img
-    src={hovered || active ? '/images/pacienteshover.gif' : '/images/pacientes.gif'}
-    alt="Dashboard de Pacientes"
-    className="w-6 h-6 transition-all duration-300"
-    draggable={false}
-    style={{ pointerEvents: 'none', display: 'inline-block' }}
-    loading="lazy"
-  />
+// Ícone estático para Pacientes
+const PacientesGifIcon = () => (
+  <Users className="w-5 h-5 text-primary" />
 );
 
-const CadastrosGifIcon = ({ hovered, active }: { hovered: boolean, active: boolean }) => (
-  <img
-    src={hovered || active ? '/images/dashboardshover.gif' : '/images/dashboards.gif'}
-    alt="Cadastros"
-    className="h-5 w-5 object-contain"
-    loading="lazy"
-  />
+// Ícone estático para Cadastros
+const CadastrosGifIcon = () => (
+  <FolderOpen className="h-5 w-5 text-primary" />
 );
 
-const DatabaseGifIcon = ({ hovered, active }: { hovered: boolean, active: boolean }) => (
-  <img
-    src={hovered || active ? '/images/databasehover.gif' : '/images/database.gif'}
-    alt="Cadastros"
-    className="w-8 h-8 transition-all duration-300"
-    draggable={false}
-    style={{ pointerEvents: 'none', display: 'inline-block' }}
-    loading="lazy"
-  />
+// Ícone estático para Database
+const DatabaseGifIcon = () => (
+  <Database className="w-5 h-5 text-primary" />
 );
 
-const CadPacienteGifIcon = ({ hovered, active }: { hovered: boolean, active: boolean }) => (
-  <img
-    src={hovered || active ? '/images/cadpacientehover.gif' : '/images/cadpaciente.gif'}
-    alt="Pacientes"
-    className="w-8 h-8 transition-all duration-300"
-    draggable={false}
-    style={{ pointerEvents: 'none', display: 'inline-block' }}
-    loading="lazy"
-  />
+// Ícone estático para Cadastro de Paciente
+const CadPacienteGifIcon = () => (
+  <UserPlus className="w-5 h-5 text-primary" />
 );
 
-const ProtocolosGifIcon = ({ hovered, active }: { hovered: boolean, active: boolean }) => (
-  <img
-    src={hovered || active ? '/images/protocoloshover.gif' : '/images/protocolos.gif'}
-    alt="Protocolos"
-    className="w-8 h-8 transition-all duration-300"
-    draggable={false}
-    style={{ pointerEvents: 'none', display: 'inline-block' }}
-    loading="lazy"
-  />
+// Ícone estático para Protocolos
+const ProtocolosGifIcon = () => (
+  <FileText className="w-5 h-5 text-primary" />
 );
 
-const SolicitacaoGifIcon = ({ hovered, active }: { hovered: boolean, active: boolean }) => (
-  <img
-    src={hovered || active ? '/images/solicitacaohover.gif' : '/images/solicitacao.gif'}
-    alt="Solicitação de Autorização"
-    className="w-6 h-6 transition-all duration-300"
-    draggable={false}
-    style={{ pointerEvents: 'none', display: 'inline-block' }}
-    loading="lazy"
-  />
+// Ícone estático para Solicitação
+const SolicitacaoGifIcon = () => (
+  <FilePlus className="w-5 h-5 text-primary" />
 );
 
-const GlosasGifIcon = ({ hovered, active }: { hovered: boolean, active: boolean }) => (
-  <img
-    src={hovered || active ? '/images/glosashover.gif' : '/images/glosas.gif'}
-    alt="Recursos de Glosas"
-    className="w-6 h-6 transition-all duration-300"
-    draggable={false}
-    style={{ pointerEvents: 'none', display: 'inline-block' }}
-    loading="lazy"
-  />
+// Ícone estático para Glosas
+const GlosasGifIcon = () => (
+  <AlertCircle className="w-5 h-5 text-primary" />
 );
 
-const ChatGifIcon = ({ hovered, active }: { hovered: boolean, active: boolean }) => (
-  <img
-    src={hovered || active ? '/images/chathover.gif' : '/images/chat.gif'}
-    alt="Chat"
-    className="w-6 h-6 transition-all duration-300"
-    draggable={false}
-    style={{ pointerEvents: 'none', display: 'inline-block' }}
-    loading="lazy"
-  />
+// Ícone estático para Chat
+const ChatGifIcon = () => (
+  <MessageSquare className="w-5 h-5 text-primary" />
 );
 
 const Header = () => {
@@ -226,17 +167,6 @@ const Header = () => {
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
   const { navigateWithTransition } = usePageNavigation();
-  const [dashboardHover, setDashboardHover] = useState(false);
-  const [clinicHover, setClinicHover] = useState(false);
-  const [pacientesHover, setPacientesHover] = useState(false);
-  const [cadastrosHover, setCadastrosHover] = useState(false);
-  const [cadPacienteHover, setCadPacienteHover] = useState(false);
-  const [protocolosHover, setProtocolosHover] = useState(false);
-  const [solicitacaoHover, setSolicitacaoHover] = useState(false);
-  const [glosasHover, setGlosasHover] = useState(false);
-  const [chatHover, setChatHover] = useState(false);
-  const [solicitacoesMenuHover, setSolicitacoesMenuHover] = useState(false);
-  const [financeiroMenuHover, setFinanceiroMenuHover] = useState(false);
   
   // Handle scroll effect
   useEffect(() => {
@@ -313,7 +243,7 @@ const Header = () => {
       : 'Plano de Saúde';
   
   const roleBadgeClass = user?.role === 'clinic'
-    ? 'bg-support-green'
+    ? 'bg-[#65a3ee]'
     : user?.role === 'operator'
       ? 'bg-support-yellow'
       : 'bg-highlight-peach';
@@ -339,7 +269,7 @@ const Header = () => {
       {
         label: 'Chat',
         path: '/chat',
-        icon: <ChatGifIcon hovered={chatHover} active={location.pathname === '/chat'} />,
+        icon: <ChatGifIcon />,
       },
     ];
 
@@ -348,7 +278,7 @@ const Header = () => {
         {
           label: 'Dashboards',
           path: '/dashboard-clinica',
-          icon: <DashboardGifIcon hovered={dashboardHover} active={isMenuActive('/dashboard-clinica', ['/dashboard-clinica', '/patient-dashboard', '/patients', '/analyses'])} />, 
+          icon: <DashboardGifIcon />,
           submenu: [
             {
               label: 'Clínica',
@@ -370,7 +300,7 @@ const Header = () => {
         {
           label: 'Cadastros',
           path: '/patients', // default path
-          icon: <DatabaseGifIcon hovered={cadastrosHover} active={isMenuActive('/patients', ['/patients', '/protocols'])} />, 
+          icon: <CadastrosGifIcon />,
           submenu: [
             {
               label: 'Pacientes',
@@ -388,7 +318,7 @@ const Header = () => {
         {
           label: 'Autorização',
           path: '/reports',
-          icon: <GlosasGifIcon hovered={solicitacaoHover} active={isMenuActive('/reports', ['/reports', '/historico-solicitacoes'])} />,
+          icon: <GlosasGifIcon />,
           submenu: [
             {
               label: 'Nova Solicitação',
@@ -405,7 +335,7 @@ const Header = () => {
         {
           label: 'Solicitações',
           path: '/ajustes-negociacao',
-          icon: <SolicitacaoGifIcon hovered={solicitacoesMenuHover} active={isMenuActive('/ajustes-negociacao', ['/ajustes-negociacao', '/ajustes-corpo-clinico'])} />,
+          icon: <SolicitacaoGifIcon />,
           submenu: [
             {
               label: 'Ajustes Corpo Clínico',
@@ -488,7 +418,7 @@ const Header = () => {
         : "bg-card border-b border-border animate-slide-down"
     )}>
       <div className="flex items-center gap-4">
-        <Logo size="sm" className="hidden md:flex animate-fade-in" />
+        <Logo size="sm" className="hidden md:flex animate-fade-in" withText={false} />
         
         <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
           <SheetTrigger asChild>
@@ -499,7 +429,7 @@ const Header = () => {
           <SheetContent side="left" className="w-[240px] sm:w-[300px]">
             <div className="flex flex-col h-full">
               <div className="flex items-center justify-between mb-6 pt-4">
-                <Logo size="sm" />
+                <Logo size="sm" withText={false} />
                 <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(false)} className="icon-hover">
                   <X className="h-5 w-5" />
                 </Button>
@@ -550,8 +480,6 @@ const Header = () => {
             <div key={item.path} className="relative group">
               {item.label === 'Cadastros' ? (
                 <span
-                  onMouseEnter={() => setCadastrosHover(true)}
-                  onMouseLeave={() => setCadastrosHover(false)}
                   style={{ display: 'inline-flex', alignItems: 'center' }}
                 >
                   <TransitionLink
@@ -569,8 +497,6 @@ const Header = () => {
                 </span>
               ) : item.label === 'Dashboards' ? (
                 <span
-                  onMouseEnter={() => setDashboardHover(true)}
-                  onMouseLeave={() => setDashboardHover(false)}
                   style={{ display: 'inline-flex', alignItems: 'center' }}
                 >
                   <TransitionLink
@@ -588,8 +514,6 @@ const Header = () => {
                 </span>
               ) : item.label === 'Autorização' ? (
                 <span
-                  onMouseEnter={() => setSolicitacaoHover(true)}
-                  onMouseLeave={() => setSolicitacaoHover(false)}
                   style={{ display: 'inline-flex', alignItems: 'center' }}
                 >
                   <TransitionLink
@@ -607,8 +531,6 @@ const Header = () => {
                 </span>
               ) : item.label === 'Solicitações' ? (
                 <span
-                  onMouseEnter={() => setSolicitacoesMenuHover(true)}
-                  onMouseLeave={() => setSolicitacoesMenuHover(false)}
                   style={{ display: 'inline-flex', alignItems: 'center' }}
                 >
                   <TransitionLink
@@ -754,8 +676,6 @@ const Header = () => {
           ) : item.label === 'Autorização' ? (
             <span
               key={item.path}
-              onMouseEnter={() => setSolicitacaoHover(true)}
-              onMouseLeave={() => setSolicitacaoHover(false)}
               style={{ display: 'inline-flex', alignItems: 'center' }}
             >
               <TransitionLink
@@ -774,8 +694,6 @@ const Header = () => {
           ) : item.label === 'Recursos de Glosas' ? (
             <span
               key={item.path}
-              onMouseEnter={() => setGlosasHover(true)}
-              onMouseLeave={() => setGlosasHover(false)}
               style={{ display: 'inline-flex', alignItems: 'center' }}
             >
               <TransitionLink
@@ -793,8 +711,6 @@ const Header = () => {
           ) : item.label === 'Chat' ? (
             <span
               key={item.path}
-              onMouseEnter={() => setChatHover(true)}
-              onMouseLeave={() => setChatHover(false)}
               style={{ display: 'inline-flex', alignItems: 'center' }}
             >
               <TransitionLink
@@ -812,8 +728,6 @@ const Header = () => {
           ) : item.label === 'Solicitações' ? (
             <span
               key={item.path}
-              onMouseEnter={() => setSolicitacoesMenuHover(true)}
-              onMouseLeave={() => setSolicitacoesMenuHover(false)}
               style={{ display: 'inline-flex', alignItems: 'center' }}
             >
               <TransitionLink

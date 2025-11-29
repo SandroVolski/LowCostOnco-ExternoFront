@@ -83,8 +83,8 @@ const ResetPassword = () => {
           <Card className="w-full animate-scale-in border-border/50 bg-card/80 backdrop-blur-lg shadow-2xl">
             <CardHeader className="text-center pb-4">
               <div className="flex justify-center mb-4">
-                <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
-                  <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+                <div className="p-3 bg-blue-100 dark:bg-blue-900/30 rounded-full">
+                  <CheckCircle className="h-8 w-8 text-[#1f4edd] dark:text-blue-400" />
                 </div>
               </div>
               <CardTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/80 bg-clip-text text-transparent">

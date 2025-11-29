@@ -17,7 +17,7 @@ import { operadoraAuthService } from '@/services/operadoraAuthService';
 import config from '@/config/environment';
 
 // Custom colors that match our brand
-const COLORS = ['#79d153', '#8cb369', '#e4a94f', '#f26b6b', '#f7c59f', '#575654'];
+const COLORS = ['#1f4edd', '#65a3ee', '#e4a94f', '#f26b6b', '#f7c59f', '#575654'];
 
 const Analysis = () => {
   const { user, isAuthenticated } = useOperadoraAuth();
@@ -318,15 +318,15 @@ const Analysis = () => {
         <AnimatedSection delay={300}>
           <MouseTilt maxTilt={5} scale={1.02}>
             <Card className="lco-card hover-lift group relative overflow-hidden h-32">
-              <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-green-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-[#1f4edd]/5 to-[#65a3ee]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
               <CardContent className="p-4 relative z-10 h-full flex flex-col justify-center">
                 <div className="flex flex-col items-center text-center space-y-2">
-                  <div className="w-12 h-12 rounded-full bg-green-500/10 flex items-center justify-center">
-                    <Activity className="h-6 w-6 text-green-500" />
+                  <div className="w-12 h-12 rounded-full bg-[#1f4edd]/10 flex items-center justify-center">
+                    <Activity className="h-6 w-6 text-[#1f4edd]" />
                   </div>
                   <div>
                     <p className="text-xs font-medium text-muted-foreground leading-tight">Sistemas</p>
-                    <p className="text-xl font-bold text-green-500">
+                    <p className="text-xl font-bold text-[#1f4edd]">
                       {metrics?.sistemasMonitorados || 0}
                     </p>
                     <p className="text-xs text-muted-foreground">monitorados</p>
@@ -486,9 +486,9 @@ const Analysis = () => {
                       <span className="text-sm font-medium">CIDs Únicos</span>
                       <span className="text-xl font-bold text-blue-500">{selectedOrgan.cids.length}</span>
                     </div>
-                    <div className="flex justify-between items-center p-3 bg-green-500/5 rounded-lg">
+                    <div className="flex justify-between items-center p-3 bg-[#1f4edd]/5 rounded-lg">
                       <span className="text-sm font-medium">Protocolos Ativos</span>
-                      <span className="text-xl font-bold text-green-500">{selectedOrgan.protocols.length}</span>
+                      <span className="text-xl font-bold text-[#1f4edd]">{selectedOrgan.protocols.length}</span>
                     </div>
                   </div>
                 </div>
@@ -656,8 +656,8 @@ const Analysis = () => {
               <PieChart>
                 <defs>
                   <linearGradient id="gradMed" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#79d153" stopOpacity={0.95} />
-                    <stop offset="100%" stopColor="#8cb369" stopOpacity={0.95} />
+                    <stop offset="0%" stopColor="#1f4edd" stopOpacity={0.95} />
+                    <stop offset="100%" stopColor="#65a3ee" stopOpacity={0.95} />
                   </linearGradient>
                 </defs>
                 <Pie
@@ -713,8 +713,8 @@ const Analysis = () => {
               >
                 <defs>
                   <linearGradient id="gradBar" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#79d153" stopOpacity={1} />
-                    <stop offset="100%" stopColor="#79d153" stopOpacity={0.3} />
+                    <stop offset="0%" stopColor="#1f4edd" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#1f4edd" stopOpacity={0.3} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
@@ -722,7 +722,7 @@ const Analysis = () => {
                 <YAxis tick={{ fill: '#9CA3AF', fontSize: 12 }} axisLine={{ stroke: '#374151' }} tickLine={{ stroke: '#374151' }} />
                 <Tooltip />
                 <Legend />
-                <Bar dataKey="casos" fill="url(#gradBar)" stroke="#79d153" name="Número de Casos" radius={[6,6,0,0]} />
+                <Bar dataKey="casos" fill="url(#gradBar)" stroke="#1f4edd" name="Número de Casos" radius={[6,6,0,0]} />
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -745,22 +745,22 @@ const Analysis = () => {
               >
                 <defs>
                   <linearGradient id="gradLineA" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#79d153" stopOpacity={0.9} />
-                    <stop offset="100%" stopColor="#79d153" stopOpacity={0.2} />
+                    <stop offset="0%" stopColor="#1f4edd" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#1f4edd" stopOpacity={0.2} />
                   </linearGradient>
                   <linearGradient id="gradLineB" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#8cb369" stopOpacity={0.9} />
-                    <stop offset="100%" stopColor="#8cb369" stopOpacity={0.2} />
+                    <stop offset="0%" stopColor="#65a3ee" stopOpacity={0.9} />
+                    <stop offset="100%" stopColor="#65a3ee" stopOpacity={0.2} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#1f2937" />
                 <XAxis dataKey="name" tick={{ fill: '#9CA3AF', fontSize: 12 }} axisLine={{ stroke: '#374151' }} tickLine={{ stroke: '#374151' }} />
-                <YAxis yAxisId="left" orientation="left" stroke="#79d153" tick={{ fill: '#9CA3AF' }} />
-                <YAxis yAxisId="right" orientation="right" stroke="#8cb369" tick={{ fill: '#9CA3AF' }} />
+                <YAxis yAxisId="left" orientation="left" stroke="#1f4edd" tick={{ fill: '#9CA3AF' }} />
+                <YAxis yAxisId="right" orientation="right" stroke="#65a3ee" tick={{ fill: '#9CA3AF' }} />
                 <Tooltip />
                 <Legend />
-                <Line yAxisId="left" type="monotone" dataKey="solicitacoes" stroke="#79d153" strokeWidth={2} dot={false} name="Solicitações" />
-                <Line yAxisId="right" type="monotone" dataKey="patients" stroke="#8cb369" strokeWidth={2} dot={false} name="Pacientes" />
+                <Line yAxisId="left" type="monotone" dataKey="solicitacoes" stroke="#1f4edd" strokeWidth={2} dot={false} name="Solicitações" />
+                <Line yAxisId="right" type="monotone" dataKey="patients" stroke="#65a3ee" strokeWidth={2} dot={false} name="Pacientes" />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>

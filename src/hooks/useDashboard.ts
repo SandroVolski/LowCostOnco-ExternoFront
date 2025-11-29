@@ -52,10 +52,10 @@ export interface SolicitationStatusData {
 
 // Cores modernas para os gráficos
 const CHART_COLORS = [
-  { fill: '#8cb369', stroke: '#a8c97d', glow: '0 0 10px rgba(140, 179, 105, 0.5)' },
+  { fill: '#65a3ee', stroke: '#83b4f8', glow: '0 0 10px rgba(101, 163, 238, 0.5)' },
   { fill: '#e4a94f', stroke: '#f2c94c', glow: '0 0 10px rgba(228, 169, 79, 0.5)' },
   { fill: '#f26b6b', stroke: '#ff8f8f', glow: '0 0 10px rgba(242, 107, 107, 0.5)' },
-  { fill: '#79d153', stroke: '#a5e882', glow: '0 0 10px rgba(121, 209, 83, 0.5)' },
+  { fill: '#1f4edd', stroke: '#2351c4', glow: '0 0 10px rgba(31, 78, 221, 0.5)' },
   { fill: '#74b9ff', stroke: '#81ecec', glow: '0 0 10px rgba(116, 185, 255, 0.5)' },
 ];
 
@@ -307,7 +307,7 @@ export const useDashboard = () => {
 
   // Função para obter cor da variação
   const getVariationColor = useCallback((variation: number): string => {
-    return variation >= 0 ? 'text-green-600' : 'text-red-600';
+    return variation >= 0 ? 'text-[#1f4edd]' : 'text-red-600';
   }, []);
 
   // Carregar dados ao montar o hook

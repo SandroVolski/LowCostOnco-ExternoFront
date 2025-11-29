@@ -79,20 +79,20 @@ interface SolicitacoesPorMesData {
   emAnalise: number;
 }
 
-// Cores consistentes com o tema
+// Cores consistentes com o tema OnkoLink Azul
 const CHART_COLORS = [
-  { fill: '#8cb369', stroke: '#a8c97d', glow: '0 0 10px rgba(140, 179, 105, 0.5)' },
+  { fill: '#65a3ee', stroke: '#83b4f8', glow: '0 0 10px rgba(101, 163, 238, 0.5)' }, // Frente L (DNA)
   { fill: '#e4a94f', stroke: '#f2c94c', glow: '0 0 10px rgba(228, 169, 79, 0.5)' },
   { fill: '#f26b6b', stroke: '#ff8f8f', glow: '0 0 10px rgba(242, 107, 107, 0.5)' },
-  { fill: '#79d153', stroke: '#a5e882', glow: '0 0 10px rgba(121, 209, 83, 0.5)' },
+  { fill: '#1f4edd', stroke: '#2351c4', glow: '0 0 10px rgba(31, 78, 221, 0.5)' }, // Azul Onko
   { fill: '#6b7bb3', stroke: '#8a94c7', glow: '0 0 10px rgba(107, 123, 179, 0.5)' },
 ];
 
 const TREATMENT_COLORS = [
-  { fill: '#79d153', stroke: '#a5e882', glow: '0 0 10px rgba(121, 209, 83, 0.5)' },
-  { fill: '#8cb369', stroke: '#a8c97d', glow: '0 0 10px rgba(140, 179, 105, 0.5)' },
+  { fill: '#1f4edd', stroke: '#2351c4', glow: '0 0 10px rgba(31, 78, 221, 0.5)' }, // Azul Onko
+  { fill: '#65a3ee', stroke: '#83b4f8', glow: '0 0 10px rgba(101, 163, 238, 0.5)' }, // Frente L (DNA)
   { fill: '#e4a94f', stroke: '#f2c94c', glow: '0 0 10px rgba(228, 169, 79, 0.5)' },
-  { fill: '#35524a', stroke: '#4a6b5f', glow: '0 0 10px rgba(53, 82, 74, 0.5)' },
+  { fill: '#8c9a9a', stroke: '#a0aeb0', glow: '0 0 10px rgba(140, 154, 154, 0.5)' }, // Conectando Saúde
   { fill: '#f26b6b', stroke: '#ff8f8f', glow: '0 0 10px rgba(242, 107, 107, 0.5)' },
   { fill: '#f7c59f', stroke: '#ffd4b3', glow: '0 0 10px rgba(247, 197, 159, 0.5)' },
 ];
@@ -704,7 +704,7 @@ const Dashboard = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'aprovada':
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
+        return <CheckCircle className="h-4 w-4 text-[#1f4edd]" />;
       case 'pendente':
       case 'em_analise':
         return <Clock className="h-4 w-4 text-yellow-600" />;
@@ -970,8 +970,8 @@ const Dashboard = () => {
                     <BarChart data={patientStatusData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                       <defs>
                         <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#79d153" stopOpacity={0.8}/>
-                          <stop offset="95%" stopColor="#79d153" stopOpacity={0.3}/>
+                          <stop offset="5%" stopColor="#1f4edd" stopOpacity={0.8}/>
+                          <stop offset="95%" stopColor="#1f4edd" stopOpacity={0.3}/>
                         </linearGradient>
                         <filter id="barShadow" x="-20%" y="-20%" width="140%" height="140%">
                           <feDropShadow dx="0" dy="2" stdDeviation="2" floodOpacity="0.2"/>
@@ -1070,7 +1070,7 @@ const Dashboard = () => {
                           "flex items-center justify-between p-4 rounded-lg transition-all duration-300 border hover:shadow-md",
                           treatment.status === 'urgent' ? 'bg-highlight-red/10 hover:bg-highlight-red/20 border-highlight-red/20' :
                           treatment.status === 'warning' ? 'bg-support-yellow/10 hover:bg-support-yellow/20 border-support-yellow/20' :
-                          'bg-support-green/10 hover:bg-support-green/20 border-support-green/20'
+                          'bg-[#65a3ee]/10 hover:bg-[#65a3ee]/20 border-[#65a3ee]/20'
                         )}
                         title={`Clique para visualizar PDF • Solicitação: ${formatDate(treatment.dataSolicitacao)}\nIntervalo: ${treatment.intervaloOriginal}`}
                         onClick={(e) => handleViewPDF(treatment.solicitacaoId, e)}
@@ -1105,7 +1105,7 @@ const Dashboard = () => {
                               "w-3 h-3 rounded-full",
                                treatment.status === 'urgent' ? 'bg-highlight-red animate-pulse' :
                                treatment.status === 'warning' ? 'bg-support-yellow' :
-                               'bg-support-green'
+                               'bg-[#65a3ee]'
                              )} />
                             <FileText className="h-4 w-4 text-muted-foreground opacity-60" />
                            </div>
@@ -1229,7 +1229,7 @@ const Dashboard = () => {
                         key={solicitacao.id}
                         className={cn(
                           "flex items-center justify-between p-3 rounded-lg transition-all duration-300 border cursor-pointer hover:shadow-md",
-                          solicitacao.status === 'aprovada' ? 'bg-support-green/10 hover:bg-support-green/20 border-support-green/20' :
+                          solicitacao.status === 'aprovada' ? 'bg-[#65a3ee]/10 hover:bg-[#65a3ee]/20 border-[#65a3ee]/20' :
                           solicitacao.status === 'rejeitada' ? 'bg-highlight-red/10 hover:bg-highlight-red/20 border-highlight-red/20' :
                           'bg-support-yellow/10 hover:bg-support-yellow/20 border-support-yellow/20'
                         )}
@@ -1294,8 +1294,8 @@ const Dashboard = () => {
                     <XAxis dataKey="name" tick={false} axisLine={{ stroke: 'var(--border)' }} height={10} />
                     <YAxis />
                     <Tooltip formatter={(value: any, name: any, props: any) => [String(value), props.payload?.name || name]} />
-                    <Bar dataKey="pacientesEmTratamento" name="Pacientes em Tratamento" fill="#22c55e" radius={[6,6,0,0]} />
-                    <Bar dataKey="quantidadeSolicitada" name="Quantidade Solicitada" fill="#f59e0b" radius={[6,6,0,0]} />
+                    <Bar dataKey="pacientesEmTratamento" name="Pacientes em Tratamento" fill="#1f4edd" radius={[6,6,0,0]} />
+                    <Bar dataKey="quantidadeSolicitada" name="Quantidade Solicitada" fill="#65a3ee" radius={[6,6,0,0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -2418,10 +2418,10 @@ const Dashboard = () => {
           {/* NOVOS PACIENTES */}
           <AnimatedSection delay={280}>
             <Card className="lco-card h-[400px] hover-lift group overflow-hidden border-0 shadow-lg">
-              <div className="absolute inset-0 bg-gradient-to-br from-green-500/10 via-emerald-500/5 to-teal-500/10 opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-[#1f4edd]/10 via-[#65a3ee]/5 to-[#83b4f8]/10 opacity-0 group-hover:opacity-100 transition-all duration-500"></div>
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center text-lg">
-                  <UserPlus className="mr-3 h-6 w-6 text-green-600" />
+                  <UserPlus className="mr-3 h-6 w-6 text-[#1f4edd]" />
                   NOVOS PACIENTES
                 </CardTitle>
                 <CardDescription className="text-sm font-medium">Últimos {timeFilter} dias</CardDescription>
@@ -2430,7 +2430,7 @@ const Dashboard = () => {
                 <div className="space-y-6">
                   {/* Número principal */}
                   <div className="text-center">
-                    <div className="text-5xl font-bold text-green-600 mb-2">
+                    <div className="text-5xl font-bold text-[#1f4edd] mb-2">
                       {novosPacientesStats.atual}
                     </div>
                     <p className="text-sm text-gray-600 font-medium">Novos pacientes</p>
@@ -2438,12 +2438,12 @@ const Dashboard = () => {
                   
                   {/* Estatísticas detalhadas */}
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg border border-green-200">
+                    <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
                       <div className="flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                        <div className="w-2 h-2 bg-[#1f4edd] rounded-full"></div>
                         <span className="text-sm font-medium text-gray-700">Este período ({timeFilter}d)</span>
                       </div>
-                      <span className="font-bold text-green-600">
+                      <span className="font-bold text-[#1f4edd]">
                         +{novosPacientesStats.atual}
                       </span>
                     </div>

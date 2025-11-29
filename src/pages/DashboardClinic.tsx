@@ -73,10 +73,10 @@ interface ActivePrincipleData {
 }
 
 const TREATMENT_COLORS = [
-  { color: '#8cb369', shadow: '0 0 10px rgba(140, 179, 105, 0.5)' },
+  { color: '#65a3ee', shadow: '0 0 10px rgba(101, 163, 238, 0.5)' },
   { color: '#e4a94f', shadow: '0 0 10px rgba(228, 169, 79, 0.5)' },
   { color: '#f26b6b', shadow: '0 0 10px rgba(242, 107, 107, 0.5)' },
-  { color: '#79d153', shadow: '0 0 10px rgba(121, 209, 83, 0.5)' },
+  { color: '#1f4edd', shadow: '0 0 10px rgba(31, 78, 221, 0.5)' },
   { color: '#74b9ff', shadow: '0 0 10px rgba(116, 185, 255, 0.5)' },
   { color: '#fd79a8', shadow: '0 0 10px rgba(253, 121, 168, 0.5)' },
   { color: '#fdcb6e', shadow: '0 0 10px rgba(253, 203, 110, 0.5)' },

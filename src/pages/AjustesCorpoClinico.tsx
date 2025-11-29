@@ -320,7 +320,7 @@ const AjustesCorpoClinico = () => {
       case 'em_analise':
         return <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">Em Análise</Badge>;
       case 'aprovado':
-        return <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">Aprovado</Badge>;
+        return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">Aprovado</Badge>;
       case 'rejeitado':
         return <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20">Rejeitado</Badge>;
     }
@@ -333,7 +333,7 @@ const AjustesCorpoClinico = () => {
       case 'em_analise':
         return <Clock className="h-5 w-5 text-blue-500" />;
       case 'aprovado':
-        return <CheckCircle className="h-5 w-5 text-green-500" />;
+        return <CheckCircle className="h-5 w-5 text-green-600" />;
       case 'rejeitado':
         return <XCircle className="h-5 w-5 text-red-500" />;
     }
@@ -577,8 +577,8 @@ const AjustesCorpoClinico = () => {
                   <p className="text-sm text-muted-foreground font-medium">Aprovadas/Rejeitadas</p>
                   <div className="flex items-baseline gap-3">
                     <div className="flex items-center gap-1">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <span className="text-xl font-bold text-green-600">{estatisticas.solicitacoesPorStatus.aprovado}</span>
+                      <CheckCircle className="h-4 w-4 text-[#1f4edd]" />
+                      <span className="text-xl font-bold text-[#1f4edd]">{estatisticas.solicitacoesPorStatus.aprovado}</span>
                     </div>
                     <span className="text-muted-foreground">/</span>
                     <div className="flex items-center gap-1">
@@ -754,7 +754,7 @@ Documentos necessários:
                                         </span>
                                       )}
                                       {progress === 100 && (
-                                        <span className="text-xs text-green-600">
+                                        <span className="text-xs text-[#1f4edd]">
                                           ✓
                                         </span>
                                       )}
@@ -924,7 +924,7 @@ Documentos necessários:
                     "hover:border-l-8 hover:scale-[1.02]",
                     solicitacao.status === 'pendente' ? "border-l-yellow-500 hover:border-l-yellow-400" :
                     solicitacao.status === 'em_analise' ? "border-l-blue-500 hover:border-l-blue-400" :
-                    solicitacao.status === 'aprovado' ? "border-l-green-500 hover:border-l-green-400" :
+                    solicitacao.status === 'aprovado' ? "border-l-[#1f4edd] hover:border-l-[#65a3ee]" :
                     "border-l-red-500 hover:border-l-red-400"
                   )}
                 >

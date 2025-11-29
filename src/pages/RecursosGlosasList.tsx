@@ -144,14 +144,14 @@ const RecursosGlosasList: React.FC = () => {
       case 'parecer_emitido':
         return {
           label: 'Parecer Emitido',
-          color: 'bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-200 border-green-200 dark:border-green-800',
-          icon: <CheckCircle className="h-4 w-4 text-green-700 dark:text-green-300" />
+          color: 'bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-200 border-blue-200 dark:border-blue-800',
+          icon: <CheckCircle className="h-4 w-4 text-blue-700 dark:text-blue-300" />
         };
       case 'deferido':
         return {
           label: 'Deferido',
-          color: 'bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-200 border-green-200 dark:border-green-800',
-          icon: <CheckCircle className="h-4 w-4 text-green-700 dark:text-green-300" />
+          color: 'bg-blue-50 text-blue-900 dark:bg-blue-950 dark:text-blue-200 border-blue-200 dark:border-blue-800',
+          icon: <CheckCircle className="h-4 w-4 text-blue-700 dark:text-blue-300" />
         };
       case 'indeferido':
         return {
@@ -277,9 +277,9 @@ const RecursosGlosasList: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground">Deferido</p>
-                  <p className="text-2xl font-bold text-green-600">{stats.deferido}</p>
+                  <p className="text-2xl font-bold text-[#1f4edd]">{stats.deferido}</p>
                 </div>
-                <CheckCircle className="h-8 w-8 text-green-600" />
+                <CheckCircle className="h-8 w-8 text-[#1f4edd]" />
               </div>
             </CardContent>
           </Card>

@@ -135,7 +135,7 @@ ${parecer.justificativa_tecnica || ''}
 
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { label: string; variant: any; color: string }> = {
-      'deferido': { label: 'Deferido', variant: 'default', color: 'bg-green-500/15 text-green-600 border-green-500/30' },
+      'deferido': { label: 'Deferido', variant: 'default', color: 'bg-[#1f4edd]/15 text-[#1f4edd] border-[#1f4edd]/30' },
       'indeferido': { label: 'Indeferido', variant: 'destructive', color: 'bg-red-500/15 text-red-600 border-red-500/30' },
       'parecer_emitido': { label: 'Parecer Emitido', variant: 'secondary', color: 'bg-blue-500/15 text-blue-600 border-blue-500/30' },
       'em_analise_auditor': { label: 'Em Análise', variant: 'default', color: 'bg-amber-500/15 text-amber-600 border-amber-500/30' },

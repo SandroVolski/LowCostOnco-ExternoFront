@@ -78,7 +78,7 @@ export const CardHoverEffect = ({
           <Card
             className={cn(
               "border-l-4",
-              (item as any).status === 'aprovada' && "border-l-green-500",
+              (item as any).status === 'aprovada' && "border-l-[#1f4edd]",
               (item as any).status === 'rejeitada' && "border-l-red-500",
               (item as any).status === 'em_analise' && "border-l-yellow-500",
               ((item as any).status === 'pendente' || !(item as any).status) && "border-l-blue-500",
@@ -102,7 +102,7 @@ export const CardHoverEffect = ({
                 <div
                   className={cn(
                     "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white",
-                    (item as any).status === 'aprovada' && "bg-green-500",
+                    (item as any).status === 'aprovada' && "bg-[#1f4edd]",
                     (item as any).status === 'rejeitada' && "bg-red-500",
                     (item as any).status === 'em_analise' && "bg-yellow-500 text-black",
                     ((item as any).status === 'pendente' || !(item as any).status) && "bg-blue-500",
@@ -131,7 +131,7 @@ export const CardHoverEffect = ({
               <div className="flex items-center justify-between">
                 <span className={cn(
                   "px-3 py-1 rounded-full text-xs font-medium",
-                  (item as any).status === 'aprovada' ? "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-300" :
+                  (item as any).status === 'aprovada' ? "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300" :
                   (item as any).status === 'rejeitada' ? "bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-300" :
                   (item as any).status === 'em_analise' ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300" :
                   "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-300"
@@ -285,7 +285,7 @@ export const CardHoverEffect = ({
                   variant="outline"
                   size="sm"
                   onClick={() => onApprove(item.id)}
-                  className="flex-1 h-8 text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
+                  className="flex-1 h-8 text-xs text-[#1f4edd] hover:text-[#2351c4] hover:bg-blue-50"
                 >
                   <ThumbsUp className="h-3 w-3 mr-1" /> Aprovar
                 </Button>

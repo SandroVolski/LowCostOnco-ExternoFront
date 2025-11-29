@@ -326,15 +326,15 @@ const RecursoGlosaDetalhe = () => {
       case 'parecer_emitido':
         return {
           label: 'Parecer Emitido',
-          color: 'bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-200 border-green-200 dark:border-green-800',
-          icon: <CheckCircle className="h-4 w-4 text-green-700 dark:text-green-300" />,
+          color: 'bg-[#1f4edd]/10 text-[#1f4edd] dark:bg-[#1f4edd]/20 dark:text-[#65a3ee] border-[#1f4edd]/30 dark:border-[#65a3ee]/40',
+          icon: <CheckCircle className="h-4 w-4 text-[#1f4edd] dark:text-[#65a3ee]" />,
           description: 'O parecer técnico foi emitido. Em breve a operadora finalizará o fluxo com a decisão e próximos passos.'
         };
       case 'deferido':
         return {
           label: 'Deferido',
-          color: 'bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-200 border-green-200 dark:border-green-800',
-          icon: <CheckCircle className="h-4 w-4 text-green-700 dark:text-green-300" />,
+          color: 'bg-[#1f4edd]/10 text-[#1f4edd] dark:bg-[#1f4edd]/20 dark:text-[#65a3ee] border-[#1f4edd]/30 dark:border-[#65a3ee]/40',
+          icon: <CheckCircle className="h-4 w-4 text-[#1f4edd] dark:text-[#65a3ee]" />,
           description: 'Recurso aceito pela operadora. Os valores deferidos serão programados para pagamento conforme as regras contratuais.'
         };
       case 'indeferido':
@@ -361,8 +361,8 @@ const RecursoGlosaDetalhe = () => {
       case 'finalizado':
         return {
           label: 'Fluxo Finalizado',
-          color: 'bg-emerald-50 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200 border-emerald-200 dark:border-emerald-800',
-          icon: <CheckCircle className="h-4 w-4 text-emerald-700 dark:text-emerald-300" />,
+          color: 'bg-[#1f4edd]/10 text-[#1f4edd] dark:bg-[#1f4edd]/20 dark:text-[#65a3ee] border-[#1f4edd]/30 dark:border-[#65a3ee]/40',
+          icon: <CheckCircle className="h-4 w-4 text-[#1f4edd] dark:text-[#65a3ee]" />,
           description: 'O recurso foi finalizado pela operadora. Os encaminhamentos financeiros serão executados conforme decisão.'
         };
       case 'enviado':

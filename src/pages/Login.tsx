@@ -181,7 +181,7 @@ const Login = () => {
     left: `${Math.random() * 100}%`,
     top: `${Math.random() * 100}%`,
     delay: Math.random() * 5, // animation delay
-    color: i % 3 === 0 ? "bg-support-green/30" : 
+    color: i % 3 === 0 ? "bg-[#65a3ee]/30" : 
            i % 3 === 1 ? "bg-support-yellow/30" : "bg-highlight-peach/30"
   }));
 
@@ -238,7 +238,7 @@ const Login = () => {
 
       <div className="w-full max-w-md z-10">
         <div className="flex justify-center mb-6">
-          <Logo size="md" className="animate-float" />
+          <Logo size="md" className="animate-float" withText={false} />
         </div>
         
         <Card className="w-full animate-scale-in border-border/50 bg-card/80 backdrop-blur-lg shadow-2xl">

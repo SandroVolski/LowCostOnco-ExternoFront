@@ -25,8 +25,8 @@ const Sidebar = () => {
     cn(
       'flex items-center p-3 rounded-lg transition-all duration-200',
       isActive 
-        ? 'bg-primary-green text-primary-gray font-medium' 
-        : 'hover:bg-primary-green/10'
+        ? 'bg-[#1f4edd] text-white font-medium' 
+        : 'hover:bg-[#1f4edd]/10'
     );
   
   // Navigation items based on user role
@@ -105,10 +105,10 @@ const Sidebar = () => {
       <div className="flex items-center px-4 h-16 border-b border-border">
         {!collapsed && (
           <div className="flex items-center flex-1">
-            <FlaskConical className="h-6 w-6 text-primary-green mr-2" />
+            <FlaskConical className="h-6 w-6 text-[#1f4edd] mr-2" />
             <span className="font-semibold text-lg text-primary-gray">
               LCO
-              <span className="text-primary-green">nco</span>
+              <span className="text-[#1f4edd]">nco</span>
             </span>
           </div>
         )}
@@ -116,7 +116,7 @@ const Sidebar = () => {
           variant="ghost"
           size="icon"
           onClick={() => setCollapsed(!collapsed)}
-          className="ml-auto text-primary-gray hover:bg-primary-green/10"
+          className="ml-auto text-primary-gray hover:bg-[#1f4edd]/10"
         >
           {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
         </Button>
@@ -140,7 +140,7 @@ const Sidebar = () => {
       
       <div className="p-4 border-t border-border">
         <div className="flex items-center mb-4">
-          <div className="bg-primary-green/20 rounded-full p-2 text-primary-green">
+          <div className="bg-[#1f4edd]/20 rounded-full p-2 text-[#1f4edd]">
             <User className="h-5 w-5" />
           </div>
           {!collapsed && (

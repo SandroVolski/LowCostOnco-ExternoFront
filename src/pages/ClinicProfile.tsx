@@ -682,7 +682,7 @@ const ClinicProfileComponent = () => {
             <Button
               onClick={() => navigateWithTransition('/procedimentos')}
               variant="outline"
-              className="text-green-600 border-green-600 hover:bg-green-50 transition-all duration-300"
+              className="text-[#1f4edd] border-[#1f4edd] hover:bg-blue-50 transition-all duration-300"
             >
               <DollarSign className="w-4 h-4 mr-2" />
               Procedimentos
@@ -1014,7 +1014,7 @@ const ClinicProfileComponent = () => {
             <ContatoSetorSection
               setor="administrativos"
               label="Administrativo"
-              color="bg-green-500"
+              color="bg-[#1f4edd]"
               telefones={profile.contatos_administrativos?.telefones || ['']}
               emails={profile.contatos_administrativos?.emails || ['']}
               onAddTelefone={() => addContatoSetor('administrativos', 'telefones')}

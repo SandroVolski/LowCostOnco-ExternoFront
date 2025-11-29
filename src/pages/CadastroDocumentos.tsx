@@ -314,7 +314,7 @@ const CadastroDocumentos = () => {
   const getStatusBadge = (status: Documento['status']) => {
     switch (status) {
       case 'ativo':
-        return <Badge className="bg-green-500/10 text-green-500 border-green-500/20">Ativo</Badge>;
+        return <Badge className="bg-[#1f4edd]/10 text-[#1f4edd] border-[#1f4edd]/20">Ativo</Badge>;
       case 'vencendo':
         return <Badge className="bg-yellow-500/10 text-yellow-500 border-yellow-500/20">Vencendo</Badge>;
       case 'vencido':
@@ -329,7 +329,7 @@ const CadastroDocumentos = () => {
   const getStatusIcon = (status: Documento['status']) => {
     switch (status) {
       case 'ativo':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className="h-4 w-4 text-[#1f4edd]" />;
       case 'vencendo':
         return <Clock className="h-4 w-4 text-yellow-500" />;
       case 'vencido':
@@ -475,7 +475,7 @@ const CadastroDocumentos = () => {
                       <div
                         className={cn(
                           "absolute inset-x-0 top-0 h-1",
-                          documento.status === 'ativo' ? "bg-green-500" :
+                          documento.status === 'ativo' ? "bg-[#1f4edd]" :
                           documento.status === 'vencendo' ? "bg-yellow-500" :
                           documento.status === 'vencido' ? "bg-red-500" : "bg-gray-400"
                       )}

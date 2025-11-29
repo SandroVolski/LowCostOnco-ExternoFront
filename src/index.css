@@ -15,8 +15,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 220 3% 20%;
 
-    --primary: 102 58% 57%;
-    --primary-foreground: 220 3% 20%;
+    --primary: 225 89% 50%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 220 2% 36%;
     --secondary-foreground: 0 0% 98%;
@@ -24,27 +24,27 @@
     --muted: 220 2% 96%;
     --muted-foreground: 220 2% 46%;
 
-    --accent: 102 58% 57%;
-    --accent-foreground: 220 3% 20%;
+    --accent: 225 89% 50%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 20% 98%;
 
     --border: 220 2% 90%;
     --input: 220 2% 90%;
-    --ring: 102 58% 57%;
+    --ring: 225 89% 50%;
 
     --radius: 0.5rem;
 
     /* Sidebar Colors - Light Mode */
     --sidebar-background: 0 0% 100%;
     --sidebar-foreground: 220 3% 20%;
-    --sidebar-accent: 102 58% 57%;
-    --sidebar-accent-foreground: 220 3% 20%;
+    --sidebar-accent: 225 89% 50%;
+    --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 220 2% 90%;
-    --sidebar-primary: 102 58% 57%;
-    --sidebar-primary-foreground: 220 3% 20%;
-    --sidebar-ring: 102 58% 57%;
+    --sidebar-primary: 225 89% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-ring: 225 89% 50%;
 
     /* Medical Colors for Anatomy */
     --medical-purple: 270 100% 60%;
@@ -64,8 +64,8 @@
     --popover: 220 10% 12%;
     --popover-foreground: 210 20% 98%;
 
-    --primary: 102 58% 57%;
-    --primary-foreground: 220 10% 10%;
+    --primary: 225 89% 50%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 220 5% 22%;
     --secondary-foreground: 210 20% 98%;
@@ -73,25 +73,25 @@
     --muted: 220 5% 18%;
     --muted-foreground: 220 5% 65%;
 
-    --accent: 102 58% 57%;
-    --accent-foreground: 220 10% 10%;
+    --accent: 225 89% 50%;
+    --accent-foreground: 0 0% 100%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 20% 98%;
 
     --border: 220 5% 18%;
     --input: 220 5% 18%;
-    --ring: 102 58% 57%;
+    --ring: 225 89% 50%;
 
     /* Sidebar Colors - Dark Mode */
     --sidebar-background: 220 10% 14%;
     --sidebar-foreground: 210 20% 98%;
-    --sidebar-accent: 102 58% 57%;
-    --sidebar-accent-foreground: 220 10% 10%;
+    --sidebar-accent: 225 89% 50%;
+    --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 220 5% 18%;
-    --sidebar-primary: 102 58% 57%;
-    --sidebar-primary-foreground: 220 10% 10%;
-    --sidebar-ring: 102 58% 57%;
+    --sidebar-primary: 225 89% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-ring: 225 89% 50%;
 
     /* Medical Colors for Anatomy - Dark Mode */
     --medical-purple: 270 100% 60%;
@@ -123,7 +123,7 @@
 
   /* Cursor Styles */
   .cursor-pointer {
-    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='none' stroke='%2379d153' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/></svg>") 16 16, pointer;
+    cursor: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 24 24' fill='none' stroke='%231f4edd' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><circle cx='12' cy='12' r='10'/></svg>") 16 16, pointer;
   }
 }
 
@@ -166,28 +166,40 @@
 
   .nav-link {
     @apply relative flex items-center gap-2 px-3 py-2 rounded-md text-foreground transition-all duration-200
-           hover:text-primary after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5 
+           hover:text-primary after:absolute after:bottom-0 after:left-0 after:w-full after:h-0.5
            after:bg-primary after:scale-x-0 after:origin-left after:transition-transform after:duration-300
            hover:after:scale-x-100 font-medium;
   }
 
+  /* Ícones seguem a cor do texto */
+  .nav-link svg {
+    color: currentColor;
+    transition: all 0.3s ease-in-out;
+  }
+
+  /* Efeito hover nos ícones */
+  .nav-link:hover svg {
+    color: hsl(var(--primary));
+  }
+
   .nav-link.active {
     @apply text-primary relative;
-    /* Efeito neon minimalista */
-    text-shadow: 0 0 1px hsl(var(--primary)), 0 0 2px hsl(var(--primary) / 0.6); /* Sombra sutil no texto (reduzida) */
+    /* Efeito neon muito reduzido no texto */
+    text-shadow: 0 0 0.5px hsl(var(--primary) / 0.5), 0 0 1px hsl(var(--primary) / 0.3);
 
-    /* Efeito neon minimalista no ícone */
+    /* Efeito neon muito reduzido no ícone */
     svg {
-      filter: drop-shadow(0 0 1px hsl(var(--primary))) drop-shadow(0 0 2px hsl(var(--primary) / 0.6)); /* Efeito reduzido no ícone */
-      transition: filter 0.3s ease-in-out; /* Transição suave para o efeito do ícone */
+      color: hsl(var(--primary));
+      filter: drop-shadow(0 0 0.5px hsl(var(--primary) / 0.4)) drop-shadow(0 0 1px hsl(var(--primary) / 0.2));
+      transition: filter 0.3s ease-in-out;
     }
 
     &::after {
       /* Mantém a linha inferior */
       content: '';
       @apply absolute bottom-0 left-0 w-full h-0.5 bg-primary scale-x-100 origin-left transition-transform duration-300;
-      /* Adiciona uma sombra sutil à linha */
-      box-shadow: 0 0 2px hsl(var(--primary)), 0 0 4px hsl(var(--primary) / 0.4); /* Sombra sutil na linha (reduzida) */
+      /* Sombra muito sutil na linha */
+      box-shadow: 0 0 1px hsl(var(--primary) / 0.3), 0 0 2px hsl(var(--primary) / 0.2);
     }
   }
 

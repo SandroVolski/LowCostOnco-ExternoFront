@@ -936,7 +936,7 @@ const FinanceiroClinica = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pago': return 'bg-green-100 text-green-800';
+      case 'pago': return 'bg-blue-100 text-blue-800';
       case 'pendente': return 'bg-yellow-100 text-yellow-800';
       case 'glosado': return 'bg-red-100 text-red-800';
       default: return 'bg-muted text-muted-foreground';
@@ -958,9 +958,9 @@ const FinanceiroClinica = () => {
       case 'pago':
         return {
           label: 'Pago',
-          color: 'bg-green-100 text-green-800 border-green-300',
+          color: 'bg-blue-100 text-blue-800 border-blue-300',
           icon: <CheckCircle className="h-4 w-4" />,
-          buttonColor: 'bg-green-500 hover:bg-green-600'
+          buttonColor: 'bg-[#1f4edd] hover:bg-[#2351c4]'
         };
       case 'glosado':
         return {
@@ -1300,7 +1300,7 @@ const FinanceiroClinica = () => {
               <div className="space-y-4">
             {loading ? (
               <div className="flex items-center justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-primary-green" />
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <span className="ml-2 text-muted-foreground">Carregando lotes...</span>
                 </div>
             ) : filteredLotes.length === 0 ? (
@@ -1563,8 +1563,8 @@ const FinanceiroClinica = () => {
                                     }}
                                     className={`flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-md transition-all duration-200 ${
                                       statusAtual === 'pago'
-                                        ? 'bg-green-500 text-white shadow-md scale-105'
-                                        : 'bg-transparent text-muted-foreground hover:bg-green-100 hover:text-green-700'
+                                        ? 'bg-[#1f4edd] text-white shadow-md scale-105'
+                                        : 'bg-transparent text-muted-foreground hover:bg-blue-100 hover:text-blue-700'
                                     }`}
                                     title="Pago"
                                   >

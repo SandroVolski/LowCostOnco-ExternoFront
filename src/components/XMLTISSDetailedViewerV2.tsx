@@ -369,7 +369,7 @@ const XMLTISSDetailedViewerV2: React.FC<XMLTISSDetailedViewerV2Props> = ({
 
   const getStatusIcon = (status: string | undefined) => {
     switch (status) {
-      case 'pago': return <CheckCircle2 className="h-4 w-4 text-green-600" />;
+      case 'pago': return <CheckCircle2 className="h-4 w-4 text-[#1f4edd]" />;
       case 'glosado': return <XCircle className="h-4 w-4 text-red-600" />;
       case 'nao_pago': return <X className="h-4 w-4 text-gray-600" />;
       default: return <Clock className="h-4 w-4 text-yellow-600" />;
@@ -379,7 +379,7 @@ const XMLTISSDetailedViewerV2: React.FC<XMLTISSDetailedViewerV2Props> = ({
   const getStatusColor = (status: string | undefined) => {
     switch (status) {
       case 'pago': 
-        return 'bg-green-50 dark:bg-green-950/30 text-green-700 dark:text-green-300 border-green-200 dark:border-green-800';
+        return 'bg-blue-50 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800';
       case 'glosado': 
         return 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800';
       case 'nao_pago': 
@@ -560,13 +560,13 @@ const XMLTISSDetailedViewerV2: React.FC<XMLTISSDetailedViewerV2Props> = ({
                 </div>
 
                 {/* Total Pago */}
-                <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-950/40 dark:to-green-900/30 border-2 border-green-200 dark:border-green-800 p-5 shadow-md hover:shadow-lg transition-all duration-300">
-                  <div className="absolute top-0 right-0 w-20 h-20 bg-green-200/20 dark:bg-green-800/20 rounded-full -mr-10 -mt-10"></div>
+                <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/40 dark:to-blue-900/30 border-2 border-blue-200 dark:border-blue-800 p-5 shadow-md hover:shadow-lg transition-all duration-300">
+                  <div className="absolute top-0 right-0 w-20 h-20 bg-blue-200/20 dark:bg-blue-800/20 rounded-full -mr-10 -mt-10"></div>
                   <div className="relative">
-                    <div className="text-xs font-semibold text-green-700/70 dark:text-green-300/70 uppercase tracking-wider mb-2">
+                    <div className="text-xs font-semibold text-blue-700/70 dark:text-blue-300/70 uppercase tracking-wider mb-2">
                       Total Pago
                     </div>
-                    <div className="text-xl font-bold text-green-600 dark:text-green-400">
+                    <div className="text-xl font-bold text-[#1f4edd] dark:text-blue-400">
                       {formatCurrency(totais.totalPago)}
                     </div>
                   </div>
@@ -645,9 +645,9 @@ const XMLTISSDetailedViewerV2: React.FC<XMLTISSDetailedViewerV2Props> = ({
                         <ListChecks className="h-3 w-3 mr-1" />
                         {guia.itens.length} {guia.itens.length === 1 ? 'item' : 'itens'}
                       </Badge>
-                      <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800">
-                        <DollarSign className="h-4 w-4 text-green-600 dark:text-green-400" />
-                        <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                      <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+                        <DollarSign className="h-4 w-4 text-[#1f4edd] dark:text-blue-400" />
+                        <span className="text-lg font-bold text-[#1f4edd] dark:text-blue-400">
                           {formatCurrency(guia.valor_total_guia)}
                         </span>
                       </div>
@@ -810,8 +810,8 @@ const XMLTISSDetailedViewerV2: React.FC<XMLTISSDetailedViewerV2Props> = ({
                                             variant={item.status_pagamento === 'pago' ? 'default' : 'outline'}
                                             className={`h-8 text-xs font-medium transition-all ${
                                               item.status_pagamento === 'pago' 
-                                                ? 'bg-green-600 hover:bg-green-700 text-white shadow-md' 
-                                                : 'hover:bg-green-50 dark:hover:bg-green-950/20 hover:border-green-300 dark:hover:border-green-700'
+                                                ? 'bg-[#1f4edd] hover:bg-[#2351c4] text-white shadow-md' 
+                                                : 'hover:bg-blue-50 dark:hover:bg-blue-950/20 hover:border-blue-300 dark:hover:border-blue-700'
                                             }`}
                                             onClick={() => handleStatusChange(guia.numero_guia, item.id!, 'pago', item)}
                                           >

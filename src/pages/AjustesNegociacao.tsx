@@ -414,7 +414,7 @@ const AjustesNegociacao = () => {
       case 'em_analise':
         return <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20">Em Análise</Badge>;
       case 'aprovado':
-        return <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/20">Aprovado</Badge>;
+        return <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800">Aprovado</Badge>;
       case 'rejeitado':
         return <Badge variant="outline" className="bg-red-500/10 text-red-500 border-red-500/20">Rejeitado</Badge>;
       default:
@@ -812,7 +812,7 @@ const AjustesNegociacao = () => {
                     "group hover:shadow-md transition-all duration-300 border-l-4",
                     solicitacao.status === 'pendente' ? "border-l-yellow-500" :
                     solicitacao.status === 'em_analise' ? "border-l-blue-500" :
-                    solicitacao.status === 'aprovado' ? "border-l-green-500" :
+                    solicitacao.status === 'aprovado' ? "border-l-[#1f4edd]" :
                     "border-l-red-500"
                   )}
                 >
@@ -833,7 +833,7 @@ const AjustesNegociacao = () => {
                                 solicitacao.prioridade === 'critica' ? 'bg-red-100 text-red-800' :
                                 solicitacao.prioridade === 'alta' ? 'bg-orange-100 text-orange-800' :
                                 solicitacao.prioridade === 'media' ? 'bg-yellow-100 text-yellow-800' :
-                                'bg-green-100 text-green-800'
+                                'bg-blue-100 text-blue-800'
                               }`}>
                                 {solicitacao.prioridade === 'critica' ? 'Crítica' :
                                  solicitacao.prioridade === 'alta' ? 'Alta' :

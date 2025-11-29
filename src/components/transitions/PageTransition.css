@@ -74,44 +74,44 @@
   }
   
   .page-transition-dashboard {
-    background: linear-gradient(135deg, #79d153 0%, #8cb369 100%);
+    background: linear-gradient(135deg, #1f4edd 0%, #65a3ee 100%);
   }
   
   .page-transition-patients {
-    background: linear-gradient(135deg, #79d153 0%, #8cb369 100%);
+    background: linear-gradient(135deg, #1f4edd 0%, #65a3ee 100%);
   }
   
   .page-transition-reports {
-    background: linear-gradient(135deg, #79d153 0%, #8cb369 100%);
+    background: linear-gradient(135deg, #1f4edd 0%, #65a3ee 100%);
   }
   
   .page-transition-recursos-glosas {
-    background: linear-gradient(135deg, #79d153 0%, #8cb369 100%);
+    background: linear-gradient(135deg, #1f4edd 0%, #65a3ee 100%);
   }
   
   .page-transition-analysis {
-    background: linear-gradient(135deg, #79d153 0%, #8cb369 100%);
+    background: linear-gradient(135deg, #1f4edd 0%, #65a3ee 100%);
   }
   
   .page-transition-expenses {
-    background: linear-gradient(135deg, #79d153 0%, #8cb369 100%);
+    background: linear-gradient(135deg, #1f4edd 0%, #65a3ee 100%);
   }
   
   .page-transition-chat {
-    background: linear-gradient(135deg, #79d153 0%, #8cb369 100%);
+    background: linear-gradient(135deg, #1f4edd 0%, #65a3ee 100%);
   }
   
   .page-transition-admin {
-    background: linear-gradient(135deg, #79d153 0%, #8cb369 100%);
+    background: linear-gradient(135deg, #1f4edd 0%, #65a3ee 100%);
   }
   
   /* Page colors based on route 
   .page-transition-dashboard {
-    background: linear-gradient(135deg, #79d153 0%, #8cb369 100%);
+    background: linear-gradient(135deg, #1f4edd 0%, #65a3ee 100%);
   }
   
   .page-transition-patients {
-    background: linear-gradient(135deg, #8cb369 0%, #35524a 100%);
+    background: linear-gradient(135deg, #65a3ee 0%, #8c9a9a 100%);
   }
   
   .page-transition-reports {
@@ -119,7 +119,7 @@
   }
   
   .page-transition-recursos-glosas {
-    background: linear-gradient(135deg, #35524a 0%, #8cb369 100%);
+    background: linear-gradient(135deg, #8c9a9a 0%, #65a3ee 100%);
   }
   
   .page-transition-analysis {
@@ -131,7 +131,7 @@
   }
   
   .page-transition-chat {
-    background: linear-gradient(135deg, #575654 0%, #8cb369 100%);
+    background: linear-gradient(135deg, #575654 0%, #65a3ee 100%);
   }*/
   
   /* Responsive */

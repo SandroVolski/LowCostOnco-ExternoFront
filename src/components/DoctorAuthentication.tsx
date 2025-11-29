@@ -478,9 +478,9 @@ const DoctorAuthentication: React.FC<DoctorAuthProps> = ({
             </>
           ) : (
             <>
-              <Alert className="border-green-200 bg-green-50">
-                <CheckCircle className="h-4 w-4 text-green-600" />
-                <AlertDescription className="text-green-800">
+              <Alert className="border-blue-200 bg-blue-50">
+                <CheckCircle className="h-4 w-4 text-[#1f4edd]" />
+                <AlertDescription className="text-blue-800">
                   <strong>Código enviado!</strong> Verifique sua caixa de entrada: {doctorData.email}
                   {otpExpiresAt && (
                     <div className="mt-2 text-sm">
@@ -565,13 +565,13 @@ const DoctorAuthentication: React.FC<DoctorAuthProps> = ({
 
   const renderSuccess = () => (
     <div className="text-center space-y-4">
-      <CheckCircle className="h-16 w-16 text-green-600 mx-auto" />
-      <h3 className="text-xl font-semibold text-green-800">Autenticação Realizada!</h3>
+      <CheckCircle className="h-16 w-16 text-[#1f4edd] mx-auto" />
+      <h3 className="text-xl font-semibold text-blue-800">Autenticação Realizada!</h3>
       <p className="text-muted-foreground">
         A solicitação foi autenticada pelo médico responsável
       </p>
       
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="grid grid-cols-2 gap-4 text-sm">
           <div>
             <span className="font-medium">Método:</span> {authMethod}

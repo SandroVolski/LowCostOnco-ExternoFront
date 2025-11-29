@@ -15,10 +15,9 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     if (typeof window !== 'undefined') {
       const savedTheme = localStorage.getItem('lco-theme') as Theme | null;
       if (savedTheme === 'light' || savedTheme === 'dark') return savedTheme;
-      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-      return 'dark';
+      return 'light';
     }
-    return 'dark';
+    return 'light';
   });
 
   useEffect(() => {

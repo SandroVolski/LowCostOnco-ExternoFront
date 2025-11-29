@@ -85,9 +85,9 @@ const AuditorRecursos = () => {
       'parecer_emitido': {
         label: 'Parecer Emitido',
         barHex: '#22c55e',
-        chipClass: 'bg-green-500/15 text-green-600 border border-green-500/30',
-        iconClass: 'text-green-500',
-        iconContainerClass: 'bg-green-500/10'
+        chipClass: 'bg-[#1f4edd]/15 text-[#1f4edd] border border-[#1f4edd]/30',
+        iconClass: 'text-[#1f4edd]',
+        iconContainerClass: 'bg-[#1f4edd]/10'
       },
       'solicitado_parecer': {
         label: 'Aguardando',

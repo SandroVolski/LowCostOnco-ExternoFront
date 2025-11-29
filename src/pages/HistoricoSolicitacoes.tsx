@@ -123,7 +123,7 @@ const HistoricoSolicitacoes = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'aprovada':
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return <CheckCircle className="h-4 w-4 text-[#1f4edd]" />;
       case 'pendente':
         return <Clock className="h-4 w-4 text-yellow-500" />;
       case 'rejeitada':
@@ -138,7 +138,7 @@ const HistoricoSolicitacoes = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'aprovada':
-        return 'bg-green-100 text-green-800 border-green-200';
+        return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800';
       case 'pendente':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'rejeitada':

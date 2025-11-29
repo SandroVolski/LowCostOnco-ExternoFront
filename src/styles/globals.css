@@ -13,8 +13,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 227 75% 49%; /* Azul Onko #1f4edd */
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -30,7 +30,7 @@
 
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --ring: 227 75% 49%;
 
     --radius: 0.5rem;
   }
@@ -45,8 +45,8 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 227 75% 49%; /* Azul Onko #1f4edd */
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 217.2 32.6% 17.5%;
     --secondary-foreground: 210 40% 98%;
@@ -62,7 +62,7 @@
 
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
+    --ring: 227 75% 49%;
   }
 }
 
@@ -200,7 +200,7 @@
 }
 
 .support-green {
-  @apply text-green-600 dark:text-green-400;
+  @apply text-[#65a3ee] dark:text-[#83b4f8];
 }
 
 .support-teal {
@@ -231,7 +231,7 @@
 
 /* Status colors */
 .status-approved {
-  @apply bg-support-green/10 text-support-green border-support-green/20;
+  @apply bg-[#65a3ee]/10 text-[#65a3ee] border-[#65a3ee]/20;
 }
 
 .status-pending {

@@ -890,7 +890,7 @@ const Chat = () => {
 
   const getStatusColor = (role: string) => {
     switch(role) {
-      case 'clinica': return 'bg-support-green';
+      case 'clinica': return 'bg-[#65a3ee]';
       case 'operadora': return 'bg-support-yellow';
       default: return 'bg-gray-400';
     }
@@ -1037,14 +1037,14 @@ const Chat = () => {
                           <div className="relative">
                             <Avatar>
                               <AvatarFallback className={cn(
-                                user?.role === 'operator' ? "bg-support-green/20 text-support-green" : "bg-support-yellow/20 text-support-yellow"
+                                user?.role === 'operator' ? "bg-[#65a3ee]/20 text-[#65a3ee]" : "bg-support-yellow/20 text-support-yellow"
                               )}>
                                 {getUserInitials(getContactName(chat))}
                               </AvatarFallback>
                             </Avatar>
                             <span className={cn(
                               "absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-background",
-                              user?.role === 'operator' ? "bg-support-green" : "bg-support-yellow"
+                              user?.role === 'operator' ? "bg-[#65a3ee]" : "bg-support-yellow"
                             )} />
                           </div>
                           <div className="flex-1 min-w-0">
@@ -1113,7 +1113,7 @@ const Chat = () => {
                         <div className="flex items-center space-x-3">
                           <Avatar>
                             <AvatarFallback className={cn(
-                              user?.role === 'operator' ? "bg-support-green/20 text-support-green" : "bg-support-yellow/20 text-support-yellow"
+                              user?.role === 'operator' ? "bg-[#65a3ee]/20 text-[#65a3ee]" : "bg-support-yellow/20 text-support-yellow"
                             )}>
                               {getUserInitials(getContactName(chat))}
                             </AvatarFallback>
@@ -1443,8 +1443,8 @@ const Chat = () => {
                   <div>
                     <h4 className="font-medium text-sm">Status</h4>
                     <div className="flex items-center space-x-2">
-                      <Circle className="h-2 w-2 fill-green-500 text-green-500" />
-                      <span className="text-sm text-green-600">Online</span>
+                      <Circle className="h-2 w-2 fill-[#1f4edd] text-[#1f4edd]" />
+                      <span className="text-sm text-[#1f4edd]">Online</span>
                     </div>
                   </div>
                 </div>

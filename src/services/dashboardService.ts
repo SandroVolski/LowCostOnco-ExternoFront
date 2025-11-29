@@ -243,12 +243,12 @@ export class DashboardService {
           { mes: 'Jun', solicitacoes: 175, aprovacoes: 162, pendentes: 13 }
         ],
         performanceData: [
-          { name: 'Aprovadas', value: 87.5, color: '#79d153' },
+          { name: 'Aprovadas', value: 87.5, color: '#1f4edd' },
           { name: 'Em Análise', value: 8.2, color: '#e4a94f' },
           { name: 'Negadas', value: 4.3, color: '#f26b6b' }
         ],
         statusData: [
-          { name: 'Aprovadas', value: 87.5, color: '#79d153' },
+          { name: 'Aprovadas', value: 87.5, color: '#1f4edd' },
           { name: 'Em Análise', value: 8.2, color: '#e4a94f' },
           { name: 'Negadas', value: 4.3, color: '#f26b6b' }
         ],

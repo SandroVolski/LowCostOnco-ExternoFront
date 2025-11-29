@@ -38,7 +38,7 @@ const getPatientStatusColor = (status: string) => {
     case 'em tratamento':
       return 'bg-support-yellow/10 text-support-yellow border-support-yellow/20';
     case 'em remissão':
-      return 'bg-support-green/10 text-support-green border-support-green/20';
+      return 'bg-[#65a3ee]/10 text-[#65a3ee] border-[#65a3ee]/20';
     case 'alta':
       return 'bg-support-teal/10 text-support-teal border-support-teal/20';
     default:
@@ -53,7 +53,7 @@ const getTreatmentColor = (treatment: string) => {
     case 'radioterapia':
       return 'bg-support-teal/10 text-support-teal border-support-teal/20';
     case 'cirurgia':
-      return 'bg-support-green/10 text-support-green border-support-green/20';
+      return 'bg-[#65a3ee]/10 text-[#65a3ee] border-[#65a3ee]/20';
     case 'imunoterapia':
       return 'bg-highlight-peach/10 text-highlight-peach border-highlight-peach/20';
     default:
@@ -64,7 +64,7 @@ const getTreatmentColor = (treatment: string) => {
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'approved':
-      return 'bg-support-green/10 border-support-green/20';
+      return 'bg-[#65a3ee]/10 border-[#65a3ee]/20';
     case 'pending':
       return 'bg-support-yellow/10 border-support-yellow/20';
     case 'rejected':
@@ -77,7 +77,7 @@ const getStatusColor = (status: string) => {
 const getStatusIcon = (status: string) => {
   switch (status) {
     case 'approved':
-      return <Activity className="h-4 w-4 text-support-green" />;
+      return <Activity className="h-4 w-4 text-[#65a3ee]" />;
     case 'pending':
       return <Clock className="h-4 w-4 text-support-yellow" />;
     case 'rejected':

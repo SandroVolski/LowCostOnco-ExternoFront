@@ -232,7 +232,7 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'aprovada':
-        return 'bg-green-100 text-green-800 border-green-200';
+        return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'pendente':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'rejeitada':
@@ -397,7 +397,7 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
                       size="sm"
                       disabled={(solicitacao?.status || 'pendente') !== 'pendente'}
                       onClick={() => setConfirmAction({ type: 'aprovar' })}
-                      className="bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="bg-gradient-to-r from-[#1f4edd] to-[#65a3ee] text-white hover:from-[#2351c4] hover:to-[#83b4f8] shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                       title="Aprovar solicitação"
                     >
                       <ThumbsUp className="h-4 w-4" />
@@ -461,7 +461,7 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
               <FileText className="h-4 w-4" />
               <span>Documento oficial de solicitação de autorização</span>
               {!loading && !error && viewMethod !== 'external' && (
-                <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
                   Método: {viewMethod === 'object' ? 'Nativo' : 'Blob'}
                 </span>
               )}
@@ -484,7 +484,7 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
                   <Button
                     disabled={(solicitacao?.status || 'pendente') !== 'pendente'}
                     onClick={() => setConfirmAction({ type: 'aprovar' })}
-                    className="bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:from-green-600 hover:to-emerald-600 shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="bg-gradient-to-r from-[#1f4edd] to-[#65a3ee] text-white hover:from-[#2351c4] hover:to-[#83b4f8] shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     <ThumbsUp className="h-4 w-4 mr-2" />
                     Aprovar
@@ -529,7 +529,7 @@ const PDFViewerModal: React.FC<PDFViewerModalProps> = ({ isOpen, onClose, solici
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              className={confirmAction?.type === 'aprovar' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'}
+              className={confirmAction?.type === 'aprovar' ? 'bg-[#1f4edd] hover:bg-[#2351c4]' : 'bg-red-600 hover:bg-red-700'}
               onClick={() => {
                 if (!confirmAction) return;
                 if (confirmAction.type === 'aprovar') {

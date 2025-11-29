@@ -53,7 +53,7 @@
   font-family: 'Lato', sans-serif;
   font-size: 24px;
   line-height: 32px;
-  color: #ecf0f1;
+  color: hsl(var(--foreground));
   display: flex;
   align-items: center;
 }

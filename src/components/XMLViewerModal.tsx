@@ -167,8 +167,8 @@ const XMLViewerModal: React.FC<XMLViewerModalProps> = ({ isOpen, onClose, xmlDat
                 </div>
                 
                 <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 rounded-lg">
-                    <HardDrive className="h-5 w-5 text-green-600" />
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <HardDrive className="h-5 w-5 text-[#1f4edd]" />
                   </div>
                   <div>
                     <p className="text-sm text-gray-600">Tamanho</p>
@@ -221,7 +221,7 @@ const XMLViewerModal: React.FC<XMLViewerModalProps> = ({ isOpen, onClose, xmlDat
               >
                 {copied ? (
                   <>
-                    <Check className="h-4 w-4 text-green-600" />
+                    <Check className="h-4 w-4 text-[#1f4edd]" />
                     Copiado!
                   </>
                 ) : (
@@ -271,10 +271,10 @@ const XMLViewerModal: React.FC<XMLViewerModalProps> = ({ isOpen, onClose, xmlDat
           </Card>
 
           {/* Informações Adicionais */}
-          <Card className="bg-gradient-to-r from-green-50 to-blue-50 border-green-200">
+          <Card className="bg-gradient-to-r from-blue-50 to-blue-50 border-blue-200">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-3">
-                <FileText className="h-5 w-5 text-green-600" />
+                <FileText className="h-5 w-5 text-[#1f4edd]" />
                 <h3 className="font-semibold text-gray-900">Informações do XML</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
@@ -284,11 +284,11 @@ const XMLViewerModal: React.FC<XMLViewerModalProps> = ({ isOpen, onClose, xmlDat
                 </div>
                 <div>
                   <p className="text-gray-600 mb-1">Encoding:</p>
-                  <Badge className="bg-green-100 text-green-800">UTF-8</Badge>
+                  <Badge className="bg-blue-100 text-blue-800">UTF-8</Badge>
                 </div>
                 <div>
                   <p className="text-gray-600 mb-1">Status:</p>
-                  <Badge className="bg-green-100 text-green-800">Válido</Badge>
+                  <Badge className="bg-blue-100 text-blue-800">Válido</Badge>
                 </div>
                 <div>
                   <p className="text-gray-600 mb-1">Linhas:</p>

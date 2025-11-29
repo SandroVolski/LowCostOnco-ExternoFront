@@ -19,7 +19,7 @@ export const VialIcon = ({ className = "" }: IconProps) => {
 export const PillIcon = ({ className = "" }: IconProps) => {
   return (
     <div className={`relative w-8 h-12 transform rotate-45 icon-hover ${className}`}>
-      <div className="absolute w-full h-full bg-primary-green rounded-full border border-gray-300"></div>
+      <div className="absolute w-full h-full bg-primary rounded-full border border-gray-300"></div>
       <div className="absolute top-0 left-0 w-full h-1/2 bg-white opacity-30 rounded-t-full"></div>
     </div>
   );

@@ -86,7 +86,7 @@ const PatientDashboard = () => {
 
   // Cores para os gráficos
   const CHART_COLORS = [
-    '#8cb369', '#e4a94f', '#f26b6b', '#79d153', '#74b9ff', 
+    '#65a3ee', '#e4a94f', '#f26b6b', '#1f4edd', '#74b9ff', 
     '#fd79a8', '#fdcb6e', '#6c5ce7', '#a29bfe', '#fd79a8'
   ];
 
@@ -290,10 +290,10 @@ const PatientDashboard = () => {
       { min: 31, max: 40, label: '31-40%', color: 'bg-amber-500' },
       { min: 41, max: 50, label: '41-50%', color: 'bg-yellow-500' },
       { min: 51, max: 60, label: '51-60%', color: 'bg-lime-500' },
-      { min: 61, max: 70, label: '61-70%', color: 'bg-green-500' },
-      { min: 71, max: 80, label: '71-80%', color: 'bg-emerald-500' },
+      { min: 61, max: 70, label: '61-70%', color: 'bg-[#1f4edd]' },
+      { min: 71, max: 80, label: '71-80%', color: 'bg-[#65a3ee]' },
       { min: 81, max: 90, label: '81-90%', color: 'bg-teal-500' },
-      { min: 91, max: 100, label: '91-100%', color: 'bg-support-green' }
+      { min: 91, max: 100, label: '91-100%', color: 'bg-[#65a3ee]' }
     ];
 
     const rangeCounts = progressRanges.map(range => {

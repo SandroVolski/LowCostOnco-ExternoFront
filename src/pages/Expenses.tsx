@@ -41,7 +41,7 @@ const medicationCostData = [
 ];
 
 // Custom colors that match our brand
-const COLORS = ['#79d153', '#8cb369', '#e4a94f', '#35524a', '#f26b6b', '#575654'];
+const COLORS = ['#1f4edd', '#65a3ee', '#e4a94f', '#35524a', '#f26b6b', '#575654'];
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -162,7 +162,7 @@ const Expenses = () => {
                   <Line
                     type="monotone"
                     dataKey="value"
-                    stroke="#79d153"
+                    stroke="#1f4edd"
                     activeDot={{ r: 8 }}
                     name="Gastos Mensais"
                   />
@@ -195,7 +195,7 @@ const Expenses = () => {
                   <YAxis type="category" dataKey="name" />
                   <Tooltip formatter={(value) => formatCurrency(value as number)} />
                   <Legend />
-                  <Bar dataKey="value" fill="#8cb369" name="Total de Gastos" />
+                  <Bar dataKey="value" fill="#65a3ee" name="Total de Gastos" />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>

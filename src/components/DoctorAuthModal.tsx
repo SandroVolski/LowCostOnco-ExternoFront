@@ -125,11 +125,11 @@ const DoctorAuthModal: React.FC<DoctorAuthModalProps> = ({
 
           {/* Status de Autenticação */}
           {isAuthenticated && authData && (
-            <Alert className="border-green-200 bg-green-50">
-              <CheckCircle className="h-4 w-4 text-green-600" />
+            <Alert className="border-blue-200 bg-blue-50">
+              <CheckCircle className="h-4 w-4 text-[#1f4edd]" />
               <AlertDescription>
                 <div className="space-y-2">
-                  <div className="font-semibold text-green-800">
+                  <div className="font-semibold text-blue-800">
                     ✅ Autenticação Realizada com Sucesso
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-sm">
@@ -147,17 +147,17 @@ const DoctorAuthModal: React.FC<DoctorAuthModalProps> = ({
                     </div>
                   </div>
                   {authData.signatureHash && (
-                    <div className="text-xs bg-green-100 p-2 rounded">
+                    <div className="text-xs bg-blue-100 p-2 rounded">
                       <span className="font-medium">Hash da Assinatura:</span> {authData.signatureHash}
                     </div>
                   )}
                   {authData.otpCode && (
-                    <div className="text-xs bg-green-100 p-2 rounded">
+                    <div className="text-xs bg-blue-100 p-2 rounded">
                       <span className="font-medium">Código OTP:</span> {authData.otpCode}
                     </div>
                   )}
                   {authData.approvalCode && (
-                    <div className="text-xs bg-green-100 p-2 rounded">
+                    <div className="text-xs bg-blue-100 p-2 rounded">
                       <span className="font-medium">Código de Aprovação:</span> {authData.approvalCode}
                     </div>
                   )}
@@ -199,7 +199,7 @@ const DoctorAuthModal: React.FC<DoctorAuthModalProps> = ({
             
             <div className="flex gap-2">
               {isAuthenticated ? (
-                <Button onClick={handleClose} className="bg-green-600 hover:bg-green-700">
+                <Button onClick={handleClose} className="bg-[#1f4edd] hover:bg-[#2351c4]">
                   <CheckCircle className="h-4 w-4 mr-2" />
                   Continuar
                 </Button>

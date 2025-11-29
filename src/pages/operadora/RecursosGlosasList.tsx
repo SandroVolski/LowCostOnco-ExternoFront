@@ -81,8 +81,8 @@ const RecursosGlosasList = () => {
       },
       'deferido': { 
         label: 'Deferido', 
-        color: 'bg-green-50 text-green-900 dark:bg-green-950 dark:text-green-200 border-green-200 dark:border-green-800',
-        icon: <CheckCircle className="h-4 w-4 text-green-700 dark:text-green-300" />
+        color: 'bg-[#1f4edd]/10 text-[#1f4edd] dark:bg-[#1f4edd]/20 dark:text-[#65a3ee] border-[#1f4edd]/30 dark:border-[#65a3ee]/40',
+        icon: <CheckCircle className="h-4 w-4 text-[#1f4edd] dark:text-[#65a3ee]" />
       },
       'indeferido': { 
         label: 'Indeferido', 
@@ -206,14 +206,14 @@ const RecursosGlosasList = () => {
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border-2 border-border hover:border-green-500/30 cursor-pointer group" onClick={() => setStatusFilter('deferido')}>
+          <Card className="hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border-2 border-border hover:border-[#1f4edd]/30 cursor-pointer group" onClick={() => setStatusFilter('deferido')}>
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-muted-foreground group-hover:text-foreground transition-colors">Deferido</p>
-                  <p className="text-2xl font-bold text-green-600 group-hover:scale-110 transition-transform">{stats.deferido}</p>
+                  <p className="text-2xl font-bold text-[#1f4edd] group-hover:scale-110 transition-transform">{stats.deferido}</p>
                 </div>
-                <CheckCircle className="h-8 w-8 text-green-600 group-hover:scale-110 transition-all" />
+                <CheckCircle className="h-8 w-8 text-[#1f4edd] group-hover:scale-110 transition-all" />
               </div>
             </CardContent>
           </Card>

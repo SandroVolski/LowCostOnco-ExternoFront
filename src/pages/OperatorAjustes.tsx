@@ -282,7 +282,7 @@ const OperatorAjustes = () => {
     switch (status) {
       case 'pendente': return 'bg-yellow-500/10 text-yellow-700 border-yellow-200';
       case 'em_analise': return 'bg-blue-500/10 text-blue-700 border-blue-200';
-      case 'aprovado': return 'bg-green-500/10 text-green-700 border-green-200';
+      case 'aprovado': return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800';
       case 'rejeitado': return 'bg-red-500/10 text-red-700 border-red-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
@@ -300,7 +300,7 @@ const OperatorAjustes = () => {
 
   const getPrioridadeColor = (prioridade: string) => {
     switch (prioridade) {
-      case 'baixa': return 'bg-green-500/10 text-green-700';
+      case 'baixa': return 'bg-[#1f4edd]/10 text-[#1f4edd]';
       case 'media': return 'bg-yellow-500/10 text-yellow-700';
       case 'alta': return 'bg-orange-500/10 text-orange-700';
       case 'critica': return 'bg-red-500/10 text-red-700';
@@ -442,7 +442,7 @@ const OperatorAjustes = () => {
             <AnimatedSection key={ajuste.id} delay={index * 100}>
               <MouseTilt maxTilt={5} scale={1.02}>
                 <Card className="lco-card hover-lift group relative overflow-hidden border-l-4" style={{
-                  borderLeftColor: getStatusColor(ajuste.status).includes('green') ? '#10b981' : 
+                  borderLeftColor: getStatusColor(ajuste.status).includes('[#1f4edd]') ? '#1f4edd' : 
                                   getStatusColor(ajuste.status).includes('red') ? '#ef4444' : 
                                   getStatusColor(ajuste.status).includes('yellow') ? '#f59e0b' : '#3b82f6'
                 }}>
@@ -453,10 +453,10 @@ const OperatorAjustes = () => {
                     <div
                       className={cn(
                         "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white",
-                        getStatusColor(ajuste.status).includes('green') && "bg-green-500",
+                        getStatusColor(ajuste.status).includes('[#1f4edd]') && "bg-[#1f4edd]",
                         getStatusColor(ajuste.status).includes('red') && "bg-red-500",
                         getStatusColor(ajuste.status).includes('yellow') && "bg-yellow-500 text-black",
-                        !getStatusColor(ajuste.status).includes('green') && !getStatusColor(ajuste.status).includes('red') && !getStatusColor(ajuste.status).includes('yellow') && "bg-blue-500"
+                        !getStatusColor(ajuste.status).includes('[#1f4edd]') && !getStatusColor(ajuste.status).includes('red') && !getStatusColor(ajuste.status).includes('yellow') && "bg-blue-500"
                       )}
                     >
                       #{ajuste.id}
@@ -576,7 +576,7 @@ const OperatorAjustes = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => handleStatusChange(ajuste.id, 'aprovado')}
-                          className="flex-1 h-8 text-xs text-green-600 hover:text-green-700 hover:bg-green-50"
+                          className="flex-1 h-8 text-xs text-[#1f4edd] hover:text-[#2351c4] hover:bg-blue-50"
                         >
                           <CheckCircle className="h-3 w-3 mr-1" />
                           Aprovar

@@ -813,7 +813,7 @@ const Reports = () => {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'aprovada':
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
+        return <CheckCircle className="h-4 w-4 text-[#1f4edd]" />;
       case 'pendente':
         return <Clock className="h-4 w-4 text-yellow-600" />;
       case 'rejeitada':
@@ -828,7 +828,7 @@ const Reports = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'aprovada':
-        return 'bg-green-100 text-green-800 border-green-200';
+        return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'pendente':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
       case 'rejeitada':
@@ -1138,7 +1138,7 @@ const Reports = () => {
                 {/* ===== INFORMAÇÃO SUTIL DA CLÍNICA - SE JÁ CONFIGURADA ===== */}
                 {clinicProfile && !loadingClinic && (
                   <div className="mb-6">
-                    <div className="flex items-center justify-between bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg px-4 py-3">
+                    <div className="flex items-center justify-between bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg px-4 py-3">
                       <div className="flex items-center gap-3">
                         {clinicProfile.clinica?.logo_url && (
                           <img 
@@ -1148,11 +1148,11 @@ const Reports = () => {
                           />
                         )}
                         <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-green-600" />
-                          <span className="text-sm font-medium text-green-800 dark:text-green-300">
+                          <Building2 className="h-4 w-4 text-[#1f4edd]" />
+                          <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
                             {clinicProfile.clinica?.nome || 'Clínica Configurada'}
                           </span>
-                          <span className="text-xs text-green-600 dark:text-green-400">
+                          <span className="text-xs text-[#1f4edd] dark:text-blue-400">
                             • {clinicProfile.clinica?.codigo}
                           </span>
                         </div>
@@ -1163,7 +1163,7 @@ const Reports = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => navigate('/profile')}
-                          className="text-green-700 hover:bg-green-100 dark:hover:bg-green-900/50 h-8 px-3"
+                          className="text-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/50 h-8 px-3"
                         >
                           <Edit className="h-3 w-3 mr-1" />
                           Editar
@@ -1174,10 +1174,10 @@ const Reports = () => {
                           size="sm"
                           onClick={loadClinicProfile}
                           disabled={loadingClinic}
-                          className="text-green-700 hover:bg-green-100 dark:hover:bg-green-900/50 h-8 px-2"
+                          className="text-blue-700 hover:bg-blue-100 dark:hover:bg-blue-900/50 h-8 px-2"
                         >
                           {loadingClinic ? (
-                            <div className="w-3 h-3 rounded-full border-2 border-green-500 border-t-transparent animate-spin" />
+                            <div className="w-3 h-3 rounded-full border-2 border-[#1f4edd] border-t-transparent animate-spin" />
                           ) : (
                             'Atualizar'
                           )}
@@ -1258,14 +1258,14 @@ const Reports = () => {
                           
                           {/* Indicador de paciente selecionado */}
                           {selectedPatientId && (
-                            <div className="mt-3 p-3 bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg">
+                            <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                               <div className="flex items-center gap-2">
-                                <CheckCircle className="h-4 w-4 text-green-600" />
-                                <span className="text-sm font-medium text-green-800 dark:text-green-300">
+                                <CheckCircle className="h-4 w-4 text-[#1f4edd]" />
+                                <span className="text-sm font-medium text-blue-800 dark:text-blue-300">
                                   Paciente selecionado:
                                 </span>
                               </div>
-                              <div className="mt-1 text-sm text-green-700 dark:text-green-400">
+                              <div className="mt-1 text-sm text-blue-700 dark:text-blue-400">
                                 <strong>{patients.find(p => p.id === selectedPatientId)?.name}</strong>
                                 <span className="ml-2">
                                   (ID: {selectedPatientId})
@@ -1585,7 +1585,7 @@ const Reports = () => {
                           </Button>
                         </div>
                         {selectedProtocolo && (
-                          <div className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                          <div className="text-xs text-[#1f4edd] dark:text-blue-400 flex items-center gap-1">
                             <CheckCircle className="h-3 w-3" />
                             Protocolo selecionado: {selectedProtocolo.nome}
                           </div>

@@ -164,7 +164,7 @@ const ModernAlert = ({ isOpen, onClose, onConfirm, title, description, type, pat
       case 'delete':
         return <AlertTriangle className="h-6 w-6 text-red-500" />;
       case 'success':
-        return <CheckCircle className="h-6 w-6 text-green-500" />;
+        return <CheckCircle className="h-6 w-6 text-[#1f4edd]" />;
       case 'warning':
         return <AlertTriangle className="h-6 w-6 text-yellow-500" />;
     }
@@ -180,9 +180,9 @@ const ModernAlert = ({ isOpen, onClose, onConfirm, title, description, type, pat
         };
       case 'success':
         return {
-          bg: 'bg-green-50 dark:bg-green-900/20',
-          border: 'border-green-200 dark:border-green-800',
-          button: 'bg-green-600 hover:bg-green-700 text-white'
+          bg: 'bg-blue-50 dark:bg-blue-900/20',
+          border: 'border-blue-200 dark:border-blue-800',
+          button: 'bg-[#1f4edd] hover:bg-[#2351c4] text-white'
         };
       case 'warning':
         return {
@@ -574,7 +574,7 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
                                   <span
                                     className={`text-[10px] font-medium px-2 py-0.5 rounded border ${
                                       pct >= 75
-                                        ? 'bg-support-green/15 text-support-green border-support-green/30'
+                                        ? 'bg-[#65a3ee]/15 text-[#65a3ee] border-[#65a3ee]/30'
                                         : pct >= 50
                                           ? 'bg-support-yellow/15 text-support-yellow border-support-yellow/30'
                                           : 'bg-highlight-red/15 text-highlight-red border-highlight-red/30'
@@ -587,7 +587,7 @@ const PatientCard = ({ patient, onEdit, onDelete, onShowInfo }: {
                                   <div
                                     className={
                                       pct >= 75
-                                        ? 'h-2 rounded-full bg-support-green'
+                                        ? 'h-2 rounded-full bg-[#65a3ee]'
                                         : pct >= 50
                                           ? 'h-2 rounded-full bg-support-yellow'
                                           : 'h-2 rounded-full bg-highlight-red'

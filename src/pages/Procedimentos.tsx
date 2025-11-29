@@ -218,7 +218,7 @@ const ProcedimentoFlipCard = ({
                       <div 
                         key={neg.id} 
                         className={`border-2 rounded-lg p-3 bg-background hover:shadow-md transition-all ${
-                          isVigente ? 'border-green-300' : 'border-border'
+                          isVigente ? 'border-blue-300' : 'border-border'
                         }`}
                         onMouseEnter={() => setPreventFlip(true)}
                         onMouseLeave={() => setPreventFlip(false)}
@@ -233,7 +233,7 @@ const ProcedimentoFlipCard = ({
                               </p>
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {neg.credenciado ? (
-                                  <Badge className="bg-green-100 text-green-800 text-xs h-5">
+                                  <Badge className="bg-blue-100 text-blue-800 text-xs h-5">
                                     <CheckCircle className="h-2 w-2 mr-1" />
                                     Credenciado
                                   </Badge>
@@ -244,7 +244,7 @@ const ProcedimentoFlipCard = ({
                                   </Badge>
                                 )}
                                 {isVigente ? (
-                                  <Badge className="bg-green-100 text-green-800 text-xs h-5">Vigente</Badge>
+                                  <Badge className="bg-blue-100 text-blue-800 text-xs h-5">Vigente</Badge>
                                 ) : (
                                   <Badge variant="secondary" className="text-xs h-5">Não Vigente</Badge>
                                 )}
@@ -778,7 +778,7 @@ const Procedimentos = () => {
                                       </Badge>
                                     )}
                                     {negVigentes.length > 0 && (
-                                      <Badge className="bg-green-100 text-green-800 text-xs">
+                                      <Badge className="bg-blue-100 text-blue-800 text-xs">
                                         {negVigentes.length} vigente{negVigentes.length !== 1 && 's'}
                                       </Badge>
                                     )}
@@ -875,14 +875,14 @@ const Procedimentos = () => {
                             key={neg.id} 
                             className={`group relative border-2 rounded-xl p-5 hover:shadow-lg transition-all duration-300 ${
                               isVigente 
-                                ? 'bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20 border-green-300 dark:border-green-800' 
+                                ? 'bg-gradient-to-br from-blue-50 to-blue-50 dark:from-blue-950/20 dark:to-blue-950/20 border-blue-300 dark:border-blue-800' 
                                 : 'bg-gradient-to-br from-background to-muted/20 hover:border-primary/30'
                             }`}
                           >
                             {/* Badge de status no canto */}
                             <div className="absolute -top-2 -right-2 flex gap-1">
                               {isVigente ? (
-                                <Badge className="bg-green-600 text-white shadow-md">
+                                <Badge className="bg-[#1f4edd] text-white shadow-md">
                                   <CheckCircle className="h-3 w-3 mr-1" />
                                   Vigente
                                 </Badge>
@@ -913,7 +913,7 @@ const Procedimentos = () => {
                                           {neg.operadora_nome}
                                         </Badge>
                                         {neg.credenciado ? (
-                                          <Badge className="bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-200 text-xs">
+                                          <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-200 text-xs">
                                             <CheckCircle className="h-3 w-3 mr-1" />
                                             Credenciado
                                           </Badge>

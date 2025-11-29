@@ -714,7 +714,7 @@ ${parecer.justificativa_tecnica || ''}
                                   <div className="mt-3 pt-3 border-t">
                                     <div className="flex items-center justify-between mb-2">
                                       <div className="flex items-center gap-2">
-                                        <CheckCircle className="h-4 w-4 text-green-600" />
+                                        <CheckCircle className="h-4 w-4 text-[#1f4edd]" />
                                         <span className="text-sm font-semibold">Parecer Anterior</span>
                                         <Badge variant="outline" className="text-xs">
                                           {recursoAnterior.parecer.recomendacao === 'aprovar' ? 'Aprovado' :
@@ -895,9 +895,9 @@ ${parecer.justificativa_tecnica || ''}
 
             {/* Parecer já emitido */}
             {parecerJaEmitido && recurso.parecer && (
-              <Card className="border-green-500/50 bg-green-50/50 dark:bg-green-950/20 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border-2 hover:border-green-500/70">
+              <Card className="border-[#1f4edd]/50 bg-[#1f4edd]/5 dark:bg-[#1f4edd]/10 hover:shadow-lg hover:-translate-y-1 transition-all duration-300 border-2 hover:border-[#1f4edd]/70">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-green-700 dark:text-green-400">
+                  <CardTitle className="flex items-center gap-2 text-[#1f4edd] dark:text-[#65a3ee]">
                     <CheckCircle className="h-5 w-5" />
                     Parecer Técnico Emitido
                   </CardTitle>

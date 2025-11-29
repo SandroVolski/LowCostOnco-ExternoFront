@@ -25,15 +25,15 @@ export default {
         codecBold: ["Codec Pro Extra Bold", "sans-serif"],
       },
       colors: {
-        // Primary colors
-        "primary-green": "#79d153",
+        // Primary colors - OnkoLink Azul
+        "primary-green": "#1f4edd", // Azul Onko
         "primary-gray": "#575654",
         
-        // Support colors
-        "support-green": "#8cb369",
+        // Support colors - OnkoLink
+        "support-green": "#65a3ee", // Frente L (DNA)
         "support-gray": "#f1f1f1",
         "support-yellow": "#e4a94f",
-        "support-teal": "#35524a",
+        "support-teal": "#8c9a9a", // Conectando Saúde
         
         // Highlight colors
         "highlight-red": "#f26b6b",

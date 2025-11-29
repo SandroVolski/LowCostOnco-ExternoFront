@@ -106,7 +106,7 @@ const formatDate = (dateStr: string): string => {
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'aprovada':
-      return 'bg-green-500/10 text-green-700 border-green-200';
+      return 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800';
     case 'rejeitada':
       return 'bg-red-500/10 text-red-700 border-red-200';
     case 'em_analise':
@@ -497,14 +497,14 @@ const OperatorSolicitations = () => {
         <AnimatedSection delay={300}>
           <MouseTilt maxTilt={5} scale={1.02}>
             <Card className="lco-card hover-lift group relative overflow-hidden">
-              <div className="absolute inset-0 bg-gradient-to-br from-green-500/5 to-green-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+              <div className="absolute inset-0 bg-gradient-to-br from-[#1f4edd]/5 to-[#65a3ee]/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
               <CardContent className="p-4 relative z-10">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Aprovadas</p>
-                    <p className="text-2xl font-bold text-green-500">{stats.aprovadas}</p>
+                    <p className="text-2xl font-bold text-[#1f4edd]">{stats.aprovadas}</p>
                   </div>
-                  <CheckCircle className="h-8 w-8 text-green-500/20" />
+                  <CheckCircle className="h-8 w-8 text-[#1f4edd]/20" />
                 </div>
               </CardContent>
             </Card>
@@ -694,7 +694,7 @@ const OperatorSolicitations = () => {
                           </Button>
                           {solicitacao.status === 'pendente' && (
                             <>
-                              <Button variant="outline" size="sm" onClick={() => setConfirmAction({ type: 'aprovar', id: solicitacao.id })} className="text-green-600 hover:text-green-700 hover:bg-green-50">
+                              <Button variant="outline" size="sm" onClick={() => setConfirmAction({ type: 'aprovar', id: solicitacao.id })} className="text-[#1f4edd] hover:text-[#2351c4] hover:bg-blue-50">
                                 Aprovar
                               </Button>
                               <Button variant="outline" size="sm" onClick={() => setConfirmAction({ type: 'rejeitar', id: solicitacao.id })} className="text-red-600 hover:text-red-700 hover:bg-red-50">
@@ -794,14 +794,14 @@ const OperatorSolicitations = () => {
       {/* Dialogo de confirmação */}
       <AlertDialog open={!!confirmAction} onOpenChange={(open) => { if (!open) setConfirmAction(null); }}>
         <AlertDialogContent className="overflow-hidden border-border/50">
-          <div className={`-mx-6 -mt-6 px-6 py-5 ${confirmAction?.type === 'aprovar' ? 'bg-gradient-to-r from-green-500/15 to-emerald-500/10' : 'bg-gradient-to-r from-red-500/15 to-rose-500/10'}`}>
+          <div className={`-mx-6 -mt-6 px-6 py-5 ${confirmAction?.type === 'aprovar' ? 'bg-gradient-to-r from-[#1f4edd]/15 to-[#65a3ee]/10' : 'bg-gradient-to-r from-red-500/15 to-rose-500/10'}`}>
             <div className="flex items-center gap-3">
               {confirmAction?.type === 'aprovar' ? (
-                <ThumbsUp className="h-5 w-5 text-green-500" />
+                <ThumbsUp className="h-5 w-5 text-[#1f4edd]" />
               ) : (
                 <ThumbsDown className="h-5 w-5 text-red-500" />
               )}
-              <h3 className={`text-lg font-semibold ${confirmAction?.type === 'aprovar' ? 'text-green-600' : 'text-red-600'}`}>
+              <h3 className={`text-lg font-semibold ${confirmAction?.type === 'aprovar' ? 'text-[#1f4edd]' : 'text-red-600'}`}>
                 {confirmAction?.type === 'aprovar' ? 'Confirmar aprovação' : 'Confirmar rejeição'}
               </h3>
             </div>
@@ -820,7 +820,7 @@ const OperatorSolicitations = () => {
           <AlertDialogFooter className="mt-4">
             <AlertDialogCancel className="border-border/60">Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              className={`${confirmAction?.type === 'aprovar' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'} text-white`}
+              className={`${confirmAction?.type === 'aprovar' ? 'bg-[#1f4edd] hover:bg-[#2351c4]' : 'bg-red-600 hover:bg-red-700'} text-white`}
               onClick={async () => {
                 if (!confirmAction) return;
                 const id = confirmAction.id;

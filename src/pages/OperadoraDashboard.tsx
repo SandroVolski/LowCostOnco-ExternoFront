@@ -81,10 +81,10 @@ interface ActivePrincipleData {
 }
 
 const TREATMENT_COLORS = [
-  { color: '#8cb369', shadow: '0 0 10px rgba(140, 179, 105, 0.5)' },
+  { color: '#65a3ee', shadow: '0 0 10px rgba(101, 163, 238, 0.5)' },
   { color: '#e4a94f', shadow: '0 0 10px rgba(228, 169, 79, 0.5)' },
   { color: '#f26b6b', shadow: '0 0 10px rgba(242, 107, 107, 0.5)' },
-  { color: '#79d153', shadow: '0 0 10px rgba(121, 209, 83, 0.5)' },
+  { color: '#1f4edd', shadow: '0 0 10px rgba(31, 78, 221, 0.5)' },
   { color: '#74b9ff', shadow: '0 0 10px rgba(116, 185, 255, 0.5)' },
   { color: '#fd79a8', shadow: '0 0 10px rgba(253, 121, 168, 0.5)' },
   { color: '#fdcb6e', shadow: '0 0 10px rgba(253, 203, 110, 0.5)' },
@@ -367,13 +367,13 @@ const OperadoraDashboard = () => {
 
       {/* KPIs Principais */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="lco-card border-green-200">
+        <Card className="lco-card border-blue-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total de Clínicas</CardTitle>
-            <Building2 className="h-4 w-4 text-green-600" />
+            <Building2 className="h-4 w-4 text-[#1f4edd]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{kpis.totalClinicas}</div>
+            <div className="text-2xl font-bold text-[#1f4edd]">{kpis.totalClinicas}</div>
             <p className="text-xs text-muted-foreground">
               Clínicas credenciadas
             </p>
@@ -422,13 +422,13 @@ const OperadoraDashboard = () => {
 
       {/* Métricas Financeiras */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="lco-card border-green-200">
+        <Card className="lco-card border-blue-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Custo Total do Período</CardTitle>
-            <Activity className="h-4 w-4 text-green-600" />
+            <Activity className="h-4 w-4 text-[#1f4edd]" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+            <div className="text-2xl font-bold text-[#1f4edd]">
               R$ {kpis.custoTotalPeriodo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground">

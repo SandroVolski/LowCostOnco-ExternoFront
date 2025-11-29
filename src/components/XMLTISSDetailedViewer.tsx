@@ -303,9 +303,9 @@ const XMLTISSDetailedViewer: React.FC<XMLTISSDetailedViewerProps> = ({ data, onC
                               </div>
                             </div>
                             
-                            <div className="p-2 bg-green-500/10 dark:bg-green-500/20 rounded-lg border-2 border-green-500/20 dark:border-green-500/30">
+                            <div className="p-2 bg-[#1f4edd]/10 dark:bg-[#1f4edd]/20 rounded-lg border-2 border-[#1f4edd]/20 dark:border-[#1f4edd]/30">
                               <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Valor Total</div>
-                              <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                              <div className="text-lg font-bold text-[#1f4edd] dark:text-blue-400">
                                 {formatCurrency(guia.valorTotal?.valorTotalGeral || 0)}
                               </div>
                               <div className="text-xs text-muted-foreground mt-1 line-clamp-1">{guia.dadosSolicitacao?.indicacaoClinica || 'N/A'}</div>
