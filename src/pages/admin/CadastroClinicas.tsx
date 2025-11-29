@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
+import OperadoraSelection from '@/components/OperadoraSelection';
 import { 
   Building2, 
   Plus, 
@@ -74,8 +75,8 @@ const CadastroClinicas = () => {
     usuario: '',
     senha: '',
     status: 'ativo',
-    // @ts-ignore
-    operadora_id: undefined
+    operadora_id: undefined,
+    operadora_ids: []
   });
 
   // Controle para auto-geração de usuário corporativo
@@ -332,37 +333,61 @@ const CadastroClinicas = () => {
     }
   };
 
-  const handleEdit = (clinica: Clinica) => {
-    setEditingClinica(clinica);
-    setFormData({
-      nome: clinica.nome || '',
-      razao_social: clinica.razao_social || '',
-      codigo: clinica.codigo || '',
-      cnpj: clinica.cnpj || '',
-      endereco_rua: clinica.endereco_rua || '',
-      endereco_numero: clinica.endereco_numero || '',
-      endereco_bairro: clinica.endereco_bairro || '',
-      endereco_complemento: clinica.endereco_complemento || '',
-      cidade: clinica.cidade || '',
-      estado: clinica.estado || '',
-      cep: clinica.cep || '',
-      telefones: Array.isArray(clinica.telefones) && clinica.telefones.length > 0 ? clinica.telefones : [''],
-      emails: Array.isArray(clinica.emails) && clinica.emails.length > 0 ? clinica.emails : [''],
-      contatos_pacientes: clinica.contatos_pacientes || { telefones: [''], emails: [''] },
-      contatos_administrativos: clinica.contatos_administrativos || { telefones: [''], emails: [''] },
-      contatos_legais: clinica.contatos_legais || { telefones: [''], emails: [''] },
-      contatos_faturamento: clinica.contatos_faturamento || { telefones: [''], emails: [''] },
-      contatos_financeiro: clinica.contatos_financeiro || { telefones: [''], emails: [''] },
-      website: clinica.website || '',
-      logo_url: clinica.logo_url || '',
-      observacoes: clinica.observacoes || '',
-      usuario: clinica.usuario || '',
-      senha: clinica.senha || '',
-      status: clinica.status || 'ativo',
-      // @ts-ignore
-      operadora_id: (clinica as any).operadora_id || undefined,
-    });
-    setIsFormOpen(true);
+  const handleEdit = async (clinica: Clinica) => {
+    try {
+      console.log('📝 Editando clínica (dados da lista):', clinica);
+
+      let clinicaDetalhada: Clinica = { ...clinica };
+      if (clinica.id) {
+        try {
+          const fetched = await ClinicService.getClinicaById(Number(clinica.id));
+          if (fetched) {
+            clinicaDetalhada = { ...clinica, ...fetched };
+            console.log('📝 Clínica detalhada carregada do backend:', clinicaDetalhada);
+          }
+        } catch (error) {
+          console.warn('⚠️ Não foi possível buscar detalhes completos da clínica:', error);
+          toast.warning('Não foi possível carregar todos os detalhes da clínica. Mostrando dados disponíveis.');
+        }
+      }
+
+      console.log('📝 Operadoras vinculadas (detalhadas):', clinicaDetalhada.operadoras);
+      console.log('📝 IDs de operadoras (detalhados):', clinicaDetalhada.operadora_ids);
+
+      setEditingClinica(clinicaDetalhada);
+      setFormData({
+        nome: clinicaDetalhada.nome || '',
+        razao_social: clinicaDetalhada.razao_social || '',
+        codigo: clinicaDetalhada.codigo || '',
+        cnpj: clinicaDetalhada.cnpj || '',
+        endereco_rua: clinicaDetalhada.endereco_rua || '',
+        endereco_numero: clinicaDetalhada.endereco_numero || '',
+        endereco_bairro: clinicaDetalhada.endereco_bairro || '',
+        endereco_complemento: clinicaDetalhada.endereco_complemento || '',
+        cidade: clinicaDetalhada.cidade || '',
+        estado: clinicaDetalhada.estado || '',
+        cep: clinicaDetalhada.cep || '',
+        telefones: Array.isArray(clinicaDetalhada.telefones) && clinicaDetalhada.telefones.length > 0 ? clinicaDetalhada.telefones : [''],
+        emails: Array.isArray(clinicaDetalhada.emails) && clinicaDetalhada.emails.length > 0 ? clinicaDetalhada.emails : [''],
+        contatos_pacientes: clinicaDetalhada.contatos_pacientes || { telefones: [''], emails: [''] },
+        contatos_administrativos: clinicaDetalhada.contatos_administrativos || { telefones: [''], emails: [''] },
+        contatos_legais: clinicaDetalhada.contatos_legais || { telefones: [''], emails: [''] },
+        contatos_faturamento: clinicaDetalhada.contatos_faturamento || { telefones: [''], emails: [''] },
+        contatos_financeiro: clinicaDetalhada.contatos_financeiro || { telefones: [''], emails: [''] },
+        website: clinicaDetalhada.website || '',
+        logo_url: clinicaDetalhada.logo_url || '',
+        observacoes: clinicaDetalhada.observacoes || '',
+        usuario: clinicaDetalhada.usuario || '',
+        senha: '', // Nunca exibir senha
+        status: clinicaDetalhada.status || 'ativo',
+        operadora_id: clinicaDetalhada.operadora_id || undefined,
+        operadora_ids: clinicaDetalhada.operadora_ids || []
+      });
+      setIsFormOpen(true);
+    } catch (error) {
+      console.error('❌ Erro ao preparar edição da clínica:', error);
+      toast.error('Erro ao carregar dados completos da clínica.');
+    }
   };
 
   const handleDelete = async (id: number) => {
@@ -407,8 +432,8 @@ const CadastroClinicas = () => {
       usuario: '',
       senha: '',
       status: 'ativo',
-      // @ts-ignore
       operadora_id: undefined,
+      operadora_ids: []
     });
     setEditingClinica(null);
   };
@@ -518,6 +543,18 @@ const CadastroClinicas = () => {
                             {clinica.endereco && <p><strong>Endereço:</strong> {clinica.endereco}</p>}
                             {clinica.cidade && clinica.estado && <p><strong>Cidade/UF:</strong> {clinica.cidade} - {clinica.estado}</p>}
                             {clinica.cep && <p><strong>CEP:</strong> {clinica.cep}</p>}
+                            {clinica.operadoras && clinica.operadoras.length > 0 && (
+                              <div className="mt-2">
+                                <p className="font-medium mb-1">Operadoras vinculadas:</p>
+                                <div className="flex flex-wrap gap-1">
+                                  {clinica.operadoras.map((op) => (
+                                    <Badge key={op.id} variant="secondary" className="text-xs">
+                                      {op.nome}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                           <div>
                             <p><strong>Telefones:</strong></p>
@@ -661,17 +698,20 @@ const CadastroClinicas = () => {
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="operadora">Operadora</Label>
-                    <Select value={String((formData as any).operadora_id || '')} onValueChange={(value) => handleInputChange('operadora_id' as any, value ? parseInt(value) : undefined)}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecione a operadora" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {operadoras.map(op => (
-                          <SelectItem key={op.id} value={String(op.id)}>{op.nome}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label htmlFor="operadoras">Operadoras Vinculadas</Label>
+                    <OperadoraSelection
+                      value={formData.operadora_ids || []}
+                      onChange={(selectedOperadoras) => {
+                        const newIds = selectedOperadoras.map(op => op.id);
+                        handleInputChange('operadora_ids', newIds);
+                        if (newIds.length > 0 && !formData.operadora_id) {
+                          handleInputChange('operadora_id', newIds[0]);
+                        }
+                      }}
+                      operadoras={operadoras}
+                      placeholder="Selecione uma ou mais operadoras..."
+                      multiple={true}
+                    />
                   </div>
                 </div>
 
@@ -868,28 +908,25 @@ const CadastroClinicas = () => {
                   </Button>
                 </div>
 
-                {/* Vínculo Operadora */}
+                {/* Vínculo Operadoras */}
                 <div className="space-y-4">
                   <h4 className="font-medium flex items-center space-x-2">
                     <Building2 className="h-4 w-4" />
-                    <span>Vínculo com Operadora</span>
+                    <span>Vínculos com Operadoras</span>
                   </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="operadora">Operadora</Label>
-                      <Select value={(formData as any).operadora_id ? String((formData as any).operadora_id) : 'none'} onValueChange={(value) => handleInputChange('operadora_id' as any, value === 'none' ? undefined : Number(value))}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Sem vínculo" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Sem vínculo</SelectItem>
-                          {operadoras.map((op) => (
-                            <SelectItem key={op.id} value={String(op.id)}>{op.nome} - {op.codigo}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
+                  <OperadoraSelection
+                    value={formData.operadora_ids || []}
+                    onChange={(selectedOperadoras) => {
+                      const newIds = selectedOperadoras.map(op => op.id);
+                      handleInputChange('operadora_ids', newIds);
+                      if (newIds.length > 0 && !formData.operadora_id) {
+                        handleInputChange('operadora_id', newIds[0]);
+                      }
+                    }}
+                    operadoras={operadoras}
+                    placeholder="Selecione uma ou mais operadoras..."
+                    multiple={true}
+                  />
                 </div>
 
                 {/* Usuário e Senha */}

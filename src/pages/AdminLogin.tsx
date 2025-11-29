@@ -17,7 +17,7 @@ const AdminLogin = () => {
 
   const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
-    if (loginAdmin('OnkhosGlobal', secret)) {
+    if (loginAdmin('OnkoLinkGlobal', secret)) {
 			toast.success('Admin autenticado');
       navigate('/admin/clinicas/register');
 		} else {
@@ -29,7 +29,7 @@ const AdminLogin = () => {
 		<div className="max-w-md mx-auto py-12">
 			<Card>
 				<CardHeader>
-					<CardTitle>Acesso Admin Onkhos</CardTitle>
+					<CardTitle>Acesso Admin OnkoLink</CardTitle>
 				</CardHeader>
 				<CardContent>
 					<form onSubmit={handleSubmit} className="space-y-4">

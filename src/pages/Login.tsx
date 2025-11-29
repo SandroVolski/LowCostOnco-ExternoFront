@@ -54,11 +54,11 @@ const Login = () => {
     
     try {
       // Verificar se são credenciais administrativas específicas
-      if (username === 'OnkhosGlobal' && password === 'Douglas193') {
+      if (username === 'OnkoLinkGlobal' && password === 'Douglas193') {
         // Armazenar dados administrativos
         localStorage.setItem('adminToken', 'admin-special-access');
         localStorage.setItem('adminUser', JSON.stringify({
-          username: 'OnkhosGlobal',
+          username: 'OnkoLinkGlobal',
           role: 'admin',
           isSpecialAdmin: true
         }));
@@ -128,14 +128,46 @@ const Login = () => {
   };
 
   const handleForgotPassword = async () => {
+    console.log('🔍 [Login] handleForgotPassword chamado');
+    console.log('📧 [Login] Email digitado:', forgotEmail);
+    
     setForgotLoading(true);
     setForgotMessage(null);
     setForgotError(null);
-    try {
-      await AuthService.recuperarSenha(forgotEmail.trim());
-      setForgotMessage('Se o e-mail existir na base, enviaremos instruções de recuperação.');
-      setForgotEmail('');
+    
+    // Validar email
+    const emailTrimmed = forgotEmail.trim();
+    console.log('✂️ [Login] Email após trim:', emailTrimmed);
+    
+    if (!emailTrimmed || !emailTrimmed.includes('@')) {
+      console.log('❌ [Login] Email inválido - sem @');
+      setForgotError('Por favor, informe um e-mail válido');
+      setForgotLoading(false);
+      return;
+    }
+    
+    const emailLower = emailTrimmed.toLowerCase();
+    const isValidDomain = 
+      emailLower.endsWith('@onkhos.com') || 
+      emailLower.endsWith('@onkho.com.br') ||
+      emailLower.endsWith('@gmail.com'); // Permitir Gmail para testes
+    if (!isValidDomain) {
+      console.log('❌ [Login] Email não termina com @onkhos.com, @onkho.com.br ou @gmail.com');
+      setForgotError('O e-mail deve ser do domínio @onkhos.com, @onkho.com.br ou @gmail.com (apenas testes)');
+      setForgotLoading(false);
+      return;
+    }
+    
+    console.log('✅ [Login] Validação passou, chamando API...');
+        try {
+          const result = await AuthService.recuperarSenha(emailTrimmed);
+          console.log('✅ [Login] Resposta da API:', result);
+
+          // Mostrar apenas a mensagem (sem link, que só vem por email)
+          setForgotMessage(result.message);
+          setForgotEmail('');
     } catch (err: any) {
+      console.error('❌ [Login] Erro ao recuperar senha:', err);
       setForgotError(err?.message || 'Não foi possível enviar a recuperação agora.');
     } finally {
       setForgotLoading(false);
@@ -279,22 +311,49 @@ const Login = () => {
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-3">
-                      <Input
-                        type="email"
-                        placeholder="seuemail@exemplo.com"
-                        value={forgotEmail}
-                        onChange={(e) => setForgotEmail(e.target.value)}
-                        className="lco-input"
-                      />
+                      <div>
+                        <Input
+                          type="email"
+                          placeholder="seuemail@onkho.com.br"
+                          value={forgotEmail}
+                          onChange={(e) => {
+                            setForgotEmail(e.target.value);
+                            setForgotMessage(null);
+                            setForgotError(null);
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && forgotEmail.trim() && !forgotLoading) {
+                              e.preventDefault();
+                              handleForgotPassword();
+                            }
+                          }}
+                          className="lco-input"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Digite seu email cadastrado (@onkhos.com ou @onkho.com.br)
+                        </p>
+                      </div>
                       {forgotMessage && (
-                        <p className="text-sm text-muted-foreground">{forgotMessage}</p>
+                        <div className="text-sm text-muted-foreground">
+                          <p>{forgotMessage}</p>
+                        </div>
                       )}
                       {forgotError && (
                         <p className="text-sm text-highlight-red">{forgotError}</p>
                       )}
                       <div className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => setForgotOpen(false)}>Fechar</Button>
-                        <Button onClick={handleForgotPassword} disabled={forgotLoading || !forgotEmail} className="lco-btn-primary">
+                        <Button type="button" variant="outline" onClick={() => setForgotOpen(false)}>Fechar</Button>
+                        <Button 
+                          type="button" 
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            console.log('🔘 [Login] Botão Enviar clicado');
+                            handleForgotPassword();
+                          }} 
+                          disabled={forgotLoading || !forgotEmail || forgotEmail.trim() === ''} 
+                          className="lco-btn-primary"
+                        >
                           {forgotLoading ? 'Enviando...' : 'Enviar'}
                         </Button>
                       </div>

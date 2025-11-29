@@ -15,7 +15,8 @@ import {
   FileText,
   Image,
   Download,
-  ExternalLink
+  ExternalLink,
+  Plus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -42,6 +43,10 @@ const Chat = () => {
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [newConversationModalOpen, setNewConversationModalOpen] = useState(false);
+  const [availableContacts, setAvailableContacts] = useState<any[]>([]);
+  const [contactSearch, setContactSearch] = useState('');
+  const [loadingContacts, setLoadingContacts] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [lastMessageId, setLastMessageId] = useState<number | null>(null);
   const lastMessageIdRef = useRef<number | null>(null);
@@ -299,8 +304,8 @@ const Chat = () => {
         if (user?.role === 'operator') {
           // Para operadoras, preservar todos os campos mapeados pelo chatService
           // e garantir que os nomes estejam corretos
-          const operadoraNome = chat.operadora_nome || 'Operadora';
-          const clinicaNome = chat.nome || chat.clinica_nome || 'Clínica';
+          const operadoraNome = chat.operadora_nome || user?.name || 'Operadora';
+          const clinicaNome = chat.name || chat.clinica_nome || 'Clínica';
 
           // Para operadoras, se não há conversa_id, precisamos criar/encontrar a conversa
           const chatId = chat.conversa_id || chat.id;
@@ -310,27 +315,120 @@ const Chat = () => {
             id: chatId,
             name: clinicaNome, // Nome da clínica para operadoras
             description: `Chat com ${clinicaNome}`,
-            clinica_id: chat.id, // ID da clínica
-            operadora_id: user?.id,
+            clinica_id: chat.clinica_id,
+            operadora_id: chat.operadora_id || (user as any)?.operadora_id || user?.id,
             // Garantir que os nomes estejam disponíveis
             operadora_nome: operadoraNome,
             clinica_nome: clinicaNome,
             participants: [
-              { id: user?.id, name: operadoraNome, type: 'operadora' },
-              { id: chat.id, name: clinicaNome, type: 'clinica' }
+              { id: (user as any)?.operadora_id || user?.id, name: operadoraNome, type: 'operadora' },
+              { id: chat.clinica_id, name: clinicaNome, type: 'clinica' }
             ],
             type: 'individual' as const
           };
         } else {
-          // Para clínicas, usar dados mapeados pelo chatService
+          const operadoraNome =
+            chat.operadora_nome ||
+            chat.operadoraNome ||
+            (typeof chat.name === 'string' && chat.name.includes(' - ')
+              ? chat.name.split(' - ')[0].trim()
+              : chat.name) ||
+            'Operadora';
+
+          const clinicaNome =
+            chat.clinica_nome ||
+            chat.clinicaNome ||
+            user?.name ||
+            (typeof chat.name === 'string' && chat.name.includes(' - ')
+              ? chat.name.split(' - ')[1]?.trim()
+              : 'Clínica');
+
+          const chatId = chat.id || chat.conversa_id;
+
           return {
-            ...chat, // Preservar todos os campos do chatService
-            type: 'individual' as const
+            ...chat,
+            id: chatId,
+            conversa_id: chatId,
+            name: operadoraNome,
+            operadora_nome: operadoraNome,
+            clinica_nome: clinicaNome,
+            operadora_id: chat.operadora_id,
+            type: 'individual' as const,
+            participants: [
+              { id: chat.operadora_id, name: operadoraNome, type: 'operadora' },
+              { id: (user as any)?.clinica_id || user?.id, name: clinicaNome, type: 'clinica' }
+            ]
           };
         }
       });
 
-      setChats(processedChats);
+      const operatorId = user?.role === 'operator'
+        ? ((user as any)?.operadora_id || user?.id)
+        : null;
+
+      const chatsWithClinics = [...processedChats];
+
+      if (user?.role === 'operator' && operatorId) {
+        try {
+          const clinicasDisponiveis = await chatService.getClinicas(operatorId);
+
+          clinicasDisponiveis.forEach((clinica: any) => {
+            const existente = chatsWithClinics.some(
+              (chat) =>
+                chat.clinica_id === clinica.id &&
+                chat.operadora_id === operatorId
+            );
+
+            if (!existente) {
+              const nomeClinica = clinica.nome || `Clínica ${clinica.id}`;
+              const operadoraNome =
+                (user as any)?.operadora_nome || user?.name || 'Operadora';
+
+              chatsWithClinics.push({
+                id: undefined,
+                conversa_id: undefined,
+                type: 'individual',
+                operadora_id: operatorId,
+                clinica_id: clinica.id,
+                name: nomeClinica,
+                description: `Chat com ${nomeClinica}`,
+                nome_conversa: `${operadoraNome} - ${nomeClinica}`,
+                descricao: `Chat entre ${operadoraNome} e ${nomeClinica}`,
+                last_message: null,
+                last_message_time: null,
+                created_at: null,
+                updated_at: null,
+                unread_count: 0,
+                participants: [
+                  { id: operatorId, name: operadoraNome, type: 'operadora' },
+                  { id: clinica.id, name: nomeClinica, type: 'clinica' },
+                ],
+                operadora_nome: operadoraNome,
+                clinica_nome: nomeClinica,
+                ativa: true,
+              } as Chat);
+            }
+          });
+        } catch (error) {
+          console.error(
+            'Erro ao carregar clínicas vinculadas para operadora:',
+            error
+          );
+        }
+      }
+
+      const chatsOrdenados = [...chatsWithClinics].sort((a, b) => {
+        const dateA = a.last_message_time || a.updated_at || a.created_at;
+        const dateB = b.last_message_time || b.updated_at || b.created_at;
+
+        if (!dateA && !dateB) return a.name.localeCompare(b.name);
+        if (!dateA) return 1;
+        if (!dateB) return -1;
+
+        return new Date(dateB).getTime() - new Date(dateA).getTime();
+      });
+
+      setChats(chatsOrdenados);
 
       // Se não há chat selecionado e há chats disponíveis, selecionar o primeiro
       if (!selectedChat && processedChats.length > 0) {
@@ -355,14 +453,93 @@ const Chat = () => {
     }
   };
 
+  // Buscar contatos disponíveis para nova conversa
+  const loadAvailableContacts = async () => {
+    try {
+      setLoadingContacts(true);
+      if (user?.role === 'clinic') {
+        // Para clínicas, buscar operadoras vinculadas usando authorizedFetch
+        const response = await chatService.getUserProfile();
+        console.log('📝 Perfil da clínica:', response);
+        
+        if (response?.clinica?.operadoras) {
+          setAvailableContacts(response.clinica.operadoras.map((op: any) => ({
+            id: op.id,
+            nome: op.nome,
+            codigo: op.codigo,
+            tipo: 'operadora'
+          })));
+        }
+      } else if (user?.role === 'operator') {
+        // Para operadoras, buscar clínicas vinculadas
+        const clinicas = await chatService.getClinicas(user.id);
+        console.log('📝 Clínicas vinculadas:', clinicas);
+        
+        setAvailableContacts(clinicas.map((clinica: any) => ({
+          id: clinica.id,
+          nome: clinica.nome,
+          codigo: clinica.codigo,
+          tipo: 'clinica'
+        })));
+      }
+    } catch (error) {
+      console.error('Erro ao buscar contatos:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao buscar contatos disponíveis.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingContacts(false);
+    }
+  };
+
+  // Criar nova conversa com um contato
+  const handleCreateConversation = async (contactId: number, contactType: 'operadora' | 'clinica') => {
+    try {
+      const newChat = await chatService.findOrCreateChat(contactId, contactType);
+      setChats(prev => {
+        const existingIndex = prev.findIndex(c => c.id === newChat.id);
+        if (existingIndex >= 0) {
+          const updated = [...prev];
+          updated[existingIndex] = { ...updated[existingIndex], ...newChat };
+          return updated;
+        }
+        return [newChat, ...prev];
+      });
+      setSelectedChat(newChat);
+      selectedChatIdRef.current = newChat.id || null;
+      if (newChat.id) {
+        await loadMessages(newChat.id);
+      }
+      setNewConversationModalOpen(false);
+      toast({
+        title: "Sucesso!",
+        description: "Conversa criada com sucesso.",
+      });
+    } catch (error) {
+      console.error('Erro ao criar conversa:', error);
+      toast({
+        title: "Erro",
+        description: "Erro ao criar conversa. Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
   // Criar chat inicial baseado no tipo de usuário
+  // Nota: Com o novo relacionamento N:N, os chats são criados automaticamente
+  // para todas as operadoras vinculadas à clínica (via chatService.getUserChats)
   const createInitialChat = async () => {
     try {
       if (!user) return;
       
-      // Para clínicas: criar chat com operadora padrão (ID 1)
-      // Para operadoras: criar chat com primeira clínica disponível
+      // Para clínicas: criar chat com primeira operadora vinculada
+      // Para operadoras: criar chat com primeira clínica vinculada
+      // Nota: Esta função é um fallback caso não existam chats ainda.
+      // O backend agora retorna chats baseados em clinicas_operadoras.
       if (user.role === 'clinic') {
+        // Tentar criar chat com operadora ID 1 (fallback)
         const newChat = await chatService.findOrCreateChat(1, 'operadora');
         setChats([newChat]);
         setSelectedChat(newChat);
@@ -372,7 +549,6 @@ const Chat = () => {
         }
       } else if (user.role === 'operator') {
         // Para operadoras, buscar clínicas disponíveis e criar chat com a primeira
-        // Por enquanto, vamos usar uma clínica padrão (ID 1)
         const newChat = await chatService.findOrCreateChat(1, 'clinica');
         setChats([newChat]);
         setSelectedChat(newChat);
@@ -395,6 +571,18 @@ const Chat = () => {
   const loadMessages = async (chatId: number) => {
     try {
       setMessagesLoading(true);
+
+      // Garantir que o chat selecionado tenha informações completas (participants, nomes atualizados)
+      try {
+        const chatDetails = await chatService.getChat(chatId);
+        setSelectedChat(prev => {
+          if (!prev) return chatDetails;
+          return { ...prev, ...chatDetails };
+        });
+      } catch (error) {
+        console.warn('⚠️ Não foi possível carregar detalhes completos do chat:', error);
+      }
+
       const response = await chatService.getChatMessages(chatId, 50, 0);
 
       // Processar mensagens para criar fileInfo se necessário
@@ -457,6 +645,24 @@ const Chat = () => {
         const latestMessage = processedMessages[processedMessages.length - 1];
         setLastMessageId(latestMessage.id);
         lastMessageIdRef.current = latestMessage.id;
+
+        // Atualizar resumo do último recado no chat selecionado
+        setChats(prev =>
+          prev.map(c => {
+            if (c.id !== chatId) return c;
+            return {
+              ...c,
+              last_message: {
+                id: latestMessage.id,
+                content: latestMessage.content,
+                created_at: latestMessage.created_at,
+                sender_name: latestMessage.sender_name,
+                sender_type: latestMessage.sender_type,
+              },
+              last_message_time: latestMessage.created_at,
+            };
+          })
+        );
       } else {
         setLastMessageId(null);
         lastMessageIdRef.current = null;
@@ -530,6 +736,41 @@ const Chat = () => {
 
       // Recarregar chats para atualizar última mensagem (sem recarregar mensagens)
       // await loadChats(); // Comentado para evitar sobrescrever mensagens
+
+      const finalCreatedAt = finalMessage.created_at || optimisticMessage.created_at;
+
+      setChats(prev => {
+        const updatedChats = prev.map(chat => {
+          if (chat.id !== selectedChat.id) {
+            return chat;
+          }
+
+          return {
+            ...chat,
+            last_message: {
+              id: finalMessage.id,
+              content: finalMessage.content,
+              created_at: finalCreatedAt,
+              sender_name: finalMessage.sender_name,
+              sender_type: finalMessage.sender_type,
+            },
+            last_message_time: finalCreatedAt,
+            ultima_mensagem_id: finalMessage.id,
+            ultima_mensagem_texto: finalMessage.content,
+            ultima_mensagem_data: finalCreatedAt,
+          };
+        });
+
+        // Reordenar trazendo o chat atualizado para o topo
+        return [...updatedChats].sort((a, b) => {
+          const dateA = getLastMessageDate(a);
+          const dateB = getLastMessageDate(b);
+          if (!dateA && !dateB) return 0;
+          if (!dateA) return 1;
+          if (!dateB) return -1;
+          return new Date(dateB).getTime() - new Date(dateA).getTime();
+        });
+      });
     } catch (error) {
       console.error('Erro ao enviar mensagem:', error);
       
@@ -554,7 +795,7 @@ const Chat = () => {
       if (user?.role === 'operator' && !(chat as any).conversa_id) {
         try {
           const newChat = await chatService.findOrCreateOperadoraClinicaChat(
-            chat.operadora_id || user.id, 
+            chat.operadora_id || (user as any)?.operadora_id || user.id, 
             chat.clinica_id || chat.id
           );
 
@@ -589,9 +830,11 @@ const Chat = () => {
     
     // Filtrar baseado no tipo de usuário
     if (user?.role === 'operator') {
-      return chat.operadora_id === user.id;
+      const operatorId = (user as any)?.operadora_id || user.id;
+      return chat.operadora_id === operatorId;
     } else if (user?.role === 'clinic') {
-      return chat.clinica_id === user.id;
+      const clinicId = (user as any)?.clinica_id || user.id;
+      return chat.clinica_id === clinicId;
     }
     
     return true;
@@ -625,6 +868,26 @@ const Chat = () => {
     return name.substring(0, 2).toUpperCase();
   };
 
+  // Extrair apenas o nome do contato (operadora para clínica, clínica para operadora)
+  const getContactName = (chat: any) => {
+    const nomeConversa = chat.nome_conversa || chat.name || '';
+    
+    // Se o nome já contém " - ", extrair a parte relevante
+    if (nomeConversa.includes(' - ')) {
+      const parts = nomeConversa.split(' - ');
+      // Se for clínica logada, mostrar operadora (primeira parte)
+      // Se for operadora logada, mostrar clínica (segunda parte)
+      if (user?.role === 'clinic') {
+        return parts[0] || 'Operadora';
+      } else if (user?.role === 'operator') {
+        return parts[1] || 'Clínica';
+      }
+    }
+    
+    // Fallback: retornar nome completo
+    return nomeConversa || 'Conversa';
+  };
+
   const getStatusColor = (role: string) => {
     switch(role) {
       case 'clinica': return 'bg-support-green';
@@ -639,7 +902,7 @@ const Chat = () => {
     
     // Verificar se a data é válida
     if (isNaN(date.getTime())) {
-      return 'Horário inválido';
+      return '';
     }
     
     const now = new Date();
@@ -666,6 +929,21 @@ const Chat = () => {
       };
       return date.toLocaleDateString('pt-BR', dateOptions);
     }
+  };
+
+  const getLastMessageText = (chat: Chat) => {
+    if (!chat || !chat.last_message) return null;
+    if (typeof chat.last_message === 'string') return chat.last_message;
+    return chat.last_message.content;
+  };
+
+  const getLastMessageDate = (chat: Chat) => {
+    if (!chat) return undefined;
+    if (chat.last_message_time) return chat.last_message_time;
+    if (chat.last_message && typeof chat.last_message !== 'string') {
+      return chat.last_message.created_at;
+    }
+    return undefined;
   };
 
   // Carregar dados iniciais
@@ -698,7 +976,7 @@ const Chat = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 h-full">
         {/* Sidebar */}
         <div className="md:col-span-1 border-r border-border bg-card">
-          <div className="p-4 border-b border-border">
+          <div className="p-4 border-b border-border space-y-2">
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -708,6 +986,17 @@ const Chat = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+            <Button 
+              variant="outline" 
+              className="w-full flex items-center gap-2"
+              onClick={() => {
+                setNewConversationModalOpen(true);
+                loadAvailableContacts();
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Nova Conversa
+            </Button>
           </div>
 
           <Tabs defaultValue="all" className="w-full">
@@ -750,7 +1039,7 @@ const Chat = () => {
                               <AvatarFallback className={cn(
                                 user?.role === 'operator' ? "bg-support-green/20 text-support-green" : "bg-support-yellow/20 text-support-yellow"
                               )}>
-                                {getUserInitials(chat.name)}
+                                {getUserInitials(getContactName(chat))}
                               </AvatarFallback>
                             </Avatar>
                             <span className={cn(
@@ -761,31 +1050,30 @@ const Chat = () => {
                           <div className="flex-1 min-w-0">
                             <div className="flex justify-between items-center">
                               <p className="font-medium truncate text-sm">
-                                {chat.name}
+                                {getContactName(chat)}
                               </p>
                               <span className="text-xs text-muted-foreground">
-                                {chat.last_message?.created_at ? formatTime(chat.last_message.created_at) : ''}
+                                {(() => {
+                                  const lastDate = getLastMessageDate(chat);
+                                  return lastDate ? formatTime(lastDate) : '';
+                                })()}
                               </span>
                             </div>
-                              {chat.last_message?.content ? (
-                                <p className="text-muted-foreground text-xs truncate">
-                                  {chat.last_message.content}
-                                </p>
-                              ) : user?.role === 'operator' ? (() => {
-                                const nomeConversa = (chat as any)?.nome_conversa || '';
-                                const parts = nomeConversa.split(' - ');
-                                const clinicaName = parts[1] || 'Clínica';
+                            {(() => {
+                              const preview = getLastMessageText(chat);
+                              if (preview) {
                                 return (
-                                  <div className="space-y-1">
-                                    <p className="text-xs text-muted-foreground">Chat com</p>
-                                    <p className="text-sm font-medium text-primary">{clinicaName}</p>
-                                  </div>
+                              <p className="text-muted-foreground text-xs truncate">
+                                {preview}
+                              </p>
                                 );
-                              })() : (
-                                <p className="text-muted-foreground text-xs truncate">
-                                  Nenhuma mensagem ainda
-                                </p>
-                              )}
+                              }
+                              return (
+                              <p className="text-muted-foreground text-xs truncate">
+                                Nenhuma mensagem ainda
+                              </p>
+                              );
+                            })()}
                           </div>
                           {chat.ultima_mensagem_data && (
                             <div className="h-2 w-2 bg-primary rounded-full"></div>
@@ -827,37 +1115,36 @@ const Chat = () => {
                             <AvatarFallback className={cn(
                               user?.role === 'operator' ? "bg-support-green/20 text-support-green" : "bg-support-yellow/20 text-support-yellow"
                             )}>
-                              {getUserInitials(chat.nome_conversa)}
+                              {getUserInitials(getContactName(chat))}
                             </AvatarFallback>
                           </Avatar>
                           <div className="flex-1 min-w-0">
                             <div className="flex justify-between items-center">
                               <p className="font-medium truncate text-sm">
-                                {chat.name}
+                                {getContactName(chat)}
                               </p>
                               <span className="text-xs text-muted-foreground">
-                                {chat.last_message?.created_at ? formatTime(chat.last_message.created_at) : ''}
+                                {(() => {
+                                  const lastDate = getLastMessageDate(chat);
+                                  return lastDate ? formatTime(lastDate) : '';
+                                })()}
                               </span>
                             </div>
-                              {chat.last_message?.content ? (
-                                <p className="text-muted-foreground text-xs truncate">
-                                  {chat.last_message.content}
-                                </p>
-                              ) : user?.role === 'operator' ? (() => {
-                                const nomeConversa = (chat as any)?.nome_conversa || '';
-                                const parts = nomeConversa.split(' - ');
-                                const clinicaName = parts[1] || 'Clínica';
+                            {(() => {
+                              const preview = getLastMessageText(chat);
+                              if (preview) {
                                 return (
-                                  <div className="space-y-1">
-                                    <p className="text-xs text-muted-foreground">Chat com</p>
-                                    <p className="text-sm font-medium text-primary">{clinicaName}</p>
-                                  </div>
+                              <p className="text-muted-foreground text-xs truncate">
+                                {preview}
+                              </p>
                                 );
-                              })() : (
-                                <p className="text-muted-foreground text-xs truncate">
-                                  Nenhuma mensagem ainda
-                                </p>
-                              )}
+                              }
+                              return (
+                              <p className="text-muted-foreground text-xs truncate">
+                                Nenhuma mensagem ainda
+                              </p>
+                              );
+                            })()}
                           </div>
                           <div className="h-2 w-2 bg-primary rounded-full"></div>
                         </div>
@@ -1164,6 +1451,76 @@ const Chat = () => {
               </div>
             );
           })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Nova Conversa */}
+      <Dialog open={newConversationModalOpen} onOpenChange={setNewConversationModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nova Conversa</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder={user?.role === 'clinic' ? 'Buscar operadora...' : 'Buscar clínica...'}
+                className="pl-8"
+                value={contactSearch}
+                onChange={(e) => setContactSearch(e.target.value)}
+              />
+            </div>
+
+            <div className="max-h-96 overflow-y-auto space-y-2">
+              {loadingContacts ? (
+                <div className="flex items-center justify-center p-8">
+                  <RefreshCw className="h-6 w-6 animate-spin" />
+                </div>
+              ) : availableContacts.filter(contact => 
+                  contact.nome.toLowerCase().includes(contactSearch.toLowerCase()) ||
+                  (contact.codigo && contact.codigo.toLowerCase().includes(contactSearch.toLowerCase()))
+                ).length === 0 ? (
+                <div className="text-center p-8 text-muted-foreground">
+                  <MessageSquare className="h-8 w-8 mx-auto mb-2" />
+                  <p className="text-sm">
+                    {user?.role === 'clinic' 
+                      ? 'Nenhuma operadora vinculada' 
+                      : 'Nenhuma clínica vinculada'}
+                  </p>
+                </div>
+              ) : (
+                availableContacts
+                  .filter(contact => 
+                    contact.nome.toLowerCase().includes(contactSearch.toLowerCase()) ||
+                    (contact.codigo && contact.codigo.toLowerCase().includes(contactSearch.toLowerCase()))
+                  )
+                  .map(contact => (
+                    <button
+                      key={contact.id}
+                      className="w-full p-3 border rounded-md hover:bg-muted transition-colors flex items-center gap-3"
+                      onClick={() => handleCreateConversation(contact.id, contact.tipo)}
+                    >
+                      <Avatar>
+                        <AvatarFallback className={cn(
+                          contact.tipo === 'operadora' 
+                            ? "bg-support-yellow/20 text-support-yellow" 
+                            : "bg-support-green/20 text-support-green"
+                        )}>
+                          {getUserInitials(contact.nome)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 text-left">
+                        <p className="font-medium text-sm">{contact.nome}</p>
+                        {contact.codigo && (
+                          <p className="text-xs text-muted-foreground">Código: {contact.codigo}</p>
+                        )}
+                      </div>
+                      <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  ))
+              )}
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

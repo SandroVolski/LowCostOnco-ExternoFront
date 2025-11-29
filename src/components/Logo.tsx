@@ -18,7 +18,7 @@ const Logo = ({ variant = 'default', size = 'md', className, withText = true }: 
     <div className={cn("flex items-center gap-1", className)}>
       <img 
         src="/images/SomenteLogoOnkhos.png" 
-        alt="Onkhos" 
+        alt="OnkoLink" 
         className={cn(
           sizeClasses[size],
           "object-contain"
@@ -29,7 +29,7 @@ const Logo = ({ variant = 'default', size = 'md', className, withText = true }: 
           "font-bold text-white -translate-x-[2px] translate-y-[2px]", 
           size === 'sm' ? 'text-lg' : size === 'md' ? 'text-xl' : 'text-2xl',
         )}>
-          <span className="text-white">ONKHOS</span>
+          <span className="text-white">ONKOLINK</span>
         </div>
       )}
     </div>

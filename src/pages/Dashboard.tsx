@@ -424,7 +424,9 @@ const Dashboard = () => {
 
             // Usar intervalo real se disponível
             if (solicitacao.dias_aplicacao_intervalo) {
-              const intervalo = parseIntervaloDias(solicitacao.dias_aplicacao_intervalo);
+              // Garantir que seja string antes de processar
+              const intervaloTexto = solicitacao.dias_aplicacao_intervalo;
+              const intervalo = parseIntervaloDias(intervaloTexto);
               if (intervalo > 0) {
                 // Calcular quando deveria ser o próximo ciclo
                 const diasParaProximoCiclo = (cicloAtual * intervalo) - diasDesdeCriacao;
@@ -498,11 +500,12 @@ const Dashboard = () => {
   };
 
   // ✅ FUNÇÃO MELHORADA: Parse do intervalo de dias com logs
-  const parseIntervaloDias = (intervaloTexto: string): number => {
+  const parseIntervaloDias = (intervaloTexto: string | number | null | undefined): number => {
     if (!intervaloTexto) return 0;
 
     try {
-      const texto = intervaloTexto.toLowerCase();
+      // Converter para string se não for
+      const texto = String(intervaloTexto).toLowerCase();
 
       // Padrão específico para "repetir a cada X dias"
       let match = texto.match(/repetir\s+a\s+cada\s+(\d+)\s+dias?/);

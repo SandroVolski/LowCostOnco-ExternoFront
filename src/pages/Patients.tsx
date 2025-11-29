@@ -141,6 +141,9 @@ interface Patient {
   contato_emergencia_nome?: string;
   contato_emergencia_telefone?: string;
   medico_assistente_nome?: string;
+  medico_assistente_email?: string;
+  medico_assistente_telefone?: string;
+  medico_assistente_especialidade?: string;
 }
 
 interface ModernAlertProps {
@@ -1004,7 +1007,10 @@ const emptyPatient: Patient = {
   altura: '',
   contato_emergencia_nome: '',
   contato_emergencia_telefone: '',
-  medico_assistente_nome: ''
+  medico_assistente_nome: '',
+  medico_assistente_email: '',
+  medico_assistente_telefone: '',
+  medico_assistente_especialidade: ''
 };
 
 // Mapeamento de operadoras (nome para ID e vice-versa)
@@ -1025,11 +1031,14 @@ const OPERADORAS_REVERSE_MAP = {
 } as const;
 
 // Função para obter o nome da operadora
-const getOperadoraName = (operadora: string | number): string => {
+const getOperadoraName = (operadora: string | number | undefined | null): string => {
+  if (operadora === undefined || operadora === null) {
+    return '';
+  }
   if (typeof operadora === 'number') {
     return OPERADORAS_MAP[operadora as keyof typeof OPERADORAS_MAP] || `Operadora ${operadora}`;
   }
-  return operadora;
+  return operadora || '';
 };
 
 // Função para obter o ID da operadora
@@ -1066,7 +1075,7 @@ const Patients = () => {
   const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
   const [protocolosOptions, setProtocolosOptions] = useState<Array<{value: string, label: string}>>([]);
   const [operadorasOptions, setOperadorasOptions] = useState<Array<{value: string, label: string}>>([]);
-  const [prestadoresOptions, setPrestadoresOptions] = useState<Array<{value: string, label: string}>>([]);
+  const [prestadoresOptions, setPrestadoresOptions] = useState<Array<{value: string, label: string, id: number}>>([]);
   const [clinicaOperadoraId, setClinicaOperadoraId] = useState<number | null>(null);
   const [operadoraFilterManual, setOperadoraFilterManual] = useState(false); // Rastrear se operadora foi selecionada manualmente
   const { navigateWithTransition } = usePageNavigation();
@@ -1307,8 +1316,9 @@ const Patients = () => {
       const prestadores = await PrestadorService.getPrestadoresByClinica(clinicaId);
 
       const prestadoresOptions = prestadores.map(prestador => ({
-        value: prestador.nome,
-        label: `${prestador.nome}${prestador.especialidade_principal || prestador.especialidade ? ` - ${prestador.especialidade_principal || prestador.especialidade}` : ''}`
+        value: prestador.id.toString(),
+        label: `${prestador.nome}${prestador.especialidade_principal || prestador.especialidade ? ` - ${prestador.especialidade_principal || prestador.especialidade}` : ''}`,
+        id: prestador.id
       }));
 
       setPrestadoresOptions(prestadoresOptions);
@@ -1375,14 +1385,18 @@ const Patients = () => {
     // Filtrar apenas para dados locais
     let filtered = patients.filter(patient => {
       // Filtro de busca (nome, diagnóstico, número da carteirinha, CPF, operadora)
-      if (searchTerm && searchTerm.trim() !== '') {
+      if (searchTerm && typeof searchTerm === 'string' && searchTerm.trim() !== '') {
         const term = searchTerm.toLowerCase().trim();
+        const patientName = (patient.name || '').toString();
+        const patientDiagnosis = (patient.diagnosis || '').toString();
+        const patientOperadoraName = getOperadoraName(patient.Operadora) || '';
+        
         const matchesSearch = 
-          patient.name.toLowerCase().includes(term) ||
-          patient.diagnosis.toLowerCase().includes(term) ||
-          patient.numero_carteirinha?.toLowerCase().includes(term) ||
-          patient.cpf?.toLowerCase().includes(term) ||
-          getOperadoraName(patient.Operadora).toLowerCase().includes(term);
+          patientName.toLowerCase().includes(term) ||
+          patientDiagnosis.toLowerCase().includes(term) ||
+          (patient.numero_carteirinha && typeof patient.numero_carteirinha === 'string' && patient.numero_carteirinha.toLowerCase().includes(term)) ||
+          (patient.cpf && typeof patient.cpf === 'string' && patient.cpf.toLowerCase().includes(term)) ||
+          (patientOperadoraName && patientOperadoraName.toLowerCase().includes(term));
         
         if (!matchesSearch) {
           return false;
@@ -1390,37 +1404,48 @@ const Patients = () => {
       }
       
       // Filtro de status
-      if (statusFilter !== 'all') {
-        const matchesStatus = patient.status.toLowerCase().includes(statusFilter.toLowerCase());
+      if (statusFilter && statusFilter !== 'all') {
+        const patientStatus = patient.status || '';
+        const filterValue = typeof statusFilter === 'string' ? statusFilter : String(statusFilter || '');
+        const matchesStatus = patientStatus.toLowerCase().includes(filterValue.toLowerCase());
         if (!matchesStatus) {
           return false;
         }
       }
       
       // Filtro de CID
-      if (cidFilter !== 'all') {
+      if (cidFilter && cidFilter !== 'all') {
         const cids = Array.isArray(patient.Cid_Diagnostico) ? patient.Cid_Diagnostico : [patient.Cid_Diagnostico || ''];
-        const matchesCid = cids.some(cid => cid?.toLowerCase().includes(cidFilter.toLowerCase()));
+        const filterValue = typeof cidFilter === 'string' ? cidFilter : String(cidFilter || '');
+        const matchesCid = cids.some(cid => cid && typeof cid === 'string' && cid.toLowerCase().includes(filterValue.toLowerCase()));
         if (!matchesCid) {
           return false;
         }
       }
       
       // Filtro de Protocolo (tratamento)
-      if (protocoloFilter !== 'all') {
-        const matchesProtocolo = patient.treatment?.toLowerCase().includes(protocoloFilter.toLowerCase());
+      if (protocoloFilter && protocoloFilter !== 'all') {
+        const patientTreatment = patient.treatment || '';
+        const filterValue = typeof protocoloFilter === 'string' ? protocoloFilter : String(protocoloFilter || '');
+        const matchesProtocolo = patientTreatment.toLowerCase().includes(filterValue.toLowerCase());
         if (!matchesProtocolo) {
           return false;
         }
       }
       
       // Filtro de Operadora
-      if (operadoraFilter !== 'all') {
+      if (operadoraFilter && operadoraFilter !== 'all') {
         // Obter o nome da operadora do paciente (pode ser string ou número)
-        const patientOperadoraName = getOperadoraName(patient.Operadora);
+        const patientOperadoraName = getOperadoraName(patient.Operadora) || '';
         
         // Verificar se a operadora do paciente corresponde ao filtro selecionado
-        const matchesOperadora = patientOperadoraName.toLowerCase() === operadoraFilter.toLowerCase();
+        if (!patientOperadoraName) {
+          return false; // Se não tem operadora, não corresponde ao filtro
+        }
+        
+        // Garantir que operadoraFilter seja uma string antes de chamar toLowerCase
+        const filterValue = typeof operadoraFilter === 'string' ? operadoraFilter : String(operadoraFilter || '');
+        const matchesOperadora = patientOperadoraName.toLowerCase() === filterValue.toLowerCase();
         
         if (!matchesOperadora) {
           return false;
@@ -1517,19 +1542,68 @@ const Patients = () => {
       });
   };
 
-  const handleEdit = (id: string) => {
+  const handleEdit = async (id: string) => {
     const patientToEdit = patients.find(patient => patient.id === id);
     if (patientToEdit) {
-      // Converter datas ISO para formato brasileiro para edição
-      const patientForEdit = {
-        ...patientToEdit,
-        Data_Nascimento: convertFromISODate(patientToEdit.Data_Nascimento),
-        startDate: convertFromISODate(patientToEdit.startDate)
-      };
-      setCurrentPatient(patientForEdit);
-      setIsEditing(true);
-      setValidationErrors({});
-      setIsDialogOpen(true);
+      // Buscar dados atualizados do backend para garantir que temos os dados mais recentes
+      try {
+        const pacienteAtualizado = await PacienteService.buscarPaciente(parseInt(id));
+        console.log(`🔍 [Patients.handleEdit] Dados do paciente buscados do backend:`, pacienteAtualizado);
+        
+        // Converter datas ISO para formato brasileiro para edição
+        // Verificar se há um prestador_id no paciente ou se o nome corresponde a um prestador
+        const medicoNome = pacienteAtualizado.medico_assistente_nome || '';
+        let prestadorId: string = '';
+        
+        // Se o paciente tem prestador_id, usar esse ID
+        if ((pacienteAtualizado as any).prestador_id) {
+          prestadorId = (pacienteAtualizado as any).prestador_id.toString();
+        } else {
+          // Caso contrário, tentar encontrar pelo nome
+          const prestadorCorrespondente = prestadoresOptions.find(
+            opt => opt.label.includes(medicoNome) || opt.label === medicoNome
+          );
+          if (prestadorCorrespondente) {
+            prestadorId = prestadorCorrespondente.value;
+          }
+        }
+        
+        const patientForEdit = {
+          ...pacienteAtualizado,
+          Data_Nascimento: convertFromISODate(pacienteAtualizado.Data_Nascimento),
+          startDate: convertFromISODate(pacienteAtualizado.startDate),
+          // Se encontrou um prestador correspondente, usar o ID no Prestador
+          // Caso contrário, manter medico_assistente_nome para o input de texto
+          Prestador: prestadorId,
+          medico_assistente_nome: prestadorId ? '' : medicoNome,
+          // Garantir que os campos do médico assistente sejam carregados
+          medico_assistente_email: pacienteAtualizado.medico_assistente_email || '',
+          medico_assistente_telefone: pacienteAtualizado.medico_assistente_telefone || '',
+          medico_assistente_especialidade: pacienteAtualizado.medico_assistente_especialidade || ''
+        };
+        
+        console.log(`✅ [Patients.handleEdit] Paciente preparado para edição:`, patientForEdit);
+        console.log(`   - medico_assistente_nome: "${patientForEdit.medico_assistente_nome}"`);
+        console.log(`   - Prestador: "${patientForEdit.Prestador}"`);
+        console.log(`   - prestadorCorrespondente encontrado:`, prestadorCorrespondente ? 'Sim' : 'Não');
+        
+        setCurrentPatient(patientForEdit);
+        setIsEditing(true);
+        setValidationErrors({});
+        setIsDialogOpen(true);
+      } catch (error) {
+        console.error('❌ [Patients.handleEdit] Erro ao buscar paciente atualizado, usando dados locais:', error);
+        // Fallback: usar dados locais se a busca falhar
+        const patientForEdit = {
+          ...patientToEdit,
+          Data_Nascimento: convertFromISODate(patientToEdit.Data_Nascimento),
+          startDate: convertFromISODate(patientToEdit.startDate)
+        };
+        setCurrentPatient(patientForEdit);
+        setIsEditing(true);
+        setValidationErrors({});
+        setIsDialogOpen(true);
+      }
     }
   };
 
@@ -1583,7 +1657,10 @@ const Patients = () => {
     if (!currentPatient.startDate?.trim()) errors.startDate = 'Data de início é obrigatória';
     if (!currentPatient.status?.trim()) errors.status = 'Status é obrigatório';
     if (!currentPatient.Operadora?.trim()) errors.Operadora = 'Operadora é obrigatória';
-    if (!currentPatient.Prestador?.trim()) errors.Prestador = 'Prestador é obrigatório';
+    // Validar médico assistente: pode ser Prestador (do select) ou medico_assistente_nome (digitado)
+    if (!currentPatient.Prestador?.trim() && !currentPatient.medico_assistente_nome?.trim()) {
+      errors.Prestador = 'Médico Assistente é obrigatório';
+    }
     
     // Validações específicas
     if (currentPatient.cpf && !validateCPF(currentPatient.cpf)) {
@@ -1615,28 +1692,70 @@ const Patients = () => {
       setLoading(true);
       try {
         // Preparar dados com conversão de datas
-        const dadosParaEnvio = {
-          ...currentPatient,
+        // Se medico_assistente_nome foi fornecido, não incluir Prestador no spread
+        const { Prestador, ...patientWithoutPrestador } = currentPatient;
+        const dadosParaEnvio: any = {
+          ...(currentPatient.medico_assistente_nome && currentPatient.medico_assistente_nome.trim() !== '' 
+            ? patientWithoutPrestador 
+            : currentPatient),
           // Garantir que as datas estejam no formato correto para o backend
           Data_Nascimento: convertToISODate(currentPatient.Data_Nascimento),
           Data_Primeira_Solicitacao: convertToISODate(currentPatient.startDate),
-          // Garantir que Operadora e Prestador sejam números se necessário
+          // Garantir que Operadora seja número se necessário
           Operadora: typeof currentPatient.Operadora === 'string' ? getOperadoraId(currentPatient.Operadora) : currentPatient.Operadora,
-          Prestador: typeof currentPatient.Prestador === 'string' ? 1 : currentPatient.Prestador,
           // Adicionar clinica_id se não existir
           clinica_id: currentPatient.clinica_id || 1
         };
         
+        // Lógica para Prestador e medico_assistente_*
+        // Se Prestador (ID) está selecionado, enviar o ID e também os campos medico_assistente_* para atualizar
+        // Se apenas medico_assistente_nome está preenchido (digitado manualmente), enviar apenas medico_assistente_*
+        if (currentPatient.Prestador && currentPatient.Prestador.trim() !== '') {
+          // Prestador selecionado do dropdown - enviar ID e campos para atualizar
+          const prestadorId = typeof currentPatient.Prestador === 'string' 
+            ? parseInt(currentPatient.Prestador) 
+            : currentPatient.Prestador;
+          if (!isNaN(prestadorId)) {
+            dadosParaEnvio.Prestador = prestadorId;
+            // Também enviar campos medico_assistente_* para atualizar as informações no banco
+            if (currentPatient.medico_assistente_nome) {
+              dadosParaEnvio.medico_assistente_nome = currentPatient.medico_assistente_nome;
+            }
+            if (currentPatient.medico_assistente_email !== undefined) {
+              dadosParaEnvio.medico_assistente_email = currentPatient.medico_assistente_email || null;
+            }
+            if (currentPatient.medico_assistente_telefone !== undefined) {
+              dadosParaEnvio.medico_assistente_telefone = currentPatient.medico_assistente_telefone || null;
+            }
+            if (currentPatient.medico_assistente_especialidade !== undefined) {
+              dadosParaEnvio.medico_assistente_especialidade = currentPatient.medico_assistente_especialidade || null;
+            }
+            console.log(`🔍 [Patients.handleSubmit] Prestador selecionado (ID: ${prestadorId}), enviando campos para atualizar`);
+          }
+        } else if (currentPatient.medico_assistente_nome && currentPatient.medico_assistente_nome.trim() !== '') {
+          // Apenas medico_assistente_nome preenchido (digitado manualmente) - não enviar Prestador
+          delete dadosParaEnvio.Prestador;
+          console.log(`🔍 [Patients.handleSubmit] Apenas medico_assistente_nome fornecido: "${currentPatient.medico_assistente_nome}"`);
+        }
+        
         if (isEditing) {
-          await PacienteService.atualizarPaciente(parseInt(currentPatient.id!), dadosParaEnvio);
+          const pacienteAtualizado = await PacienteService.atualizarPaciente(parseInt(currentPatient.id!), dadosParaEnvio);
+          console.log(`✅ [Patients.handleSubmit] Paciente atualizado, dados retornados:`, pacienteAtualizado);
           toast.success('Paciente atualizado com sucesso!');
+          
+          // Atualizar o paciente na lista local imediatamente
+          setPatients(prevPatients => 
+            prevPatients.map(p => 
+              p.id === currentPatient.id ? pacienteAtualizado : p
+            )
+          );
         } else {
           await PacienteService.criarPaciente(dadosParaEnvio);
           toast.success('Paciente criado com sucesso!');
         }
         
         setIsDialogOpen(false);
-        // Recarregar dados da API
+        // Recarregar dados da API para garantir sincronização
         await loadPatientsFromAPI();
       } catch (error) {
         console.error('Erro ao salvar paciente:', error);
@@ -2263,11 +2382,52 @@ const Patients = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="Prestador">Médico Assistente *</Label>
+                    <Label htmlFor="medico_assistente_nome">Médico Assistente *</Label>
                     <div className="flex gap-2">
                       <Select
-                        value={currentPatient.Prestador}
-                        onValueChange={(value) => handleInputChange({ target: { name: 'Prestador', value } } as any)}
+                        value={currentPatient.Prestador || ''}
+                        onValueChange={async (value) => {
+                          console.log(`🔍 [Patients] Select Prestador alterado para: "${value}"`);
+                          try {
+                            // Buscar informações do prestador selecionado
+                            const prestadorId = parseInt(value);
+                            if (!isNaN(prestadorId)) {
+                              const prestador = await PrestadorService.getPrestadorById(prestadorId);
+                              console.log(`✅ [Patients] Prestador encontrado:`, prestador);
+                              
+                              // Preencher campos com as informações do prestador
+                              setCurrentPatient(prev => ({
+                                ...prev,
+                                Prestador: value,
+                                medico_assistente_nome: prestador.nome || '',
+                                medico_assistente_email: prestador.email || '',
+                                medico_assistente_telefone: prestador.telefone || '',
+                                medico_assistente_especialidade: prestador.especialidade_principal || prestador.especialidade || ''
+                              }));
+                            } else {
+                              // Se não conseguir converter para número, limpar campos
+                              setCurrentPatient(prev => ({
+                                ...prev,
+                                Prestador: value,
+                                medico_assistente_nome: '',
+                                medico_assistente_email: '',
+                                medico_assistente_telefone: '',
+                                medico_assistente_especialidade: ''
+                              }));
+                            }
+                          } catch (error) {
+                            console.error('❌ [Patients] Erro ao buscar prestador:', error);
+                            // Em caso de erro, apenas atualizar o Prestador
+                            setCurrentPatient(prev => ({
+                              ...prev,
+                              Prestador: value,
+                              medico_assistente_nome: '',
+                              medico_assistente_email: '',
+                              medico_assistente_telefone: '',
+                              medico_assistente_especialidade: ''
+                            }));
+                          }
+                        }}
                       >
                         <SelectTrigger className={`flex-1 transition-all duration-300 focus:border-primary ${
                           validationErrors.Prestador ? 'border-red-500' : ''
@@ -2283,10 +2443,18 @@ const Patients = () => {
                         </SelectContent>
                       </Select>
                       <Input
-                        id="Prestador"
-                        name="Prestador"
-                        value={currentPatient.Prestador}
-                        onChange={handleInputChange}
+                        id="medico_assistente_nome"
+                        name="medico_assistente_nome"
+                        value={currentPatient.medico_assistente_nome || ''}
+                        onChange={(e) => {
+                          console.log(`🔍 [Patients] Input medico_assistente_nome alterado para: "${e.target.value}"`);
+                          // Quando digita no input, atualizar medico_assistente_nome e limpar Prestador
+                          setCurrentPatient(prev => ({
+                            ...prev,
+                            medico_assistente_nome: e.target.value,
+                            Prestador: '' // Limpar select quando digita no input
+                          }));
+                        }}
                         placeholder="Ou digite o nome..."
                         className={`flex-1 transition-all duration-300 focus:border-primary ${
                           validationErrors.Prestador ? 'border-red-500' : ''
@@ -2297,6 +2465,48 @@ const Patients = () => {
                       <p className="text-sm text-red-500 mt-1">{validationErrors.Prestador}</p>
                     )}
                   </div>
+
+                  {/* Campos adicionais do médico assistente - só aparecem quando medico_assistente_nome está preenchido */}
+                  {currentPatient.medico_assistente_nome && currentPatient.medico_assistente_nome.trim() !== '' && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="medico_assistente_email">E-mail do Médico Assistente</Label>
+                        <Input
+                          id="medico_assistente_email"
+                          name="medico_assistente_email"
+                          type="email"
+                          value={currentPatient.medico_assistente_email || ''}
+                          onChange={handleInputChange}
+                          placeholder="exemplo@email.com"
+                          className="transition-all duration-300 focus:border-primary"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="medico_assistente_telefone">Telefone do Médico Assistente</Label>
+                        <Input
+                          id="medico_assistente_telefone"
+                          name="medico_assistente_telefone"
+                          value={currentPatient.medico_assistente_telefone || ''}
+                          onChange={handleInputChange}
+                          placeholder="(42) 99999-9999"
+                          className="transition-all duration-300 focus:border-primary"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="medico_assistente_especialidade">Especialidade do Médico Assistente</Label>
+                        <Input
+                          id="medico_assistente_especialidade"
+                          name="medico_assistente_especialidade"
+                          value={currentPatient.medico_assistente_especialidade || ''}
+                          onChange={handleInputChange}
+                          placeholder="Ex: Oncologia, Clínica Geral..."
+                          className="transition-all duration-300 focus:border-primary"
+                        />
+                      </div>
+                    </>
+                  )}
 
                   <div className="space-y-2">
                     <Label htmlFor="peso">Peso (kg)</Label>

@@ -20,6 +20,8 @@ import {
   EyeOff
 } from 'lucide-react';
 import { toast } from 'sonner';
+import config from '@/config/environment';
+import { authorizedFetch } from '@/services/authService';
 
 interface DoctorAuthProps {
   doctorCRM: string;
@@ -29,7 +31,7 @@ interface DoctorAuthProps {
 }
 
 interface DoctorAuthData {
-  method: 'digital_signature' | 'sms_otp' | 'email_otp' | 'manual_approval';
+  method: 'app_mobile' | 'email_otp' | 'manual_approval';
   timestamp: string;
   doctorCRM: string;
   doctorName: string;
@@ -46,7 +48,7 @@ const DoctorAuthentication: React.FC<DoctorAuthProps> = ({
   onAuthenticationSuccess,
   onAuthenticationCancel
 }) => {
-  const [authMethod, setAuthMethod] = useState<'digital_signature' | 'sms_otp' | 'email_otp' | 'manual_approval'>('digital_signature');
+  const [authMethod, setAuthMethod] = useState<'app_mobile' | 'email_otp' | 'manual_approval'>('app_mobile');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [authData, setAuthData] = useState({
@@ -56,73 +58,76 @@ const DoctorAuthentication: React.FC<DoctorAuthProps> = ({
     signatureText: ''
   });
   const [step, setStep] = useState<'method_selection' | 'authentication' | 'success'>('method_selection');
-
-  // Simular dados do médico (em produção viria do backend)
-  const doctorData = {
+  const [doctorData, setDoctorData] = useState<{
+    crm: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+    specialties: string[];
+    isActive: boolean;
+    lastLogin: string | null;
+  }>({
     crm: doctorCRM,
     name: doctorName,
-    email: 'medico@clinica.com',
-    phone: '+55 11 99999-9999',
-    specialties: ['Oncologia', 'Hematologia'],
+    email: null,
+    phone: null,
+    specialties: [],
     isActive: true,
-    lastLogin: '2024-01-15T10:30:00Z'
-  };
+    lastLogin: null
+  });
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpExpiresAt, setOtpExpiresAt] = useState<Date | null>(null);
+
+  // Buscar dados do médico do backend
+  useEffect(() => {
+    const fetchDoctorData = async () => {
+      try {
+        const response = await authorizedFetch(
+          `${config.API_BASE_URL}/medico-auth/medico-info?crm=${encodeURIComponent(doctorCRM)}`
+        );
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.data) {
+            setDoctorData({
+              crm: data.data.crm || doctorCRM,
+              name: data.data.nome || doctorName,
+              email: data.data.email || null,
+              phone: data.data.telefone || null,
+              specialties: [],
+              isActive: true,
+              lastLogin: null
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Erro ao buscar dados do médico:', error);
+        // Manter dados padrão se houver erro
+      }
+    };
+
+    if (doctorCRM) {
+      fetchDoctorData();
+    }
+  }, [doctorCRM, doctorName]);
 
   const handleMethodSelection = (method: typeof authMethod) => {
     setAuthMethod(method);
     setStep('authentication');
   };
 
-  const handleDigitalSignature = async () => {
+  const handleAppMobile = async () => {
     setIsAuthenticating(true);
     
     try {
-      // Simular processo de assinatura digital
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const signatureHash = generateSignatureHash(authData.signatureText, doctorCRM);
-      
-      const authResult: DoctorAuthData = {
-        method: 'digital_signature',
-        timestamp: new Date().toISOString(),
-        doctorCRM,
-        doctorName,
-        signatureHash,
-        ipAddress: await getClientIP(),
-        userAgent: navigator.userAgent
-      };
-      
-      setStep('success');
-      onAuthenticationSuccess(authResult);
-      
-      toast.success('Assinatura digital realizada com sucesso!', {
-        description: 'Documento autenticado pelo médico responsável.'
-      });
-      
-    } catch (error) {
-      toast.error('Erro na assinatura digital', {
-        description: 'Tente novamente ou escolha outro método.'
-      });
-    } finally {
-      setIsAuthenticating(false);
-    }
-  };
-
-  const handleSMSOTP = async () => {
-    setIsAuthenticating(true);
-    
-    try {
-      // Simular envio de SMS
+      // Simular processo de autenticação via app móvel
       await new Promise(resolve => setTimeout(resolve, 1500));
       
-      const otpCode = generateOTP();
-      
       const authResult: DoctorAuthData = {
-        method: 'sms_otp',
+        method: 'app_mobile',
         timestamp: new Date().toISOString(),
         doctorCRM,
         doctorName,
-        otpCode,
         ipAddress: await getClientIP(),
         userAgent: navigator.userAgent
       };
@@ -130,12 +135,12 @@ const DoctorAuthentication: React.FC<DoctorAuthProps> = ({
       setStep('success');
       onAuthenticationSuccess(authResult);
       
-      toast.success('Código SMS enviado e validado!', {
-        description: `Código: ${otpCode} (simulado)`
+      toast.success('Autenticação via aplicativo realizada com sucesso!', {
+        description: 'O médico deve aprovar a solicitação no aplicativo móvel.'
       });
       
     } catch (error) {
-      toast.error('Erro no envio do SMS', {
+      toast.error('Erro na autenticação via aplicativo', {
         description: 'Tente novamente ou escolha outro método.'
       });
     } finally {
@@ -144,20 +149,114 @@ const DoctorAuthentication: React.FC<DoctorAuthProps> = ({
   };
 
   const handleEmailOTP = async () => {
+    if (!doctorData.email) {
+      toast.error('Email não encontrado', {
+        description: 'Não foi possível encontrar o email do médico. Verifique se o CRM está correto.'
+      });
+      return;
+    }
+
     setIsAuthenticating(true);
     
     try {
-      // Simular envio de email
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Enviar código OTP por email
+      const response = await authorizedFetch(
+        `${config.API_BASE_URL}/medico-auth/send-otp`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            medico_crm: doctorCRM,
+            medico_email: doctorData.email
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Erro ao enviar código OTP');
+      }
+
+      // Código enviado com sucesso
+      setOtpSent(true);
+      if (data.data?.expires_at) {
+        setOtpExpiresAt(new Date(data.data.expires_at));
+      }
+
+      toast.success('Código enviado por email!', {
+        description: `Verifique sua caixa de entrada: ${doctorData.email}`
+      });
       
-      const otpCode = generateOTP();
+    } catch (error) {
+      console.error('Erro ao enviar OTP:', error);
+      toast.error('Erro no envio do email', {
+        description: error instanceof Error ? error.message : 'Tente novamente ou escolha outro método.'
+      });
+    } finally {
+      setIsAuthenticating(false);
+    }
+  };
+
+  const handleValidateOTP = async () => {
+    if (!authData.otpCode || authData.otpCode.length !== 6) {
+      toast.error('Código inválido', {
+        description: 'O código deve ter 6 dígitos'
+      });
+      return;
+    }
+
+    if (!doctorData.email) {
+      toast.error('Email não encontrado', {
+        description: 'Não foi possível validar o código. Email do médico não encontrado.'
+      });
+      return;
+    }
+
+    setIsAuthenticating(true);
+    
+    try {
+      // Limpar código OTP (remover espaços e garantir que seja string)
+      const codigoOTPLimpo = authData.otpCode.toString().trim().replace(/\D/g, '').slice(0, 6);
       
+      console.log('🔍 [DoctorAuthentication] Validando código OTP:', {
+        medico_crm: doctorCRM,
+        medico_email: doctorData.email,
+        codigo_otp_original: authData.otpCode,
+        codigo_otp_limpo: codigoOTPLimpo
+      });
+
+      // Validar código OTP
+      const response = await authorizedFetch(
+        `${config.API_BASE_URL}/medico-auth/validate-otp`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            medico_crm: doctorCRM,
+            medico_email: doctorData.email,
+            codigo_otp: codigoOTPLimpo
+          })
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || 'Código OTP inválido ou expirado');
+      }
+
+      // Código validado com sucesso
       const authResult: DoctorAuthData = {
         method: 'email_otp',
         timestamp: new Date().toISOString(),
         doctorCRM,
         doctorName,
-        otpCode,
+        otpCode: authData.otpCode,
         ipAddress: await getClientIP(),
         userAgent: navigator.userAgent
       };
@@ -165,13 +264,14 @@ const DoctorAuthentication: React.FC<DoctorAuthProps> = ({
       setStep('success');
       onAuthenticationSuccess(authResult);
       
-      toast.success('Código enviado por email!', {
-        description: `Código: ${otpCode} (simulado)`
+      toast.success('Autenticação realizada com sucesso!', {
+        description: 'Código OTP validado. Documento autenticado pelo médico responsável.'
       });
       
     } catch (error) {
-      toast.error('Erro no envio do email', {
-        description: 'Tente novamente ou escolha outro método.'
+      console.error('Erro ao validar OTP:', error);
+      toast.error('Erro ao validar código', {
+        description: error instanceof Error ? error.message : 'Código inválido ou expirado. Tente novamente.'
       });
     } finally {
       setIsAuthenticating(false);
@@ -246,37 +346,19 @@ const DoctorAuthentication: React.FC<DoctorAuthProps> = ({
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Assinatura Digital */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Aplicativo Móvel */}
         <Card 
           className="cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-primary"
-          onClick={() => handleMethodSelection('digital_signature')}
+          onClick={() => handleMethodSelection('app_mobile')}
         >
           <CardContent className="p-4">
             <div className="flex items-center space-x-3">
-              <Fingerprint className="h-8 w-8 text-primary" />
+              <Smartphone className="h-8 w-8 text-primary" />
               <div>
-                <h4 className="font-semibold">Assinatura Digital</h4>
+                <h4 className="font-semibold">Aplicativo</h4>
                 <p className="text-sm text-muted-foreground">
-                  Assinatura eletrônica com senha
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* SMS OTP */}
-        <Card 
-          className="cursor-pointer hover:shadow-md transition-shadow border-2 hover:border-primary"
-          onClick={() => handleMethodSelection('sms_otp')}
-        >
-          <CardContent className="p-4">
-            <div className="flex items-center space-x-3">
-              <Smartphone className="h-8 w-8 text-green-600" />
-              <div>
-                <h4 className="font-semibold">Código SMS</h4>
-                <p className="text-sm text-muted-foreground">
-                  Código enviado por SMS
+                  Aprovar pelo aplicativo móvel
                 </p>
               </div>
             </div>
@@ -292,7 +374,7 @@ const DoctorAuthentication: React.FC<DoctorAuthProps> = ({
             <div className="flex items-center space-x-3">
               <Mail className="h-8 w-8 text-blue-600" />
               <div>
-                <h4 className="font-semibold">Código Email</h4>
+                <h4 className="font-semibold">Email</h4>
                 <p className="text-sm text-muted-foreground">
                   Código enviado por email
                 </p>
@@ -310,7 +392,7 @@ const DoctorAuthentication: React.FC<DoctorAuthProps> = ({
             <div className="flex items-center space-x-3">
               <FileText className="h-8 w-8 text-orange-600" />
               <div>
-                <h4 className="font-semibold">Aprovação Manual</h4>
+                <h4 className="font-semibold">Manual</h4>
                 <p className="text-sm text-muted-foreground">
                   Aprovação presencial do médico
                 </p>
@@ -351,82 +433,104 @@ const DoctorAuthentication: React.FC<DoctorAuthProps> = ({
       </Card>
 
       {/* Método de Autenticação */}
-      {authMethod === 'digital_signature' && (
-        <div className="space-y-4">
-          <Label htmlFor="password">Senha de Assinatura Digital</Label>
-          <div className="relative">
-            <Input
-              id="password"
-              type={showPassword ? 'text' : 'password'}
-              value={authData.password}
-              onChange={(e) => setAuthData(prev => ({ ...prev, password: e.target.value }))}
-              placeholder="Digite sua senha de assinatura"
-              className="pr-10"
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="absolute right-0 top-0 h-full px-3"
-              onClick={() => setShowPassword(!showPassword)}
-            >
-              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </Button>
-          </div>
-          
-          <Label htmlFor="signatureText">Texto para Assinatura</Label>
-          <Input
-            id="signatureText"
-            value={authData.signatureText}
-            onChange={(e) => setAuthData(prev => ({ ...prev, signatureText: e.target.value }))}
-            placeholder="Digite um texto para assinar (ex: 'Aprovo esta solicitação')"
-          />
-          
-          <Button 
-            onClick={handleDigitalSignature}
-            disabled={isAuthenticating || !authData.password || !authData.signatureText}
-            className="w-full"
-          >
-            {isAuthenticating ? 'Assinando...' : 'Assinar Digitalmente'}
-          </Button>
-        </div>
-      )}
-
-      {authMethod === 'sms_otp' && (
+      {authMethod === 'app_mobile' && (
         <div className="space-y-4">
           <Alert>
             <Smartphone className="h-4 w-4" />
             <AlertDescription>
-              Um código será enviado para o telefone cadastrado: {doctorData.phone}
+              O médico deve acessar o aplicativo móvel e aprovar a solicitação por lá.
+              A autenticação será realizada quando o médico confirmar no app.
             </AlertDescription>
           </Alert>
           
           <Button 
-            onClick={handleSMSOTP}
+            onClick={handleAppMobile}
             disabled={isAuthenticating}
             className="w-full"
           >
-            {isAuthenticating ? 'Enviando SMS...' : 'Enviar Código SMS'}
+            {isAuthenticating ? 'Processando...' : 'Confirmar Autenticação via Aplicativo'}
           </Button>
         </div>
       )}
 
       {authMethod === 'email_otp' && (
         <div className="space-y-4">
-          <Alert>
-            <Mail className="h-4 w-4" />
-            <AlertDescription>
-              Um código será enviado para o email: {doctorData.email}
-            </AlertDescription>
-          </Alert>
-          
-          <Button 
-            onClick={handleEmailOTP}
-            disabled={isAuthenticating}
-            className="w-full"
-          >
-            {isAuthenticating ? 'Enviando Email...' : 'Enviar Código por Email'}
-          </Button>
+          {!otpSent ? (
+            <>
+              <Alert>
+                <Mail className="h-4 w-4" />
+                <AlertDescription>
+                  {doctorData.email ? (
+                    <>Um código será enviado para o email: <strong>{doctorData.email}</strong></>
+                  ) : (
+                    <>Carregando email do médico...</>
+                  )}
+                </AlertDescription>
+              </Alert>
+              
+              <Button 
+                onClick={handleEmailOTP}
+                disabled={isAuthenticating || !doctorData.email}
+                className="w-full"
+              >
+                {isAuthenticating ? 'Enviando Email...' : 'Enviar Código por Email'}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Alert className="border-green-200 bg-green-50">
+                <CheckCircle className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">
+                  <strong>Código enviado!</strong> Verifique sua caixa de entrada: {doctorData.email}
+                  {otpExpiresAt && (
+                    <div className="mt-2 text-sm">
+                      O código expira em {Math.ceil((otpExpiresAt.getTime() - Date.now()) / 60000)} minutos
+                    </div>
+                  )}
+                </AlertDescription>
+              </Alert>
+
+              <div className="space-y-2">
+                <Label htmlFor="otpCode">Digite o código recebido por email</Label>
+                <Input
+                  id="otpCode"
+                  type="text"
+                  value={authData.otpCode}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+                    setAuthData(prev => ({ ...prev, otpCode: value }));
+                  }}
+                  placeholder="000000"
+                  maxLength={6}
+                  className="text-center text-2xl font-mono tracking-widest"
+                />
+                <div className="text-xs text-muted-foreground text-center">
+                  Digite o código de 6 dígitos recebido por email
+                </div>
+              </div>
+
+              <Button 
+                onClick={handleValidateOTP}
+                disabled={isAuthenticating || authData.otpCode.length !== 6}
+                className="w-full"
+              >
+                {isAuthenticating ? 'Validando...' : 'Validar Código'}
+              </Button>
+
+              <Button 
+                variant="outline"
+                onClick={() => {
+                  setOtpSent(false);
+                  setAuthData(prev => ({ ...prev, otpCode: '' }));
+                  setOtpExpiresAt(null);
+                }}
+                className="w-full"
+                disabled={isAuthenticating}
+              >
+                Reenviar Código
+              </Button>
+            </>
+          )}
         </div>
       )}
 

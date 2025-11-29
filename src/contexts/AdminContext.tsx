@@ -35,9 +35,9 @@ export const AdminProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   }, [adminUser]);
 
   const loginAdmin = (username: string, password: string) => {
-    if (username === 'OnkhosGlobal' && password === 'Douglas193') {
+    if (username === 'OnkoLinkGlobal' && password === 'Douglas193') {
       const specialAdmin: AdminUser = {
-        username: 'OnkhosGlobal',
+        username: 'OnkoLinkGlobal',
         role: 'admin',
         isSpecialAdmin: true
       };

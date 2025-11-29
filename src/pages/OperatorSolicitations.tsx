@@ -256,7 +256,7 @@ const OperatorSolicitations = () => {
           hospital_nome: s.hospital_nome || s.hospital?.nome || '-',
           hospital_codigo: s.hospital_codigo || s.hospital?.codigo || '-',
           cliente_nome: s.cliente_nome || s.paciente_nome || s.paciente?.nome || 'Paciente',
-          cliente_codigo: s.cliente_codigo || s.paciente?.codigo || '-',
+          cliente_codigo: s.cliente_codigo || s.paciente?.numero_carteirinha || '-',
           sexo: (s.sexo || s.Sexo || s.paciente?.Sexo || 'M') as 'M' | 'F',
           data_nascimento: nascimento || '',
           idade: s.idade || idadeCalc || 0,

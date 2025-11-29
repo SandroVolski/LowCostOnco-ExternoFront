@@ -399,7 +399,7 @@ const AjustesCorpoClinico = () => {
           descricao: novaSolicitacao.descricao,
           medico: novaSolicitacao.medico,
           especialidade: novaSolicitacao.especialidade,
-          clinica: 'Clínica Onkhos', // Nome da clínica
+          clinica: 'Clínica OnkoLink', // Nome da clínica
           dataCriacao: new Date().toLocaleString('pt-BR'),
           anexos: novaSolicitacao.anexos.map(file => file.name)
         });

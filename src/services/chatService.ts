@@ -24,6 +24,12 @@ export interface Message {
   tipo_mensagem?: 'texto' | 'imagem' | 'arquivo';
 }
 
+export interface ChatParticipantSummary {
+  id?: number;
+  name: string;
+  type: 'operadora' | 'clinica';
+}
+
 export interface Chat {
   id?: number;
   type: 'individual' | 'group';
@@ -32,12 +38,20 @@ export interface Chat {
   name: string;
   description?: string;
   last_message_id?: number;
-  last_message?: Message;
+  last_message?: {
+    id?: number;
+    content: string;
+    created_at?: string;
+    sender_name?: string;
+    sender_type?: 'operadora' | 'clinica';
+  } | null;
+  last_message_time?: string;
   created_at?: string;
   updated_at?: string;
   unread_count?: number;
+  participants?: ChatParticipantSummary[];
   
-  // Campos do banco bd_onkhos
+  // Campos do banco bd_onkhos (compatibilidade)
   nome_conversa?: string;
   descricao?: string;
   ultima_mensagem_id?: number;
@@ -46,6 +60,8 @@ export interface Chat {
   operadora_ultima_leitura?: string;
   clinica_ultima_leitura?: string;
   ativa?: boolean;
+  operadora_nome?: string;
+  clinica_nome?: string;
 }
 
 export interface ChatParticipant {
@@ -59,7 +75,7 @@ export interface ChatParticipant {
 }
 
 export interface ChatWithParticipants extends Chat {
-  participants: ChatParticipant[];
+  participants: ChatParticipantSummary[];
 }
 
 export interface UnreadCountResponse {
@@ -68,6 +84,83 @@ export interface UnreadCountResponse {
 }
 
 class ChatService {
+  private mapChat = (chat: any): Chat => {
+    if (!chat) {
+      return {
+        id: undefined,
+        type: 'individual',
+        name: 'Conversa',
+        last_message: null,
+        participants: [],
+      };
+    }
+
+    const operadoraNome =
+      chat.operadora_nome ||
+      chat.operadoraNome ||
+      chat.operadora?.nome ||
+      chat.operadoraNome?.trim?.() ||
+      '';
+
+    const clinicaNome =
+      chat.clinica_nome ||
+      chat.clinicaNome ||
+      chat.clinica?.nome ||
+      chat.clinicaNome?.trim?.() ||
+      '';
+
+    // Ajustar participants vindos do backend ou criar fallback
+    const participants: ChatParticipantSummary[] = Array.isArray(chat.participants) && chat.participants.length > 0
+      ? chat.participants.map((participant: any) => ({
+          id: participant.participant_id ?? participant.id,
+          name: participant.name || participant.participant_name || (participant.participant_type === 'operadora' ? operadoraNome : clinicaNome),
+          type: participant.participant_type || participant.type || 'clinica'
+        }))
+      : [
+          { id: chat.operadora_id, name: operadoraNome || 'Operadora', type: 'operadora' },
+          { id: chat.clinica_id, name: clinicaNome || 'Clínica', type: 'clinica' },
+        ];
+
+    const lastMessage = chat.ultima_mensagem_texto
+      ? {
+          id: chat.ultima_mensagem_id,
+          content: chat.ultima_mensagem_texto,
+          created_at: chat.ultima_mensagem_data,
+          sender_name: chat.ultima_mensagem_remetente_nome,
+          sender_type: chat.ultima_mensagem_remetente_tipo,
+        }
+      : chat.last_message?.content
+      ? chat.last_message
+      : null;
+
+    return {
+      id: chat.id,
+      type: chat.type === 'group' ? 'group' : 'individual',
+      operadora_id: chat.operadora_id,
+      clinica_id: chat.clinica_id,
+      name: chat.nome_conversa || chat.name || `${operadoraNome} - ${clinicaNome}`.trim(),
+      description: chat.descricao || chat.description || undefined,
+      last_message_id: chat.last_message_id || chat.ultima_mensagem_id,
+      last_message: lastMessage,
+      last_message_time: chat.ultima_mensagem_data || lastMessage?.created_at,
+      created_at: chat.created_at,
+      updated_at: chat.updated_at,
+      unread_count: chat.mensagens_nao_lidas ?? chat.unread_count ?? 0,
+      participants,
+      // Campos auxiliares para compatibilidade
+      nome_conversa: chat.nome_conversa,
+      descricao: chat.descricao,
+      ultima_mensagem_id: chat.ultima_mensagem_id,
+      ultima_mensagem_texto: chat.ultima_mensagem_texto,
+      ultima_mensagem_data: chat.ultima_mensagem_data,
+      operadora_ultima_leitura: chat.operadora_ultima_leitura,
+      clinica_ultima_leitura: chat.clinica_ultima_leitura,
+      ativa: chat.ativa,
+      operadora_nome: operadoraNome,
+      clinica_nome: clinicaNome,
+    };
+  };
+  
   
   // Buscar chats do usuário
   async getUserChats(): Promise<Chat[]> {
@@ -78,31 +171,7 @@ class ChatService {
       }
       const result = await response.json();
 
-      // Mapear os dados do backend para o formato do frontend
-      const mappedChats = (result.data || []).map((chat: any) => {
-        // Tentar diferentes campos para os nomes (com letra minúscula)
-        const operadoraNome = chat.operadora_nome || chat.operadoraNome || chat.operadora_nome || '';
-        const clinicaNome = chat.clinica_nome || chat.clinicaNome || chat.clinica_nome || '';
-
-        return {
-          id: chat.id,
-          name: chat.nome_conversa || `${operadoraNome} - ${clinicaNome}`,
-          operadora_id: chat.operadora_id,
-          clinica_id: chat.clinica_id,
-          // Campos diretos para fallback
-          operadora_nome: operadoraNome,
-          clinica_nome: clinicaNome,
-          participants: [
-            { id: chat.operadora_id, name: operadoraNome, type: 'operadora' },
-            { id: chat.clinica_id, name: clinicaNome, type: 'clinica' }
-          ],
-          last_message: chat.ultima_mensagem_texto,
-          last_message_time: chat.ultima_mensagem_data,
-          unread_count: chat.mensagens_nao_lidas || 0,
-          created_at: chat.created_at,
-          updated_at: chat.updated_at
-        };
-      });
+      const mappedChats = (result.data || []).map(this.mapChat);
 
       return mappedChats;
     } catch (error) {
@@ -120,25 +189,8 @@ class ChatService {
       }
       const result = await response.json();
       
-      // Mapear os dados do backend para o formato do frontend
       const chat = result.data;
-      const mappedChat = {
-        id: chat.id,
-        name: chat.nome_conversa || `${chat.operadora_nome} - ${chat.clinica_nome}`,
-        operadora_id: chat.operadora_id,
-        clinica_id: chat.clinica_id,
-        participants: [
-          { id: chat.operadora_id, name: chat.operadora_nome, type: 'operadora' },
-          { id: chat.clinica_id, name: chat.clinica_nome, type: 'clinica' }
-        ],
-        last_message: chat.ultima_mensagem_texto,
-        last_message_time: chat.ultima_mensagem_data,
-        unread_count: 0,
-        created_at: chat.created_at,
-        updated_at: chat.updated_at
-      };
-      
-      return mappedChat;
+      return this.mapChat(chat) as ChatWithParticipants;
     } catch (error) {
       console.error('Erro ao buscar chat:', error);
       throw new Error('Erro ao carregar chat');
@@ -291,7 +343,7 @@ class ChatService {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       const result = await response.json();
-      return result.data;
+      return this.mapChat(result.data);
     } catch (error) {
       console.error('Erro ao encontrar/criar conversa:', error);
       throw new Error('Erro ao encontrar/criar conversa');
@@ -319,7 +371,7 @@ class ChatService {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       const result = await response.json();
-      return result.data;
+      return this.mapChat(result.data);
     } catch (error) {
       console.error('Erro ao criar chat:', error);
       throw new Error('Erro ao criar chat');
@@ -344,7 +396,7 @@ class ChatService {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       const result = await response.json();
-      return result.data;
+      return this.mapChat(result.data);
     } catch (error) {
       console.error('Erro ao buscar/criar chat:', error);
       throw new Error('Erro ao buscar/criar chat');
@@ -465,6 +517,37 @@ class ChatService {
     } catch (error) {
       console.error('Erro ao buscar clínicas da operadora:', error);
       throw new Error('Erro ao buscar clínicas da operadora');
+    }
+  }
+
+  // Buscar perfil do usuário (clínica)
+  async getUserProfile(): Promise<any> {
+    try {
+      const response = await authorizedFetch(`${config.API_BASE_URL}/clinicas/profile`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const result = await response.json();
+      return result.data || null;
+    } catch (error) {
+      console.error('Erro ao buscar perfil:', error);
+      throw error;
+    }
+  }
+
+  // Buscar clínicas por operadora
+  async getClinicas(operadoraId?: number): Promise<any[]> {
+    try {
+      const query = operadoraId ? `?operadora_id=${operadoraId}` : '';
+      const response = await authorizedFetch(`${config.API_BASE_URL}/clinicas/por-operadora${query}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const result = await response.json();
+      return result.data || [];
+    } catch (error) {
+      console.error('Erro ao buscar clínicas:', error);
+      throw error;
     }
   }
 }

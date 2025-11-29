@@ -54,6 +54,10 @@ export interface Clinica {
   usuario?: string;
   senha?: string;
   status: 'ativo' | 'inativo' | 'pendente';
+  // Relacionamento com operadoras (N:N)
+  operadora_id?: number; // Operadora principal (compatibilidade)
+  operadora_ids?: number[]; // Lista de IDs das operadoras vinculadas
+  operadoras?: Array<{ id: number; nome: string; codigo?: string }>; // Dados completos
   created_at?: string;
   updated_at?: string;
 }
@@ -84,6 +88,8 @@ export interface ClinicaCreateInput {
   usuario?: string;
   senha?: string;
   status?: 'ativo' | 'inativo' | 'pendente';
+  operadora_id?: number;
+  operadora_ids?: number[];
 }
 
 export interface ClinicaUpdateInput {
@@ -112,6 +118,8 @@ export interface ClinicaUpdateInput {
   usuario?: string;
   senha?: string;
   status?: 'ativo' | 'inativo' | 'pendente';
+  operadora_id?: number;
+  operadora_ids?: number[];
 }
 
 // Interface para resposta da API
@@ -211,8 +219,13 @@ export class ClinicService {
   static async getAllClinicas(page: number = 1, limit: number = 50, search: string = ''): Promise<{data: Clinica[], pagination: any}> {
     try {
       const searchParam = search ? `&search=${encodeURIComponent(search)}` : '';
-      const response = await fetch(`${API_BASE_URL}/clinicas/admin?page=${page}&limit=${limit}${searchParam}`, {
-        headers: this.getAdminHeaders()
+      const timestamp = new Date().getTime();
+      const response = await fetch(`${API_BASE_URL}/clinicas/admin?page=${page}&limit=${limit}${searchParam}&_t=${timestamp}`, {
+        headers: {
+          ...this.getAdminHeaders(),
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
       });
 
       if (!response.ok) {
@@ -266,7 +279,14 @@ export class ClinicService {
   // Buscar clínica por ID
   static async getClinicaById(id: number): Promise<Clinica> {
     try {
-      const response = await fetch(`${API_BASE_URL}/clinicas/admin/${id}`);
+      // Adicionar timestamp para evitar cache
+      const timestamp = new Date().getTime();
+      const response = await fetch(`${API_BASE_URL}/clinicas/admin/${id}?_t=${timestamp}`, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -406,7 +426,12 @@ export class ClinicService {
       if (value !== undefined && value !== null && value !== '') {
         if (Array.isArray(value)) {
           // Filtrar arrays vazios
-          const filteredArray = value.filter(item => item && item.trim() !== '');
+          // operadora_ids é array de números, não strings
+          const filteredArray = value.filter(item => {
+            if (typeof item === 'number') return true;
+            if (typeof item === 'string') return item.trim() !== '';
+            return item !== null && item !== undefined;
+          });
           if (filteredArray.length > 0) {
             prepared[key] = filteredArray;
           }

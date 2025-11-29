@@ -54,7 +54,7 @@ import ActivePrincipleSelection from '@/components/ActivePrincipleSelection';
 interface PatientOption {
   id: string;
   name: string;
-  codigo: string;
+  numero_carteirinha: string;
   cpf: string;
   dataNascimento: string;
   idade: number;
@@ -330,7 +330,7 @@ const Reports = () => {
       const patientOptions: PatientOption[] = result.data.map((patient: any) => ({
         id: patient.id,
         name: patient.name || patient.Paciente_Nome,
-        codigo: patient.Codigo,
+        numero_carteirinha: patient.numero_carteirinha || '',
         cpf: patient.cpf || '',
         dataNascimento: patient.Data_Nascimento,
         idade: patient.age,
@@ -356,7 +356,7 @@ const Reports = () => {
       setFormData(prev => ({
         ...prev,
         cliente_nome: selectedPatient.name || prev.cliente_nome || '',
-        cliente_codigo: selectedPatient.codigo || prev.cliente_codigo || '',
+        cliente_codigo: selectedPatient.numero_carteirinha || prev.cliente_codigo || '',
         sexo: selectedPatient.sexo === 'Masculino' ? 'M' : selectedPatient.sexo === 'Feminino' ? 'F' : (selectedPatient.sexo || prev.sexo || ''),
         data_nascimento: convertDateToInput(selectedPatient.dataNascimento || '') || prev.data_nascimento || '',
         idade: (selectedPatient.idade != null ? String(selectedPatient.idade) : (prev.idade || '')),
@@ -462,7 +462,7 @@ const Reports = () => {
       });
     }
     
-    if (!formData.diagnostico_cid?.trim()) {
+    if (!formData.diagnostico_cid || (typeof formData.diagnostico_cid === 'string' && !formData.diagnostico_cid.trim())) {
       missingFields.push({ 
         field: 'diagnostico_cid', 
         label: 'CIDs', 
@@ -555,7 +555,7 @@ const Reports = () => {
         data_nascimento: formData.data_nascimento || undefined,
         idade: formData.idade ? parseInt(formData.idade) : undefined,
         data_solicitacao: formData.data_solicitacao || undefined,
-        diagnostico_cid: formData.diagnostico_cid || '',
+        diagnostico_cid: typeof formData.diagnostico_cid === 'string' ? formData.diagnostico_cid : (Array.isArray(formData.diagnostico_cid) ? formData.diagnostico_cid.join(', ') : ''),
         diagnostico_descricao: formData.diagnostico_descricao || '',
         local_metastases: formData.local_metastases || '',
         estagio_t: formData.estagio_t || '',
@@ -1233,7 +1233,7 @@ const Reports = () => {
                                       <div className="flex flex-col items-start w-full space-y-1">
                                         <span className="font-medium leading-tight">{patient.name}</span>
                                         <span className="text-xs text-muted-foreground">
-                                          {patient.codigo} • {patient.sexo} • {patient.idade} anos
+                                          {patient.numero_carteirinha || 'Sem carteirinha'} • {patient.sexo} • {patient.idade} anos
                                         </span>
                                       </div>
                                     </SelectItem>
@@ -1386,7 +1386,11 @@ const Reports = () => {
                     <div className="space-y-2">
                       <Label htmlFor="diagnostico_cid">CIDs-10 (pode adicionar vários) *</Label>
                       <CIDSelection
-                        value={formData.diagnostico_cid ? formData.diagnostico_cid.split(',').map(c => c.trim()).filter(c => c) : []}
+                        value={formData.diagnostico_cid && typeof formData.diagnostico_cid === 'string' 
+                          ? formData.diagnostico_cid.split(',').map(c => c.trim()).filter(c => c) 
+                          : Array.isArray(formData.diagnostico_cid)
+                          ? formData.diagnostico_cid
+                          : []}
                         onChange={(arr) => {
                           const cids = arr?.map(item => item.codigo) || [];
                           setFormData(prev => ({ ...prev, diagnostico_cid: cids.join(', ') }));
@@ -2051,8 +2055,10 @@ const Reports = () => {
                                       <div className="text-xs text-muted-foreground mb-4 px-3 py-2 bg-muted/50 rounded-md">
                                         {clinicProfile.responsaveis_tecnicos.length} médico(s) cadastrado(s):
                                       </div>
-                                      {clinicProfile.responsaveis_tecnicos.map((responsavel) => (
-                                        <SelectItem key={responsavel.id || responsavel.crm} value={responsavel.crm} className="py-3 px-3">
+                                      {clinicProfile.responsaveis_tecnicos
+                                        .filter((responsavel) => responsavel.crm && responsavel.crm.trim() !== '')
+                                        .map((responsavel) => (
+                                        <SelectItem key={responsavel.id || responsavel.crm} value={responsavel.crm || String(responsavel.id)} className="py-3 px-3">
                                           <div className="flex flex-col items-start w-full space-y-2">
                                             <span className="font-medium text-sm leading-tight">{responsavel.nome}</span>
                                             <div className="flex flex-col gap-1 text-xs text-muted-foreground">

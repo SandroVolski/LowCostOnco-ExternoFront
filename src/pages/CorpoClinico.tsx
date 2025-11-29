@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { ClinicService, ResponsavelTecnico } from '@/services/clinicService';
+import { OperadoraService, Operadora } from '@/services/operadoraService';
 import { useDataLoader, useDataMutation } from '@/hooks/useDataLoader';
 import { LoadingState, ConnectionStatus } from '@/components/ui/loading-states';
 
@@ -53,6 +54,8 @@ const CorpoClinico = () => {
   const [isEditingResponsavel, setIsEditingResponsavel] = useState(false);
   const [filterType, setFilterType] = useState<string>('recent');
   const [togglingId, setTogglingId] = useState<number | null>(null);
+  const [operadoras, setOperadoras] = useState<Operadora[]>([]);
+  const [loadingOperadoras, setLoadingOperadoras] = useState(false);
   // Lista derivada memoizada para evitar setState em efeito
 
   // Usar o novo sistema de carregamento
@@ -88,6 +91,35 @@ const CorpoClinico = () => {
       setLocalResponsaveis(profileData);
     }
   }, [profileData]);
+
+  // Carregar operadoras do backend
+  useEffect(() => {
+    const loadOperadoras = async () => {
+      try {
+        setLoadingOperadoras(true);
+        const operadorasData = await OperadoraService.getAllOperadoras();
+        // Filtrar apenas operadoras ativas
+        const operadorasAtivas = operadorasData.filter(op => op.status === 'ativo');
+        setOperadoras(operadorasAtivas);
+        console.log('✅ Operadoras carregadas:', operadorasAtivas.length);
+      } catch (error) {
+        console.error('❌ Erro ao carregar operadoras:', error);
+        toast.error('Erro ao carregar operadoras. Usando lista padrão.');
+        // Fallback para lista padrão em caso de erro
+        setOperadoras([
+          { id: 1, nome: 'Unimed', codigo: 'UNIMED', status: 'ativo' },
+          { id: 2, nome: 'Bradesco Saúde', codigo: 'BRADESCO', status: 'ativo' },
+          { id: 3, nome: 'Amil', codigo: 'AMIL', status: 'ativo' },
+          { id: 4, nome: 'SulAmérica', codigo: 'SULAMERICA', status: 'ativo' },
+          { id: 5, nome: 'NotreDame Intermédica', codigo: 'NOTREDAME', status: 'ativo' }
+        ]);
+      } finally {
+        setLoadingOperadoras(false);
+      }
+    };
+
+    loadOperadoras();
+  }, []);
   
   const responsaveis = localResponsaveis;
 
@@ -754,42 +786,45 @@ const CorpoClinico = () => {
                 <Label className="text-sm text-muted-foreground">
                   Selecione as operadoras para as quais este profissional está habilitado a prescrever:
                 </Label>
-                <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto border rounded-md p-3">
-                  {/* Mock operadoras - em produção viria do backend */}
-                  {[
-                    { id: 1, nome: 'Unimed' },
-                    { id: 2, nome: 'Bradesco Saúde' },
-                    { id: 3, nome: 'Amil' },
-                    { id: 4, nome: 'SulAmérica' },
-                    { id: 5, nome: 'NotreDame Intermédica' }
-                  ].map((operadora) => (
-                    <div key={operadora.id} className="flex items-center space-x-2">
-                      <input
-                        type="checkbox"
-                        id={`operadora_${operadora.id}`}
-                        checked={currentResponsavel.operadoras_habilitadas?.includes(operadora.id) || false}
-                        onChange={(e) => {
-                          const isChecked = e.target.checked;
-                          const currentOperadoras = currentResponsavel.operadoras_habilitadas || [];
-                          const newOperadoras = isChecked
-                            ? [...currentOperadoras, operadora.id]
-                            : currentOperadoras.filter(id => id !== operadora.id);
-                          
-                          handleResponsavelInputChange({ 
-                            target: { 
-                              name: 'operadoras_habilitadas', 
-                              value: newOperadoras 
-                            } 
-                          });
-                        }}
-                        className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
-                      />
-                      <Label htmlFor={`operadora_${operadora.id}`} className="text-sm">
-                        {operadora.nome}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
+                {loadingOperadoras ? (
+                  <div className="flex items-center justify-center p-4 border rounded-md">
+                    <span className="text-sm text-muted-foreground">Carregando operadoras...</span>
+                  </div>
+                ) : operadoras.length === 0 ? (
+                  <div className="flex items-center justify-center p-4 border rounded-md bg-yellow-50">
+                    <span className="text-sm text-yellow-700">Nenhuma operadora cadastrada no sistema.</span>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto border rounded-md p-3">
+                    {operadoras.map((operadora) => (
+                      <div key={operadora.id} className="flex items-center space-x-2">
+                        <input
+                          type="checkbox"
+                          id={`operadora_${operadora.id}`}
+                          checked={currentResponsavel.operadoras_habilitadas?.includes(operadora.id || 0) || false}
+                          onChange={(e) => {
+                            const isChecked = e.target.checked;
+                            const currentOperadoras = currentResponsavel.operadoras_habilitadas || [];
+                            const newOperadoras = isChecked
+                              ? [...currentOperadoras, operadora.id || 0]
+                              : currentOperadoras.filter(id => id !== operadora.id);
+                            
+                            handleResponsavelInputChange({ 
+                              target: { 
+                                name: 'operadoras_habilitadas', 
+                                value: newOperadoras 
+                              } 
+                            });
+                          }}
+                          className="h-4 w-4 text-primary focus:ring-primary border-gray-300 rounded"
+                        />
+                        <Label htmlFor={`operadora_${operadora.id}`} className="text-sm cursor-pointer">
+                          {operadora.nome}
+                        </Label>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
 

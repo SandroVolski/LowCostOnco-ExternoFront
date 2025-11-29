@@ -897,7 +897,12 @@ const Header = () => {
           </div>
         </Button>
         
-        <Popover>
+        <Popover onOpenChange={(open) => {
+          // Quando o popover é aberto, marcar todas as notificações como lidas automaticamente
+          if (open && unreadCount > 0) {
+            markAllAsRead();
+          }
+        }}>
           <PopoverTrigger asChild>
             <Button variant="ghost" size="icon" className="relative animate-pulse-subtle">
               <BellIcon className="h-5 w-5" />

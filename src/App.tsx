@@ -14,6 +14,7 @@ import Layout from "./components/layout/Layout";
 import AuditorLayout from "./components/layout/AuditorLayout";
 import ProtectedRoute from "./components/ProtectedRoute";
 import Login from "./pages/Login";
+import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import PatientDashboard from "./pages/PatientDashboard";
 import OperatorPatients from "./pages/OperatorPatients";
@@ -79,6 +80,7 @@ const App = () => (
                   <PageTransitionWrapper>
                   <Routes>
                   <Route path="/" element={<Login />} />
+                  <Route path="/reset-password" element={<ResetPassword />} />
                   
                   {/* Rota genérica que redireciona baseado no role */}
                   <Route 
@@ -250,7 +252,7 @@ const App = () => (
                     } 
                   />
                   
-                  <Route path="/admin" element={<Layout pageTitle="Admin Onkhos"><AdminLogin /></Layout>} />
+                  <Route path="/admin" element={<Layout pageTitle="Admin OnkoLink"><AdminLogin /></Layout>} />
                   
                   
                   {/* Rotas Administrativas Especiais */}

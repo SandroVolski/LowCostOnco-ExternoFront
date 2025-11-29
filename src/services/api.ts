@@ -211,8 +211,8 @@ const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
     age: calculateAge(nasc || null),
     gender: sexo,
     diagnosis: cid,
-    stage: 'II', // Você pode adaptar isso conforme sua necessidade
-    treatment: 'Quimioterapia', // Você pode adaptar isso conforme sua necessidade
+    stage: (apiPatient as any).stage || 'II',
+    treatment: (apiPatient as any).treatment || 'Quimioterapia',
     startDate: convertDateFromISO(dataPrimeira || null),
     status: statusMap[apiPatient.status] || apiPatient.status,
     authorizations: [], // Você pode adaptar isso quando implementar as autorizações
@@ -269,66 +269,124 @@ const convertAPIPatientToFrontend = (apiPatient: PatientFromAPI): any => {
 
 // Função para converter do frontend para API
 const convertFrontendToAPI = (frontendPatient: any): Partial<PatientFromAPI> => {
-  const converted = {
-    // clinica_id definido no backend a partir do token
-    Paciente_Nome: frontendPatient.Paciente_Nome || frontendPatient.name,
-    Operadora: frontendPatient.Operadora ? parseInt(frontendPatient.Operadora) || 1 : 1, // Converter para número
-    Prestador: frontendPatient.Prestador || '', // Manter como string para resolução por nome
-    Codigo: frontendPatient.Codigo,
-    Data_Nascimento: convertDateToISO(frontendPatient.Data_Nascimento || null), // ✅ CORRIGIDO
-    Sexo: frontendPatient.Sexo,
-    Cid_Diagnostico: Array.isArray(frontendPatient.Cid_Diagnostico) 
-      ? frontendPatient.Cid_Diagnostico.join(', ') 
-      : frontendPatient.Cid_Diagnostico,
-    Data_Primeira_Solicitacao: convertDateToISO(
-      frontendPatient.Data_Primeira_Solicitacao || 
-      frontendPatient.startDate ||
-      new Date().toISOString().split('T')[0] // Data atual como fallback
-    ) || new Date().toISOString().split('T')[0], // ✅ CORRIGIDO
-    // Enviar também Data_Inicio_Tratamento para compatibilidade
-    Data_Inicio_Tratamento: convertDateToISO(
-      frontendPatient.startDate || frontendPatient.Data_Primeira_Solicitacao
-    ),
-    // Campos pessoais/contato
-    cpf: frontendPatient.cpf,
-    rg: frontendPatient.rg,
-    telefone: frontendPatient.telefone,
-    endereco: frontendPatient.endereco,
-    email: frontendPatient.email,
-    nome_responsavel: frontendPatient.nome_responsavel,
-    telefone_responsavel: frontendPatient.telefone_responsavel,
-    observacoes: frontendPatient.observacoes,
-    status: frontendPatient.status || 'ativo',
-    
-    // Autorização
-    plano_saude: frontendPatient.plano_saude,
-    abrangencia: frontendPatient.abrangencia,
-    numero_carteirinha: frontendPatient.numero_carteirinha,
-
-    // Saúde
-    stage: frontendPatient.stage,
-    treatment: frontendPatient.treatment,
-
-    // Contato do prestador
-    setor_prestador: frontendPatient.setor_prestador,
-
-    // Contato de emergência
-    contato_emergencia_nome: frontendPatient.contato_emergencia_nome,
-    contato_emergencia_telefone: frontendPatient.contato_emergencia_telefone,
-
-    // Endereço desmembrado
-    endereco_rua: frontendPatient.endereco_rua,
-    endereco_numero: frontendPatient.endereco_numero,
-    endereco_complemento: frontendPatient.endereco_complemento,
-    endereco_bairro: frontendPatient.endereco_bairro,
-    endereco_cidade: frontendPatient.endereco_cidade,
-    endereco_estado: frontendPatient.endereco_estado,
-    endereco_cep: frontendPatient.endereco_cep,
-
-    // Medidas (normalizar para número)
-    peso: frontendPatient.peso ? parseFloat(String(frontendPatient.peso).replace(',', '.')) : undefined,
-    altura: frontendPatient.altura ? parseFloat(String(frontendPatient.altura).replace(',', '.')) : undefined,
+  const converted: any = {};
+  
+  // Função auxiliar para adicionar campo apenas se tiver valor
+  const addField = (key: string, value: any) => {
+    if (value !== undefined && value !== null && value !== '') {
+      converted[key] = value;
+    }
   };
+  
+  // Campos principais
+  if (frontendPatient.Paciente_Nome || frontendPatient.name) {
+    converted.Paciente_Nome = frontendPatient.Paciente_Nome || frontendPatient.name;
+  }
+  
+  if (frontendPatient.Operadora) {
+    const operadoraId = parseInt(frontendPatient.Operadora);
+    if (!isNaN(operadoraId)) {
+      converted.Operadora = operadoraId;
+    }
+  }
+  
+  // Só incluir Prestador se medico_assistente_nome não foi fornecido
+  // Se medico_assistente_nome foi fornecido, o backend processará e atualizará o prestador_id automaticamente
+  if (frontendPatient.Prestador && !frontendPatient.medico_assistente_nome) {
+    converted.Prestador = frontendPatient.Prestador;
+  }
+  
+  if (frontendPatient.Codigo) {
+    converted.Codigo = frontendPatient.Codigo;
+  }
+  
+  // Datas
+  const dataNasc = convertDateToISO(frontendPatient.Data_Nascimento || null);
+  if (dataNasc) {
+    converted.Data_Nascimento = dataNasc;
+  }
+  
+  const dataPrimeira = convertDateToISO(
+    frontendPatient.Data_Primeira_Solicitacao || frontendPatient.startDate
+  );
+  if (dataPrimeira) {
+    converted.Data_Primeira_Solicitacao = dataPrimeira;
+    converted.Data_Inicio_Tratamento = dataPrimeira;
+  }
+  
+  // Campos básicos
+  addField('Sexo', frontendPatient.Sexo);
+  
+  if (frontendPatient.Cid_Diagnostico) {
+    converted.Cid_Diagnostico = Array.isArray(frontendPatient.Cid_Diagnostico) 
+      ? frontendPatient.Cid_Diagnostico.join(', ') 
+      : frontendPatient.Cid_Diagnostico;
+  }
+  
+  // Campos pessoais/contato
+  addField('cpf', frontendPatient.cpf);
+  addField('rg', frontendPatient.rg);
+  addField('telefone', frontendPatient.telefone);
+  addField('endereco', frontendPatient.endereco);
+  addField('email', frontendPatient.email);
+  addField('nome_responsavel', frontendPatient.nome_responsavel);
+  addField('telefone_responsavel', frontendPatient.telefone_responsavel);
+  addField('observacoes', frontendPatient.observacoes);
+  
+  if (frontendPatient.status) {
+    converted.status = frontendPatient.status;
+  }
+  
+  // Autorização
+  addField('plano_saude', frontendPatient.plano_saude);
+  addField('abrangencia', frontendPatient.abrangencia);
+  addField('numero_carteirinha', frontendPatient.numero_carteirinha);
+
+  // Saúde
+  addField('stage', frontendPatient.stage);
+  addField('treatment', frontendPatient.treatment);
+
+  // Contato do prestador
+  addField('setor_prestador', frontendPatient.setor_prestador);
+
+  // Médico assistente (responsável técnico)
+  // Se medico_assistente_nome foi fornecido, sempre incluir os campos relacionados (mesmo que vazios)
+  if (frontendPatient.medico_assistente_nome) {
+    converted.medico_assistente_nome = frontendPatient.medico_assistente_nome;
+    // Sempre incluir os campos relacionados quando medico_assistente_nome está presente
+    // Strings vazias serão convertidas para null no backend
+    converted.medico_assistente_email = frontendPatient.medico_assistente_email || null;
+    converted.medico_assistente_telefone = frontendPatient.medico_assistente_telefone || null;
+    converted.medico_assistente_especialidade = frontendPatient.medico_assistente_especialidade || null;
+  }
+
+  // Contato de emergência
+  addField('contato_emergencia_nome', frontendPatient.contato_emergencia_nome);
+  addField('contato_emergencia_telefone', frontendPatient.contato_emergencia_telefone);
+
+  // Endereço desmembrado
+  addField('endereco_rua', frontendPatient.endereco_rua);
+  addField('endereco_numero', frontendPatient.endereco_numero);
+  addField('endereco_complemento', frontendPatient.endereco_complemento);
+  addField('endereco_bairro', frontendPatient.endereco_bairro);
+  addField('endereco_cidade', frontendPatient.endereco_cidade);
+  addField('endereco_estado', frontendPatient.endereco_estado);
+  addField('endereco_cep', frontendPatient.endereco_cep);
+
+  // Medidas (normalizar para número)
+  if (frontendPatient.peso) {
+    const peso = parseFloat(String(frontendPatient.peso).replace(',', '.'));
+    if (!isNaN(peso)) {
+      converted.peso = peso;
+    }
+  }
+  
+  if (frontendPatient.altura) {
+    const altura = parseFloat(String(frontendPatient.altura).replace(',', '.'));
+    if (!isNaN(altura)) {
+      converted.altura = altura;
+    }
+  }
 
   return converted;
 };
@@ -358,9 +416,16 @@ export class PacienteService {
       if (params?.protocoloFilter) queryParams.append('protocoloFilter', params.protocoloFilter);
       if (params?.operadoraFilter) queryParams.append('operadoraFilter', params.operadoraFilter);
 
+      // Adicionar cache-busting para garantir dados atualizados
+      queryParams.append('_t', Date.now().toString());
       const url = `${API_BASE_URL}/pacientes?${queryParams.toString()}`;
 
-      const response = await authorizedFetch(url);
+      const response = await authorizedFetch(url, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -439,7 +504,11 @@ export class PacienteService {
   // Atualizar paciente
   static async atualizarPaciente(id: number, paciente: any): Promise<any> {
     try {
+      console.log(`🔍 [PacienteService.atualizarPaciente] Iniciando atualização do paciente ID=${id}`);
+      console.log(`📥 [PacienteService.atualizarPaciente] Dados do frontend:`, JSON.stringify(paciente, null, 2));
+      
       const apiPatient = convertFrontendToAPI(paciente);
+      console.log(`📤 [PacienteService.atualizarPaciente] Dados convertidos para API:`, JSON.stringify(apiPatient, null, 2));
       
       const response = await authorizedFetch(`${API_BASE_URL}/pacientes/${id}`, {
         method: 'PUT',
@@ -449,21 +518,32 @@ export class PacienteService {
         body: JSON.stringify(apiPatient),
       });
       
+      console.log(`📡 [PacienteService.atualizarPaciente] Resposta HTTP: ${response.status} ${response.statusText}`);
+      
       if (!response.ok) {
         const errorText = await response.text().catch(() => '');
-        console.error('❌ Resposta não OK ao atualizar paciente:', response.status, response.statusText, errorText);
+        console.error('❌ [PacienteService.atualizarPaciente] Resposta não OK:', response.status, response.statusText, errorText);
         throw new Error(errorText || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       const result: ApiResponse<PatientFromAPI> = await response.json();
+      console.log(`✅ [PacienteService.atualizarPaciente] Resposta da API:`, JSON.stringify(result, null, 2));
       
       if (!result.success) {
+        console.error('❌ [PacienteService.atualizarPaciente] API retornou success=false:', result.message);
         throw new Error(result.message || 'Erro ao atualizar paciente');
       }
       
-      return convertAPIPatientToFrontend(result.data!);
+      const pacienteConvertido = convertAPIPatientToFrontend(result.data!);
+      console.log(`✅ [PacienteService.atualizarPaciente] Paciente atualizado com sucesso`);
+      return pacienteConvertido;
     } catch (error) {
-      console.error('Erro ao atualizar paciente:', error);
+      console.error('❌ [PacienteService.atualizarPaciente] Erro ao atualizar paciente:', error);
+      if (error instanceof Error) {
+        console.error('   Tipo:', error.constructor.name);
+        console.error('   Mensagem:', error.message);
+        console.error('   Stack:', error.stack);
+      }
       throw error;
     }
   }
@@ -988,27 +1068,80 @@ export const testarConexaoBanco = async (): Promise<boolean> => {
 };
 
 export class AuthService {
-  static async recuperarSenha(email: string): Promise<boolean> {
+  static async recuperarSenha(email: string): Promise<{ success: boolean; message: string; resetLink?: string }> {
     try {
+      console.log('🔍 [AuthService.recuperarSenha] Iniciando recuperação para:', email);
+      console.log('🔗 [AuthService.recuperarSenha] URL:', `${API_BASE_URL}/auth/forgot-password`);
+      
       if (!email || !email.includes('@')) {
         throw new Error('E-mail inválido');
       }
+      
       const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email })
       });
+      
+      console.log('📡 [AuthService.recuperarSenha] Resposta HTTP:', response.status, response.statusText);
+      
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('❌ [AuthService.recuperarSenha] Erro HTTP:', response.status, errorText);
         throw new Error(`HTTP ${response.status}: ${response.statusText} - ${errorText}`);
       }
+      
       const result: ApiResponse = await response.json();
+      console.log('✅ [AuthService.recuperarSenha] Resultado:', result);
+      
       if (!result.success) {
         throw new Error(result.message || 'Não foi possível enviar o e-mail de recuperação');
       }
+      
+      const returnValue = {
+        success: true,
+        message: result.message || 'Se o e-mail existir, enviaremos instruções de recuperação.',
+        resetLink: (result as any).resetLink // Link apenas em desenvolvimento
+      };
+      
+      console.log('📤 [AuthService.recuperarSenha] Retornando:', returnValue);
+      return returnValue;
+    } catch (error) {
+      console.error('❌ [AuthService.recuperarSenha] Erro:', error);
+      throw error;
+    }
+  }
+
+  static async redefinirSenha(token: string, email: string, newPassword: string): Promise<boolean> {
+    try {
+      if (!token || !email || !newPassword) {
+        throw new Error('Token, email e nova senha são obrigatórios');
+      }
+      if (newPassword.length < 6) {
+        throw new Error('A senha deve ter pelo menos 6 caracteres');
+      }
+      const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, email, newPassword })
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        let errorData: any = { message: errorText };
+        try {
+          errorData = JSON.parse(errorText);
+        } catch {
+          // Se não for JSON, usar o texto como mensagem
+        }
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      const result: ApiResponse = await response.json();
+      if (!result.success) {
+        throw new Error(result.message || 'Não foi possível redefinir a senha');
+      }
       return true;
     } catch (error) {
-      console.error('❌ Erro ao recuperar senha:', error);
+      console.error('❌ Erro ao redefinir senha:', error);
       throw error;
     }
   }

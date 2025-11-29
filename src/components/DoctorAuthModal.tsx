@@ -10,7 +10,9 @@ import {
   User,
   Clock,
   FileText,
-  Lock
+  Lock,
+  Smartphone,
+  Mail
 } from 'lucide-react';
 import DoctorAuthentication from './DoctorAuthentication';
 
@@ -53,12 +55,10 @@ const DoctorAuthModal: React.FC<DoctorAuthModalProps> = ({
 
   const getMethodIcon = (method: string) => {
     switch (method) {
-      case 'digital_signature':
-        return <Lock className="h-4 w-4 text-primary" />;
-      case 'sms_otp':
-        return <User className="h-4 w-4 text-green-600" />;
+      case 'app_mobile':
+        return <Smartphone className="h-4 w-4 text-primary" />;
       case 'email_otp':
-        return <User className="h-4 w-4 text-blue-600" />;
+        return <Mail className="h-4 w-4 text-blue-600" />;
       case 'manual_approval':
         return <FileText className="h-4 w-4 text-orange-600" />;
       default:
@@ -68,14 +68,12 @@ const DoctorAuthModal: React.FC<DoctorAuthModalProps> = ({
 
   const getMethodLabel = (method: string) => {
     switch (method) {
-      case 'digital_signature':
-        return 'Assinatura Digital';
-      case 'sms_otp':
-        return 'Código SMS';
+      case 'app_mobile':
+        return 'Aplicativo';
       case 'email_otp':
-        return 'Código Email';
+        return 'Email';
       case 'manual_approval':
-        return 'Aprovação Manual';
+        return 'Manual';
       default:
         return method;
     }
